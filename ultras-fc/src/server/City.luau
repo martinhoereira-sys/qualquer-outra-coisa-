@@ -14,6 +14,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Clubhouse = require(script.Parent:WaitForChild("Clubhouse"))
 
 local City = {}
 
@@ -277,8 +278,17 @@ local function clubhouse(teamId: string, centre: Vector3, parent: Instance)
 	light.Parent = glow
 
 	-- Sai-se de frente para a rua, virado para o estadio.
-	-- A porta da sede, assente no chao: alto de mais e cai-se a entrar.
-	spawnPoints[teamId] = Vector3.new(centre.X, 3.5, centre.Z + depth / 2 + 9)
+
+end
+
+local neutral: Vector3? = nil
+
+--[[
+	Onde se chega quando ainda nao se e de lado nenhum: a praca, entre as duas
+	sedes. Escolher o lado e ir ate uma delas, nao carregar num botao.
+]]
+function City.arrivalPoint(): Vector3?
+	return neutral
 end
 
 function City.spawnPoint(teamId: string): Vector3?
@@ -343,6 +353,14 @@ function City.build(parent: Instance)
 	local order = Config.TeamOrder
 	clubhouse(order[1], Vector3.new(-roadLength / 2 + 90, 0, roadZ + 110), folder)
 	clubhouse(order[2], Vector3.new(roadLength / 2 - 90, 0, roadZ + 110), folder)
+
+	-- A praca, a meio da avenida e entre as duas sedes.
+	part("Square", Vector3.new(120, 2.2, 90), CFrame.new(0, -1.4, roadZ + 110), KERB, folder)
+	neutral = Vector3.new(0, 3.5, roadZ + 110)
+
+	-- O posto de arbitragem fica na praca, fora das duas sedes: quem apita nao
+	-- e de nenhum lado.
+	Clubhouse.refereePost(Vector3.new(34, 0, roadZ + 118), folder)
 end
 
 return City

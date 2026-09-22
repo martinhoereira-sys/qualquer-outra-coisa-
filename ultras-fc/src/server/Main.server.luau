@@ -18,6 +18,7 @@ local Pitch = require(script.Parent:WaitForChild("Pitch"))
 local City = require(script.Parent:WaitForChild("City"))
 local Crowd = require(script.Parent:WaitForChild("Crowd"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
+local Clubhouse = require(script.Parent:WaitForChild("Clubhouse"))
 local March = require(script.Parent:WaitForChild("March"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
@@ -126,7 +127,7 @@ MatchLoop.onChange(function(snapshot)
 
 	-- O corteo sai no aquecimento e acaba ao apito.
 	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
-		March.start(workspace:WaitForChild("Stadium"))
+		March.arm(workspace:WaitForChild("Stadium"))
 	end
 
 	if playing and not wasPlaying then
@@ -166,9 +167,37 @@ end)
 
 -- Quem chega a meio de um jogo tem de ver o estado atual, nao esperar pela
 -- proxima mudanca de fase.
+--[[
+	Quem chega aparece na praca, sem lado nenhum. Escolher e ir a uma das sedes e
+	entrar — e o que faz a claque ser um sitio, nao uma caixa de dialogo.
+]]
+local function sendToSquare(player: Player)
+	local point = City.arrivalPoint()
+	if not point then
+		return
+	end
+	local character = player.Character or player.CharacterAdded:Wait()
+	local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+	if root then
+		root.CFrame = CFrame.new(point)
+	end
+end
+
 Players.PlayerAdded:Connect(function(player)
 	Remotes.MatchState:FireClient(player, MatchLoop.snapshot())
 	sendGearCount(player)
+
+	task.spawn(sendToSquare, player)
+	player.CharacterAdded:Connect(function()
+		task.wait(0.3)
+		if not Teams.get(player) then
+			sendToSquare(player)
+		end
+	end)
+end)
+
+Clubhouse.onStartMarch(function(teamId)
+	March.launch(teamId)
 end)
 
 Stadium.build()

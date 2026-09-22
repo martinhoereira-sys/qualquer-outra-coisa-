@@ -31,7 +31,42 @@ function Teams.get(player: Player): string?
 	return membership[player]
 end
 
+--[[
+	O lider da claque. Um por claque, e e ele que leva o tambor e que da a ordem
+	de sair. Se toda a gente pudesse ter tambor nao havia lider nenhum, havia
+	barulho — o tambor so manda porque so ha um.
+]]
+local leaders: { [string]: Player } = {}
+
+function Teams.leader(teamId: string): Player?
+	local leader = leaders[teamId]
+	if leader and leader.Parent then
+		return leader
+	end
+	leaders[teamId] = nil
+	return nil
+end
+
+function Teams.claimLeader(player: Player): boolean
+	local teamId = membership[player]
+	if not teamId or Teams.leader(teamId) then
+		return false
+	end
+	leaders[teamId] = player
+	player:SetAttribute("Leader", true)
+	return true
+end
+
+function Teams.isLeader(player: Player): boolean
+	local teamId = membership[player]
+	return teamId ~= nil and leaders[teamId] == player
+end
+
 function Teams.forget(player: Player)
+	local teamId = membership[player]
+	if teamId and leaders[teamId] == player then
+		leaders[teamId] = nil
+	end
 	membership[player] = nil
 end
 

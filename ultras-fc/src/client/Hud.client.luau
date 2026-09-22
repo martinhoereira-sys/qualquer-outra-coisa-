@@ -67,72 +67,46 @@ local function label(parent: Instance, text: string, size: number, colour: Color
 end
 
 --------------------------------------------------------------------------------
--- Escolher lado
+-- Quem sou
 --------------------------------------------------------------------------------
 
-local picker = Instance.new("Frame")
-picker.Size = UDim2.fromScale(1, 1)
-picker.BackgroundColor3 = INK
-picker.BackgroundTransparency = 0.08
-picker.Parent = gui
+--[[
+	Nao ha ecra de escolha. Chega-se a praca sem lado nenhum e escolhe-se indo a
+	uma das sedes e entrando ao balcao — e isso que faz a claque ser um sitio em
+	vez de uma caixa de dialogo.
 
-local pickTitle = label(picker, "Escolhe o teu lado", 34, TEXT)
-pickTitle.Size = UDim2.new(1, -40, 0, 44)
-pickTitle.Position = UDim2.new(0, 20, 0.5, -140)
-
-local pickHint = label(picker, "Sais da sede e vais com o corteo ate ao estadio", 16, MUTED)
-pickHint.Font = Enum.Font.Gotham
-pickHint.Size = UDim2.new(1, -40, 0, 22)
-pickHint.Position = UDim2.new(0, 20, 0.5, -98)
-
-for index, teamId in Config.TeamOrder do
-	local team = Config.Teams[teamId]
-
-	local button = Instance.new("TextButton")
-	button.Size = UDim2.new(0, 220, 0, 74)
-	button.Position = UDim2.new(0.5, (index == 1) and -232 or 12, 0.5, -40)
-	button.BackgroundColor3 = team.color
-	button.BorderSizePixel = 0
-	button.Font = Enum.Font.GothamBold
-	button.Text = team.name
-	button.TextSize = 19
-	button.TextColor3 = TEXT
-	button.Parent = picker
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 10)
-	corner.Parent = button
-
-	button.Activated:Connect(function()
-		myTeam = teamId
-		Remotes.PickTeam:FireServer(teamId)
-		picker.Visible = false
-	end)
+	O atributo vem do servidor quando se entra numa claque ou se pega no apito.
+]]
+local function myRole(): string?
+	return player:GetAttribute("Team")
 end
 
--- O apito e um papel como os outros, e e o unico que decide jogos.
-local refButton = Instance.new("TextButton")
-refButton.Size = UDim2.new(0, 452, 0, 46)
-refButton.Position = UDim2.new(0.5, -226, 0.5, 46)
-refButton.BackgroundColor3 = Color3.fromRGB(38, 42, 50)
-refButton.BorderSizePixel = 0
-refButton.Font = Enum.Font.GothamBold
-refButton.Text = "Apitar o jogo"
-refButton.TextSize = 16
-refButton.TextColor3 = MUTED
-refButton.Parent = picker
+local roleLabel = label(gui, "", 14, MUTED)
+roleLabel.Font = Enum.Font.Gotham
+roleLabel.Size = UDim2.new(1, 0, 0, 20)
+roleLabel.Position = UDim2.new(0, 0, 1, -100)
 
-local refCorner = Instance.new("UICorner")
-refCorner.CornerRadius = UDim.new(0, 10)
-refCorner.Parent = refButton
+local function refreshRole()
+	local role = myRole()
+	if role == "arbitro" then
+		myTeam = nil
+		roleLabel.Text = "apitas este jogo"
+		roleLabel.TextColor3 = TEXT
+	elseif role and Config.Teams[role] then
+		myTeam = role
+		local suffix = player:GetAttribute("Leader") and "  ·  lider" or ""
+		roleLabel.Text = "claque do " .. Config.Teams[role].name .. suffix
+		roleLabel.TextColor3 = Config.Teams[role].color
+	else
+		myTeam = nil
+		roleLabel.Text = "vai a uma das sedes e entra na claque"
+		roleLabel.TextColor3 = MUTED
+	end
+end
 
-local amReferee = false
-
-refButton.Activated:Connect(function()
-	amReferee = true
-	Remotes.PickTeam:FireServer("arbitro")
-	picker.Visible = false
-end)
+player:GetAttributeChangedSignal("Team"):Connect(refreshRole)
+player:GetAttributeChangedSignal("Leader"):Connect(refreshRole)
+refreshRole()
 
 --------------------------------------------------------------------------------
 -- Marcador
@@ -211,7 +185,7 @@ gearLabel.Size = UDim2.new(1, 0, 0, 18)
 gearLabel.Position = UDim2.new(0.5, 0, 1, -78)
 gearLabel.AnchorPoint = Vector2.new(0.5, 0)
 
-local hint = label(gui, "F  tocha    G  fumo    T  tambor    B  pedir ao arbitro    espaco  saltar", 12, MUTED)
+local hint = label(gui, "material na sede    ·    B  pedir ao arbitro    ·    espaco  saltar", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
@@ -251,23 +225,6 @@ Remotes.GearCount.OnClientEvent:Connect(function(counts)
 	end
 	updateGearLabel()
 end)
-
---[[
-	As teclas so pedem o material; ele vai para a mochila. Usa-se depois, ao
-	pegar nele e clicar — o gesto de o levantar e metade da coisa, e no tambor e
-	cada clique que e uma pancada.
-]]
-for kind, key in { tocha = Enum.KeyCode.F, fumo = Enum.KeyCode.G, tambor = Enum.KeyCode.T } do
-	local action = "Pedir_" .. kind
-	ContextActionService:BindAction(action, function(_, inputState)
-		if inputState == Enum.UserInputState.Begin and myTeam then
-			Remotes.Gear:FireServer(kind)
-		end
-		return Enum.ContextActionResult.Pass
-	end, true, key)
-
-	ContextActionService:SetTitle(action, string.upper(kind))
-end
 
 --------------------------------------------------------------------------------
 -- O arbitro

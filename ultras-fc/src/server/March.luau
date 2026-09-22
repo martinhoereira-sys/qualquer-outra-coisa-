@@ -104,7 +104,11 @@ local function buildBanner(teamId: string, at: Vector3, parent: Instance): Part
 	return banner
 end
 
-function March.start(parent: Instance)
+--[[
+	Prepara o terreno. Nao poe ninguem a andar: o corteo de cada claque so sai
+	quando o lider dela mandar, e ate la a faixa nem existe.
+]]
+function March.arm(parent: Instance)
 	March.stop()
 
 	local folder = Instance.new("Folder")
@@ -113,20 +117,33 @@ function March.start(parent: Instance)
 	root = folder
 
 	table.clear(credit)
+	active = true
+end
 
-	for _, teamId in Config.TeamOrder do
-		local waypoints = routeFor(teamId)
-		if #waypoints >= 2 then
-			banners[teamId] = {
-				model = buildBanner(teamId, waypoints[1], folder),
-				waypoints = waypoints,
-				leg = 1,
-				teamId = teamId,
-			}
-		end
+--[[
+	O lider mandou sair. A faixa aparece a porta da sede e comeca a andar; quem
+	for atras dela ganha credito.
+]]
+function March.launch(teamId: string): boolean
+	if not (active and root) then
+		return false
+	end
+	if banners[teamId] then
+		return false
 	end
 
-	active = true
+	local waypoints = routeFor(teamId)
+	if #waypoints < 2 then
+		return false
+	end
+
+	banners[teamId] = {
+		model = buildBanner(teamId, waypoints[1], root),
+		waypoints = waypoints,
+		leg = 1,
+		teamId = teamId,
+	}
+	return true
 end
 
 function March.stop()

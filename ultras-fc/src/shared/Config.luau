@@ -150,6 +150,7 @@ Config.Pitch = {
 	aquecimento e mais longo do que seria preciso: e o tempo da caminhada.
 ]]
 Config.March = {
+	readyNeeded = 3, -- quantos tem de estar na sede para o lider poder sair
 	speed = 17, -- passo da faixa, em studs por segundo
 	radius = 45, -- a que distancia da faixa ainda se conta como ir no corteo
 	legSeconds = 20, -- tempo de referencia por perna do percurso

@@ -201,6 +201,11 @@ function Gear.issue(player: Player, kind: string): boolean
 		return false
 	end
 
+	-- O tambor e do lider. So manda porque so ha um.
+	if kind == "tambor" and not Teams.isLeader(player) then
+		return false
+	end
+
 	local backpack = player:FindFirstChildOfClass("Backpack")
 	if not backpack then
 		return false
