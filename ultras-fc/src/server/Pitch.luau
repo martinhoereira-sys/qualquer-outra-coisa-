@@ -133,6 +133,20 @@ end
 -- Decisoes
 --------------------------------------------------------------------------------
 
+-- Os dois mais proximos de uma equipa, que e quem vai a bola.
+local function twoNearest(position: Vector3, teamId: string): { Footballer }
+	local mine = {}
+	for _, f in squad do
+		if f.teamId == teamId then
+			table.insert(mine, f)
+		end
+	end
+	table.sort(mine, function(a, b)
+		return (a.root.Position - position).Magnitude < (b.root.Position - position).Magnitude
+	end)
+	return { mine[1], mine[2] }
+end
+
 local function nearest(position: Vector3, teamId: string?): Footballer?
 	local best: Footballer? = nil
 	local bestDist = math.huge
@@ -246,6 +260,23 @@ function Pitch.step(dt: number, playing: boolean)
 	if state.mode == "carry" then
 		local carrier = state.carrier
 		if carrier then
+			--[[
+				Roubar. Sem isto quem apanhava a bola levava-a sempre ate ao fim,
+				e o jogo lia-se como um desfile em vez de uma disputa. O defesa
+				mais proximo que encoste, fica com ela.
+			]]
+			for _, f in squad do
+				if f.teamId ~= carrier.teamId then
+					local gap = (f.root.Position - carrier.root.Position).Magnitude
+					if gap <= P.tackleRange then
+						state.carrier = f
+						state.lastTeam = f.teamId
+						carrier = f
+						break
+					end
+				end
+			end
+
 			local goalX = attackingX(carrier.teamId)
 			local aim = Vector3.new(goalX, 1.2, 0)
 			moveTowards(carrier, aim, P.speed, dt)
@@ -292,15 +323,21 @@ function Pitch.step(dt: number, playing: boolean)
 		end
 	end
 
-	-- Um perseguidor de cada equipa; os outros seguram a forma. Chega para se ler
-	-- um jogo sem ter de simular um.
+	--[[
+		Dois de cada equipa vao a bola, os outros seguram a forma.
+
+		Dois, nao um: com um so, quem levava a bola nunca era incomodado. O
+		segundo e o que transforma isto numa disputa — e e ele que vai roubar.
+	]]
+	local carrier = state.carrier
 	for _, teamId in Config.TeamOrder do
-		local chaser = nearest(b.Position, teamId)
+		local chasers = twoNearest(b.Position, teamId)
 		for _, f in squad do
-			if f.teamId == teamId then
-				if f == chaser and f ~= state.carrier then
-					moveTowards(f, b.Position, P.chaseSpeed, dt)
-				elseif f ~= state.carrier then
+			if f.teamId == teamId and f ~= carrier then
+				if table.find(chasers, f) then
+					local aim = (carrier and carrier.teamId ~= teamId) and carrier.root.Position or b.Position
+					moveTowards(f, aim, P.chaseSpeed, dt)
+				else
 					moveTowards(f, f.home, P.speed, dt)
 				end
 			end

@@ -15,6 +15,7 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local City = require(script.Parent:WaitForChild("City"))
 
 local Stadium = {}
 
@@ -65,9 +66,9 @@ end
 
 local function setNight()
 	Lighting.ClockTime = 20.2
-	Lighting.Brightness = 1.1
-	Lighting.Ambient = Color3.fromRGB(28, 31, 38)
-	Lighting.OutdoorAmbient = Color3.fromRGB(32, 36, 44)
+	Lighting.Brightness = 1.8
+	Lighting.Ambient = Color3.fromRGB(46, 50, 60)
+	Lighting.OutdoorAmbient = Color3.fromRGB(52, 57, 68)
 	Lighting.EnvironmentDiffuseScale = 0.35
 	Lighting.EnvironmentSpecularScale = 0.35
 	Lighting.GlobalShadows = true
@@ -181,11 +182,7 @@ local spawnPoints: { [string]: Vector3 } = {}
 
 	`inset` cresce a cada fila, e a altura sobe: e isso que da a inclinacao.
 ]]
-local function ringRow(
-	row: number,
-	parent: Instance,
-	colourFor: (Vector3) -> Color3?
-)
+local function ringRow(row: number, parent: Instance)
 	local topY = row * S.rowHeight
 	local step = (row - 1) * S.rowDepth
 
@@ -194,24 +191,13 @@ local function ringRow(
 	local depth = S.rowDepth
 
 	local function block(name: string, size: Vector3, cf: CFrame)
-		local colour = colourFor(cf.Position)
-		part(name, size, cf, colour or TERRACE, parent, {
-			material = colour and Enum.Material.SmoothPlastic or Enum.Material.Concrete,
-		})
+		part(name, size, cf, TERRACE, parent)
 	end
 
 	-- Lados compridos, encostados aos cantos mas sem entrar neles.
 	for _, side in { 1, -1 } do
-		block(
-			"RowZ",
-			Vector3.new(insetX * 2, topY, depth),
-			CFrame.new(0, topY / 2, (insetZ + depth / 2) * side)
-		)
-		block(
-			"RowX",
-			Vector3.new(depth, topY, insetZ * 2),
-			CFrame.new((insetX + depth / 2) * side, topY / 2, 0)
-		)
+		block("RowZ", Vector3.new(insetX * 2, topY, depth), CFrame.new(0, topY / 2, (insetZ + depth / 2) * side))
+		block("RowX", Vector3.new(depth, topY, insetZ * 2), CFrame.new((insetX + depth / 2) * side, topY / 2, 0))
 	end
 
 	--[[
@@ -224,41 +210,38 @@ local function ringRow(
 	for _, sx in { 1, -1 } do
 		for _, sz in { 1, -1 } do
 			for i = 1, segments do
-				local t = (i - 0.5) / segments
-				local angle = t * math.pi / 2
+				local angle = ((i - 0.5) / segments) * math.pi / 2
 				local x = (insetX + depth / 2) * math.cos(angle) * sx
 				local z = (insetZ + depth / 2) * math.sin(angle) * sz
-
-				-- Comprimento do bloco: o arco que lhe toca, com folga para
-				-- fechar sem deixar fresta.
 				local arc = (math.pi / 2) * ((insetX + insetZ) / 2) / segments + 1.5
-				local facing = math.atan2(x, z)
 
 				block(
 					"Corner",
 					Vector3.new(depth, topY, arc),
-					CFrame.new(x, topY / 2, z) * CFrame.Angles(0, facing, 0)
+					CFrame.new(x, topY / 2, z) * CFrame.Angles(0, math.atan2(x, z), 0)
 				)
 			end
 		end
 	end
-end
 
---[[
-	As duas claques. Sao faixas de cor nas filas do meio de cada lado comprido —
-	e assim que se le de que lado se esta sem precisar de legenda.
-]]
-local function standColourAt(position: Vector3): Color3?
-	if math.abs(position.X) > S.pitchLength / 2 - 6 then
-		return nil -- os topos sao neutros
-	end
+	--[[
+		Os assentos, por cima do degrau e so nos lados compridos.
+
+		Pintar a fila inteira dava um bloco de cor do chao ate ao topo, e como as
+		filas sobem em degrau aquilo lia-se como tetris. O que se ve numa bancada
+		e a cor dos assentos: uma tampa fina em cima de cada degrau.
+	]]
 	for _, teamId in Config.TeamOrder do
 		local team = Config.Teams[teamId]
-		if position.Z * team.side > 0 then
-			return team.color
-		end
+		part(
+			"Seats",
+			Vector3.new(S.pitchLength, 0.4, depth - 0.6),
+			CFrame.new(0, topY + 0.2, (insetZ + depth / 2) * team.side),
+			team.color,
+			parent,
+			{ material = Enum.Material.SmoothPlastic }
+		)
 	end
-	return nil
 end
 
 local function buildBowl(parent: Instance)
@@ -267,12 +250,7 @@ local function buildBowl(parent: Instance)
 	folder.Parent = parent
 
 	for row = 1, S.standRows do
-		-- Faixas da claque de tres em tres filas. Poucas e melhor do que todas:
-		-- a bancada le-se na mesma e nao fica um arco-iris.
-		local coloured = row % 3 == 0
-		ringRow(row, folder, function(position)
-			return coloured and standColourAt(position) or nil
-		end)
+		ringRow(row, folder)
 	end
 
 	local topY = S.standRows * S.rowHeight
@@ -478,8 +456,8 @@ local function buildFloodlights(parent: Instance)
 			local spot = Instance.new("SpotLight")
 			spot.Face = Enum.NormalId.Front
 			spot.Angle = 80
-			spot.Brightness = 6
-			spot.Range = 320
+			spot.Brightness = 9
+			spot.Range = 400
 			spot.Color = Color3.fromRGB(240, 246, 255)
 			spot.Shadows = true
 			spot.Parent = lamp
@@ -568,6 +546,7 @@ function Stadium.build()
 	buildBowl(root)
 	buildFloodlights(root)
 	buildStandLights(root)
+	City.build(root)
 end
 
 return Stadium

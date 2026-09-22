@@ -15,6 +15,7 @@ local Teams = require(script.Parent:WaitForChild("Teams"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Flares = require(script.Parent:WaitForChild("Flares"))
 local Pitch = require(script.Parent:WaitForChild("Pitch"))
+local City = require(script.Parent:WaitForChild("City"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 
@@ -29,15 +30,17 @@ local function currentBeat(now: number): (number, number)
 end
 
 --[[
-	Poe o jogador na bancada da equipa dele.
+	Poe o jogador a porta da sede da sua claque, na cidade.
+
+	Nao na bancada: nao se entra num estadio por magia. Sai-se da sede, anda-se
+	pela avenida e chega-se la — e no caminho que o corteo ha-de acontecer, e um
+	jogo que te punha ja sentado perdia a melhor parte.
 
 	Espera pelo corpo em vez de desistir se ele ainda nao existir: escolher
-	equipa antes do personagem carregar e o caso normal, nao a excepcao, e
-	desistir ai deixava a pessoa largada no chao la fora — que e exactamente o
-	que acontecia.
+	equipa antes do personagem carregar e o caso normal, nao a excepcao.
 ]]
 local function sendToStand(player: Player, teamId: string)
-	local point = Stadium.spawnPoint(teamId)
+	local point = City.spawnPoint(teamId) or Stadium.spawnPoint(teamId)
 	if not point then
 		return
 	end
