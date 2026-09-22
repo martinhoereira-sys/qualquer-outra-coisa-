@@ -186,6 +186,48 @@ local spawnPoints: { [string]: Vector3 } = {}
 
 	`inset` cresce a cada fila, e a altura sobe: e isso que da a inclinacao.
 ]]
+--[[
+	Uma parede com um vao ao meio.
+
+	Faz-se em tres pecas: duas ancas ate ao chao e uma ponte por cima da altura
+	de uma pessoa. E assim que se abre uma passagem a serio — o que la estava
+	antes era uma peca invisivel por cima de betao macico, ou seja, decoracao.
+
+	`along` e o eixo em que a parede se estende; a espessura fica no outro.
+]]
+local function wallWithGap(
+	name: string,
+	span: number,
+	height: number,
+	thickness: number,
+	centre: CFrame,
+	alongZ: boolean,
+	colour: Color3,
+	parent: Instance
+)
+	local gap = S.tunnelWidth
+	local clear = math.min(S.tunnelHeight, height)
+	local flank = (span - gap) / 2
+
+	local function size(length: number): Vector3
+		return alongZ and Vector3.new(thickness, height, length) or Vector3.new(length, height, thickness)
+	end
+
+	for _, dir in { 1, -1 } do
+		local offset = (gap / 2 + flank / 2) * dir
+		local shift = alongZ and CFrame.new(0, 0, offset) or CFrame.new(offset, 0, 0)
+		part(name, size(flank), centre * shift, colour, parent)
+	end
+
+	if height > clear then
+		local bridge = alongZ and Vector3.new(thickness, height - clear, gap)
+			or Vector3.new(gap, height - clear, thickness)
+		-- A ponte assenta em cima do vao: vai de `clear` ate ao topo, e `centre`
+		-- esta a meia altura da parede, logo o desvio e metade do vao livre.
+		part(name .. "Bridge", bridge, centre * CFrame.new(0, clear / 2, 0), colour, parent)
+	end
+end
+
 local function ringRow(row: number, parent: Instance)
 	local topY = row * S.rowHeight
 	local step = (row - 1) * S.rowDepth
@@ -198,41 +240,33 @@ local function ringRow(row: number, parent: Instance)
 		part(name, size, cf, TERRACE, parent)
 	end
 
-	-- Lados compridos, encostados aos cantos mas sem entrar neles.
-	for _, side in { 1, -1 } do
-		block("RowZ", Vector3.new(insetX * 2, topY, depth), CFrame.new(0, topY / 2, (insetZ + depth / 2) * side))
-	end
-
 	--[[
-		Os topos, com o tunel aberto ao meio.
+		Os quatro lados, cada um com a sua passagem ao meio.
 
-		Antes isto era um bloco inteiro e o "vao" era uma peca invisivel por
-		cima — ou seja, decorativo: a bancada continuava macica e nao se entrava.
-		Um tunel a serio faz-se partindo a fila em tres: duas ancas ate ao chao e
-		uma ponte por cima do vao. Por baixo da ponte passa-se.
+		Antes so as pontas abriam, e quem vem da cidade chega pelo lado comprido
+		— ia contra betao. Um recinto tem entradas onde as pessoas chegam.
 	]]
-	local mouth = S.tunnelWidth / 2
-	local clear = math.min(S.tunnelHeight, topY)
-
 	for _, side in { 1, -1 } do
-		local x = (insetX + depth / 2) * side
-		local flank = (insetZ * 2 - S.tunnelWidth) / 2
-
-		for _, zSide in { 1, -1 } do
-			block(
-				"RowX",
-				Vector3.new(depth, topY, flank),
-				CFrame.new(x, topY / 2, (mouth + flank / 2) * zSide)
-			)
-		end
-
-		if topY > clear then
-			block(
-				"RowXBridge",
-				Vector3.new(depth, topY - clear, S.tunnelWidth),
-				CFrame.new(x, clear + (topY - clear) / 2, 0)
-			)
-		end
+		wallWithGap(
+			"RowZ",
+			insetX * 2,
+			topY,
+			depth,
+			CFrame.new(0, topY / 2, (insetZ + depth / 2) * side),
+			false,
+			TERRACE,
+			parent
+		)
+		wallWithGap(
+			"RowX",
+			insetZ * 2,
+			topY,
+			depth,
+			CFrame.new((insetX + depth / 2) * side, topY / 2, 0),
+			true,
+			TERRACE,
+			parent
+		)
 	end
 
 	--[[
@@ -271,23 +305,47 @@ local function ringRow(row: number, parent: Instance)
 		vazio, e e o que impede isto de ser uma rampa lisa.
 	]]
 	local seatColour = (row % 2 == 0) and SEAT_A or SEAT_B
+	local gap = S.tunnelWidth
+	local clear = math.min(S.tunnelHeight, topY)
+
 	for _, side in { 1, -1 } do
-		part(
-			"SeatsZ",
-			Vector3.new(insetX * 2 - 4, 0.45, depth - 0.7),
-			CFrame.new(0, topY + 0.22, (insetZ + depth / 2) * side),
-			seatColour,
-			parent,
-			{ material = Enum.Material.SmoothPlastic }
-		)
-		part(
-			"SeatsX",
-			Vector3.new(depth - 0.7, 0.45, insetZ * 2 - 4),
-			CFrame.new((insetX + depth / 2) * side, topY + 0.22, 0),
-			seatColour,
-			parent,
-			{ material = Enum.Material.SmoothPlastic }
-		)
+		--[[
+			Os assentos param aos lados do vao enquanto a fila estiver abaixo do
+			tecto do tunel. Uma tampa inteira por cima da boca voltava a trancar
+			a entrada que a fila acabou de abrir.
+		]]
+		local spanZ = insetX * 2 - 4
+		local spanX = insetZ * 2 - 4
+
+		if topY <= clear then
+			local flankZ = (spanZ - gap) / 2
+			local flankX = (spanX - gap) / 2
+			for _, dir in { 1, -1 } do
+				part(
+					"SeatsZ",
+					Vector3.new(flankZ, 0.45, depth - 0.7),
+					CFrame.new((gap / 2 + flankZ / 2) * dir, topY + 0.22, (insetZ + depth / 2) * side),
+					seatColour,
+					parent,
+					{ material = Enum.Material.SmoothPlastic }
+				)
+				part(
+					"SeatsX",
+					Vector3.new(depth - 0.7, 0.45, flankX),
+					CFrame.new((insetX + depth / 2) * side, topY + 0.22, (gap / 2 + flankX / 2) * dir),
+					seatColour,
+					parent,
+					{ material = Enum.Material.SmoothPlastic }
+				)
+			end
+		else
+			part("SeatsZ", Vector3.new(spanZ, 0.45, depth - 0.7), CFrame.new(0, topY + 0.22, (insetZ + depth / 2) * side), seatColour, parent, {
+				material = Enum.Material.SmoothPlastic,
+			})
+			part("SeatsX", Vector3.new(depth - 0.7, 0.45, spanX), CFrame.new((insetX + depth / 2) * side, topY + 0.22, 0), seatColour, parent, {
+				material = Enum.Material.SmoothPlastic,
+			})
+		end
 	end
 end
 
@@ -306,8 +364,9 @@ local function buildBowl(parent: Instance)
 
 	-- Parede do fundo e cobertura, por cima de toda a volta.
 	for _, side in { 1, -1 } do
-		part("BackZ", Vector3.new(outerX * 2 + 8, topY + 16, 3), CFrame.new(0, (topY + 16) / 2, (outerZ + 2) * side), STRUCTURE, folder)
-		part("BackX", Vector3.new(3, topY + 16, outerZ * 2 + 8), CFrame.new((outerX + 2) * side, (topY + 16) / 2, 0), STRUCTURE, folder)
+		local backHeight = topY + 16
+		wallWithGap("BackZ", outerX * 2 + 8, backHeight, 3, CFrame.new(0, backHeight / 2, (outerZ + 2) * side), false, STRUCTURE, folder)
+		wallWithGap("BackX", outerZ * 2 + 8, backHeight, 3, CFrame.new((outerX + 2) * side, backHeight / 2, 0), true, STRUCTURE, folder)
 
 		local roofDepth = S.standRows * S.rowDepth + 8
 		part("RoofZ", Vector3.new(outerX * 2, 1.2, roofDepth), CFrame.new(0, topY + 17, (outerZ - roofDepth / 2 + 4) * side), STRUCTURE, folder, { material = Enum.Material.Metal })
@@ -315,32 +374,44 @@ local function buildBowl(parent: Instance)
 	end
 
 	--[[
-		A boca do tunel: chao, tecto e luz. A passagem em si ja esta aberta nas
-		filas; isto e o que a faz parecer uma entrada e nao um buraco.
+		A boca de cada tunel: chao, tecto e luz. A passagem ja esta aberta nas
+		filas e na parede; isto e o que a faz parecer uma entrada.
 	]]
+	local depthRun = S.standRows * S.rowDepth + 16
+
 	for _, side in { 1, -1 } do
-		local depthRun = S.standRows * S.rowDepth + 14
-		local x = (outerX - depthRun / 2 + 6) * side
+		for _, alongZ in { true, false } do
+			local centre = alongZ
+				and CFrame.new((outerX - depthRun / 2 + 8) * side, 0, 0)
+				or CFrame.new(0, 0, (outerZ - depthRun / 2 + 8) * side)
 
-		part("TunnelFloor", Vector3.new(depthRun, 1, S.tunnelWidth), CFrame.new(x, -0.5, 0), Color3.fromRGB(34, 36, 42), folder)
-		part("TunnelLintel", Vector3.new(depthRun, 1.2, S.tunnelWidth + 8), CFrame.new(x, S.tunnelHeight + 0.6, 0), STRUCTURE, folder)
+			local floorSize = alongZ and Vector3.new(depthRun, 1, S.tunnelWidth)
+				or Vector3.new(S.tunnelWidth, 1, depthRun)
+			local lintelSize = alongZ and Vector3.new(depthRun, 1.2, S.tunnelWidth + 8)
+				or Vector3.new(S.tunnelWidth + 8, 1.2, depthRun)
 
-		for i = 1, 5 do
-			local lamp = part(
-				"TunnelLamp",
-				Vector3.new(4, 0.4, 2.4),
-				CFrame.new(x - depthRun / 2 + i * (depthRun / 6), S.tunnelHeight - 0.4, 0),
-				Color3.fromRGB(255, 236, 200),
-				folder,
-				{ material = Enum.Material.Neon }
-			)
-			lamp.CastShadow = false
+			part("TunnelFloor", floorSize, centre * CFrame.new(0, -0.5, 0), Color3.fromRGB(128, 130, 136), folder)
+			part("TunnelLintel", lintelSize, centre * CFrame.new(0, S.tunnelHeight + 0.6, 0), STRUCTURE, folder)
 
-			local light = Instance.new("PointLight")
-			light.Brightness = 3
-			light.Range = 34
-			light.Color = Color3.fromRGB(255, 226, 180)
-			light.Parent = lamp
+			for i = 1, 5 do
+				local along = -depthRun / 2 + i * (depthRun / 6)
+				local shift = alongZ and CFrame.new(along, 0, 0) or CFrame.new(0, 0, along)
+				local lamp = part(
+					"TunnelLamp",
+					alongZ and Vector3.new(4, 0.4, 2.4) or Vector3.new(2.4, 0.4, 4),
+					centre * shift * CFrame.new(0, S.tunnelHeight - 0.4, 0),
+					Color3.fromRGB(255, 236, 200),
+					folder,
+					{ material = Enum.Material.Neon }
+				)
+				lamp.CastShadow = false
+
+				local light = Instance.new("PointLight")
+				light.Brightness = 3
+				light.Range = 34
+				light.Color = Color3.fromRGB(255, 226, 180)
+				light.Parent = lamp
+			end
 		end
 	end
 
@@ -389,28 +460,38 @@ local function buildBowl(parent: Instance)
 		local posts = 26
 		for i = 0, posts do
 			local x = -width / 2 + i * (width / posts)
-			part("FencePost", Vector3.new(0.35, 7, 0.35), CFrame.new(x, 3.5, frontZ), RAIL, folder, {
-				material = Enum.Material.Metal,
-			})
+			-- Salta os prumos em frente a boca do tunel, senao a vedacao tranca
+			-- a entrada que se acabou de abrir.
+			if math.abs(x) > S.tunnelWidth / 2 + 1 then
+				part("FencePost", Vector3.new(0.35, 7, 0.35), CFrame.new(x, 3.5, frontZ), RAIL, folder, {
+					material = Enum.Material.Metal,
+				})
+			end
 		end
 
 		-- A malha: uma chapa fina e transparente entre os prumos. Ve-se atraves,
 		-- que e o que interessa, e continua a marcar o limite.
-		local mesh = part("FenceMesh", Vector3.new(width, 6.4, 0.12), CFrame.new(0, 3.4, frontZ), RAIL, folder, {
-			material = Enum.Material.DiamondPlate,
-			transparency = 0.55,
-		})
-		mesh.CanCollide = false
+		local flank = (width - S.tunnelWidth - 2) / 2
+		for _, dir in { 1, -1 } do
+			local at = (S.tunnelWidth / 2 + 1 + flank / 2) * dir
 
-		part("FenceRail", Vector3.new(width, 0.3, 0.5), CFrame.new(0, 6.9, frontZ), RAIL, folder, {
-			material = Enum.Material.Metal,
-		})
+			local mesh = part("FenceMesh", Vector3.new(flank, 6.4, 0.12), CFrame.new(at, 3.4, frontZ), RAIL, folder, {
+				material = Enum.Material.DiamondPlate,
+				transparency = 0.55,
+			})
+			mesh.CanCollide = false
+
+			part("FenceRail", Vector3.new(flank, 0.3, 0.5), CFrame.new(at, 6.9, frontZ), RAIL, folder, {
+				material = Enum.Material.Metal,
+			})
+		end
 
 		-- A tarja da claque, atada a meia altura.
+		-- A tarja fica de um lado da entrada, nao a tapar.
 		local banner = part(
 			"ClaqueBanner",
-			Vector3.new(width * 0.62, 3.4, 0.25),
-			CFrame.new(0, 3.2, frontZ - 0.25 * side),
+			Vector3.new(width * 0.34, 3.4, 0.25),
+			CFrame.new(-width * 0.26, 3.2, frontZ - 0.25 * side),
 			team.color,
 			folder,
 			{ material = Enum.Material.Fabric }
@@ -437,7 +518,8 @@ local function buildBowl(parent: Instance)
 			caminho a serio: sem elas subia-se degrau a degrau, o que funciona
 			mas nao e o que se faz.
 		]]
-		for _, atX in { -S.pitchLength * 0.3, 0, S.pitchLength * 0.3 } do
+		-- Sem a do meio: essa caia mesmo em cima da boca do tunel.
+		for _, atX in { -S.pitchLength * 0.32, -S.pitchLength * 0.12, S.pitchLength * 0.12, S.pitchLength * 0.32 } do
 			for row = 1, S.standRows do
 				local topY = row * S.rowHeight
 				local step = (row - 1) * S.rowDepth
