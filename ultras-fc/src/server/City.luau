@@ -22,7 +22,7 @@ local S = Config.Stadium
 local ASPHALT = Color3.fromRGB(22, 23, 27)
 local KERB = Color3.fromRGB(44, 46, 52)
 local WINDOW_ON = Color3.fromRGB(255, 226, 164)
-local WINDOW_OFF = Color3.fromRGB(96, 108, 124)
+local WINDOW_OFF = Color3.fromRGB(126, 142, 158)
 
 local WALLS = {
 	Color3.fromRGB(58, 56, 54),
@@ -108,10 +108,11 @@ local function shopfront(centre: Vector3, width: number, facing: number, parent:
 			math.abs(dir.X) > 0.5 and width - 6 or 0.5
 		),
 		CFrame.new(at),
-		WINDOW_ON,
+		WINDOW_OFF,
 		parent,
-		Enum.Material.Neon
+		Enum.Material.Glass
 	)
+	window.Reflectance = 0.3
 	window.CastShadow = false
 
 	-- Montras: o vidro e que se ve, nao um halo. De dia o brilho so lavava a rua.
@@ -196,6 +197,12 @@ local function building(centre: Vector3, footprint: Vector2, floors: number, par
 				local along = Vector3.new(spec.normal.Z, 0, spec.normal.X) * offset
 				local position = Vector3.new(centre.X, y, centre.Z) + along + spec.normal * (spec.depth + 0.15)
 
+				--[[
+					Vidro, nao Neon. Neon brilha sempre — era por isso que os
+					predios ardiam a plena luz do dia. De tarde uma janela e um
+					reflexo, e so uma aqui e ali esta mesmo acesa.
+				]]
+				local lit = math.random() < 0.08
 				local pane = part(
 					"Window",
 					Vector3.new(
@@ -204,10 +211,11 @@ local function building(centre: Vector3, footprint: Vector2, floors: number, par
 						spec.normal.Z ~= 0 and 0.4 or 2.6
 					),
 					CFrame.new(position),
-					math.random() < 0.15 and WINDOW_ON or WINDOW_OFF,
+					lit and WINDOW_ON or WINDOW_OFF,
 					parent,
-					Enum.Material.Neon
+					lit and Enum.Material.Neon or Enum.Material.Glass
 				)
+				pane.Reflectance = lit and 0 or 0.35
 				pane.CastShadow = false
 			end
 		end

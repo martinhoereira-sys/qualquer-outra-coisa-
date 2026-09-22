@@ -39,7 +39,9 @@ local GRASS_B = Color3.fromRGB(76, 138, 72)
 local LINE = Color3.fromRGB(236, 240, 236)
 local CONCRETE = Color3.fromRGB(168, 170, 174)
 local CONCRETE_DARK = Color3.fromRGB(134, 136, 142)
-local STEEL = Color3.fromRGB(196, 198, 202)
+local STEEL = Color3.fromRGB(152, 156, 162)
+local ROOF = Color3.fromRGB(108, 112, 120)
+local PLINTH = Color3.fromRGB(112, 114, 120)
 local SEAT_A = Color3.fromRGB(96, 104, 120)
 local SEAT_B = Color3.fromRGB(80, 88, 104)
 local RAIL = Color3.fromRGB(232, 234, 238)
@@ -68,18 +70,23 @@ end
 --------------------------------------------------------------------------------
 
 local function setAfternoon()
-	-- Sol baixo, sombras compridas. E a hora a que se joga, e e a unica luz de
-	-- que o recinto precisa.
-	Lighting.ClockTime = 17.4
-	Lighting.GeographicLatitude = 41
-	Lighting.Brightness = 2.6
-	Lighting.Ambient = Color3.fromRGB(118, 114, 108)
-	Lighting.OutdoorAmbient = Color3.fromRGB(154, 150, 142)
-	Lighting.EnvironmentDiffuseScale = 0.8
-	Lighting.EnvironmentSpecularScale = 0.6
+	--[[
+		Sol ainda alto mas ja a cair, como as cinco da tarde.
+
+		A latitude conta tanto como a hora: com 41 graus o sol do fim de tarde
+		mergulha logo abaixo do horizonte e o que se via era noite. Perto do
+		equador mantem-se alto, e ai a hora le-se como tarde e nao como noite.
+	]]
+	Lighting.ClockTime = 16.6
+	Lighting.GeographicLatitude = 8
+	Lighting.Brightness = 3
+	Lighting.Ambient = Color3.fromRGB(138, 134, 126)
+	Lighting.OutdoorAmbient = Color3.fromRGB(176, 172, 162)
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 0.7
 	Lighting.GlobalShadows = true
 	Lighting.FogEnd = 2600
-	Lighting.FogColor = Color3.fromRGB(198, 196, 190)
+	Lighting.FogColor = Color3.fromRGB(214, 212, 204)
 
 	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
 	atmosphere.Density = 0.28
@@ -249,7 +256,7 @@ local function buildStand(alongZ: boolean, side: number, blocks: number, parent:
 		end
 
 		if to > from then
-			place("Back", to - from, 1.5, backHeight, (from + to) / 2, backAcross, backHeight / 2, CONCRETE_DARK)
+			place("Back", to - from, 1.5, backHeight, (from + to) / 2, backAcross, backHeight / 2, CONCRETE)
 		end
 	end
 
@@ -260,13 +267,36 @@ local function buildStand(alongZ: boolean, side: number, blocks: number, parent:
 		place("Lintel", S.vomitoryWidth, 1.5, backHeight - 9, centre, backAcross, 9 + (backHeight - 9) / 2, CONCRETE_DARK)
 	end
 
-	-- Cobertura: uma pala simples, apoiada em pilares atras.
-	local roofAcross = (inner + STAND_DEPTH / 2) * side
-	place("Roof", run + 4, STAND_DEPTH + 5, 0.8, 0, roofAcross, TOP_Y + 10, STEEL, { material = Enum.Material.Metal })
+	--[[
+		Cobertura. Nao cobre a bancada toda: pousa no fundo e avanca dois tercos,
+		para se continuar a ver o interior de fora e o sol ainda entrar nas filas
+		da frente. Uma pala a tapar tudo transformava a bancada numa caixa.
+	]]
+	local roofDepth = STAND_DEPTH * 0.66
+	local roofAcross = (inner + STAND_DEPTH - roofDepth / 2 + 2) * side
+	place("Roof", run + 3, roofDepth, 0.7, 0, roofAcross, TOP_Y + 9, ROOF, { material = Enum.Material.Metal })
+
+	-- Vigas a vista por baixo da pala: e o que se ve de dentro de uma bancada
+	-- coberta, e e o que a impede de ser uma laje.
+	for g = 0, gangways do
+		local centre = -run / 2 + g * (S.gangwayWidth + blockRun)
+		place("Truss", 0.8, roofDepth, 0.8, centre, roofAcross, TOP_Y + 8.4, STEEL, { material = Enum.Material.Metal })
+		place("Column", 1.1, 1.1, TOP_Y + 9, centre, backAcross, (TOP_Y + 9) / 2, STEEL, { material = Enum.Material.Metal })
+	end
+
+	--[[
+		A fachada: embasamento em baixo e pilastras entre os vomitorios.
+
+		Por fora isto era uma parede lisa e branca. Duas linhas horizontais e um
+		ritmo de pilares chegam para se ler como um edificio — e e por fora que
+		se chega, portanto e o que se ve primeiro.
+	]]
+	place("Plinth", run + 5, 2.5, 4, 0, backAcross, 2, PLINTH)
+	place("Cornice", run + 5, 2.2, 1, 0, backAcross, backHeight, PLINTH)
 
 	for g = 0, gangways do
 		local centre = -run / 2 + g * (S.gangwayWidth + blockRun)
-		place("Column", 1.2, 1.2, TOP_Y + 10, centre, backAcross, (TOP_Y + 10) / 2, STEEL, { material = Enum.Material.Metal })
+		place("Pilaster", 2.2, 0.8, backHeight - 4, centre, backAcross * 1.01, 4 + (backHeight - 4) / 2, PLINTH)
 	end
 
 	return blockRun, gangways
