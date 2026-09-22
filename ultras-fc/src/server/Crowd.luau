@@ -101,7 +101,7 @@ function Crowd.build(parent: Instance)
 		ocupa um bloco, nao a bancada toda: e a mancha compacta que se le como
 		claque, gente espalhada le-se como publico.
 	]]
-	local rows = { 3, 4, 5, 6, 7, 8 }
+	local rows = { 2, 3, 4, 5, 6, 7 }
 	local perRow = math.ceil(C.perStand / #rows)
 
 	for _, teamId in Config.TeamOrder do
@@ -110,9 +110,10 @@ function Crowd.build(parent: Instance)
 
 		for _, row in rows do
 			local topY = row * S.rowHeight
-			local step = (row - 1) * S.rowDepth
-			local z = (S.pitchWidth / 2 + S.standGap + step + S.rowDepth / 2) * side
-			local spread = S.pitchLength * 0.42
+			local z = (S.pitchWidth / 2 + S.standGap + (row - 0.5) * S.rowDepth) * side
+			-- Ocupam o miolo da bancada, nao a largura toda: a claque e um bloco
+			-- compacto, e gente espalhada le-se como publico.
+			local spread = S.pitchLength * 0.3
 
 			for i = 1, perRow do
 				if made >= C.perStand then
@@ -121,7 +122,7 @@ function Crowd.build(parent: Instance)
 				made += 1
 
 				local x = (i - (perRow + 1) / 2) * (spread * 2 / perRow)
-				local at = Vector3.new(x + math.random() * 0.6 - 0.3, topY + 2.9, z)
+				local at = Vector3.new(x + math.random() * 0.5 - 0.25, topY + 2.6, z)
 				table.insert(people, buildSupporter(teamId, at, made % C.flagEvery == 0, folder))
 			end
 		end

@@ -41,7 +41,7 @@ Config.TeamOrder = { "home", "away" }
 	pessoas paradas, um bloco inteiro a mexer ao mesmo tempo.
 ]]
 Config.Crowd = {
-	perStand = 46,
+	perStand = 40,
 	bounceHeight = 1.6,
 	baseRate = 1.6, -- saltos por segundo em repouso
 	drumRate = 3.4, -- ao ritmo do tambor
@@ -89,21 +89,33 @@ Config.Match = {
 Config.Stadium = {
 	build = true,
 
-	pitchLength = 110, -- ao longo do eixo X
-	pitchWidth = 70, -- ao longo do eixo Z
+	pitchLength = 105, -- ao longo do eixo X
+	pitchWidth = 68, -- ao longo do eixo Z
 
-	-- 1.9 nao e por acaso: acima de 2 studs o Roblox deixa de deixar subir um
-	-- degrau a andar, e a bancada passava a ser uma parede. Como cada fila fica
-	-- mais baixa, sao precisas mais para a taca ter altura.
-	standRows = 18,
-	rowHeight = 1.9,
-	rowDepth = 3.0,
-	standGap = 9, -- distancia da linha lateral a primeira fila
+	--[[
+		Medidas de um recinto a serio, convertidas para studs (1 m ~ 3 studs).
 
-	cornerSegments = 7, -- quantos blocos fazem cada canto curvo
-	tunnelWidth = 16, -- vao das entradas por baixo da bancada
-	tunnelHeight = 11, -- altura livre da passagem
+		Degrau de 0,8 m de profundidade e inclinacao de 34 graus, que e o maximo
+		que se usa numa bancada; da 1,6 studs de subida, e por baixo dos 2 studs
+		que o Roblox deixa subir a andar. Doze filas chegam: isto e um estadio
+		pequeno de proposito, e um pequeno cheio vale mais do que um grande vazio.
+	]]
+	rows = 12,
+	rowDepth = 2.4,
+	rowHeight = 1.6,
+	standGap = 8, -- da linha lateral a primeira fila
+
+	--[[
+		Blocos. A regra e que ninguem fique a mais de 12 m de uma escada, ou seja
+		escadas de 24 em 24 m. Com bancadas desta largura dao cinco blocos, e e
+		isso que faz uma bancada parecer arrumada em vez de uma rampa unica.
+	]]
+	blocksLong = 5, -- nas bancadas laterais
+	blocksEnd = 3, -- nas bancadas de topo
+	gangwayWidth = 4,
+	vomitoryWidth = 7,
 }
+
 
 --[[
 	Tochas.

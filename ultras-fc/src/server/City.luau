@@ -22,7 +22,7 @@ local S = Config.Stadium
 local ASPHALT = Color3.fromRGB(22, 23, 27)
 local KERB = Color3.fromRGB(44, 46, 52)
 local WINDOW_ON = Color3.fromRGB(255, 226, 164)
-local WINDOW_OFF = Color3.fromRGB(38, 42, 52)
+local WINDOW_OFF = Color3.fromRGB(96, 108, 124)
 
 local WALLS = {
 	Color3.fromRGB(58, 56, 54),
@@ -68,11 +68,10 @@ local function streetLamp(x: number, z: number, facing: number, parent: Instance
 	)
 	lamp.CastShadow = false
 
-	local light = Instance.new("PointLight")
-	light.Brightness = 2.4
-	light.Range = 44
-	light.Color = Color3.fromRGB(255, 214, 152)
-	light.Parent = lamp
+	-- Apagado: de fim de tarde um candeeiro e um poste, nao uma luz. Deixa-se o
+	-- corpo montado para bastar acende-lo quando houver jogos a noite.
+	lamp.Color = Color3.fromRGB(150, 150, 146)
+	lamp.Material = Enum.Material.SmoothPlastic
 end
 
 --[[
@@ -115,9 +114,10 @@ local function shopfront(centre: Vector3, width: number, facing: number, parent:
 	)
 	window.CastShadow = false
 
+	-- Montras: o vidro e que se ve, nao um halo. De dia o brilho so lavava a rua.
 	local glow = Instance.new("PointLight")
-	glow.Brightness = 2
-	glow.Range = 26
+	glow.Brightness = 0.5
+	glow.Range = 14
 	glow.Color = shop.tint
 	glow.Parent = window
 
@@ -204,7 +204,7 @@ local function building(centre: Vector3, footprint: Vector2, floors: number, par
 						spec.normal.Z ~= 0 and 0.4 or 2.6
 					),
 					CFrame.new(position),
-					math.random() < 0.55 and WINDOW_ON or WINDOW_OFF,
+					math.random() < 0.15 and WINDOW_ON or WINDOW_OFF,
 					parent,
 					Enum.Material.Neon
 				)
@@ -263,8 +263,8 @@ local function clubhouse(teamId: string, centre: Vector3, parent: Instance)
 	glow.CastShadow = false
 
 	local light = Instance.new("PointLight")
-	light.Brightness = 3
-	light.Range = 60
+	light.Brightness = 1
+	light.Range = 32
 	light.Color = team.color:Lerp(Color3.fromRGB(255, 230, 190), 0.6)
 	light.Parent = glow
 
@@ -282,7 +282,7 @@ function City.build(parent: Instance)
 	folder.Name = "City"
 	folder.Parent = parent
 
-	local outerZ = S.pitchWidth / 2 + S.standGap + S.standRows * S.rowDepth + 30
+	local outerZ = S.pitchWidth / 2 + S.standGap + S.rows * S.rowDepth + 26
 	local roadZ = outerZ + 70
 	local roadLength = 900
 

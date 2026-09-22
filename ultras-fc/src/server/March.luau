@@ -56,7 +56,7 @@ local function routeFor(teamId: string): { Vector3 }
 	end
 
 	local S = Config.Stadium
-	local outerZ = S.pitchWidth / 2 + S.standGap + S.standRows * S.rowDepth + 30
+	local outerZ = S.pitchWidth / 2 + S.standGap + S.rows * S.rowDepth + 26
 	local roadZ = outerZ + 70
 
 	return {
