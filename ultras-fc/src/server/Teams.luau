@@ -1,0 +1,73 @@
+--!strict
+--[[
+	Quem apoia quem, e quantos sao de cada lado.
+
+	A contagem importa: e dela que sai o bonus de minoria, sem o qual a claque
+	maior ganhava sempre e o jogo passaria a ser decidido pela assistencia.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+
+local Teams = {}
+
+-- player -> teamId
+local membership: { [Player]: string } = {}
+
+function Teams.isValid(teamId: string): boolean
+	return Config.Teams[teamId] ~= nil
+end
+
+function Teams.assign(player: Player, teamId: string)
+	if not Teams.isValid(teamId) then
+		return
+	end
+	membership[player] = teamId
+	-- Atributo so para se ver de relance no Explorer durante os testes.
+	player:SetAttribute("Team", teamId)
+end
+
+function Teams.get(player: Player): string?
+	return membership[player]
+end
+
+function Teams.forget(player: Player)
+	membership[player] = nil
+end
+
+function Teams.count(teamId: string): number
+	local total = 0
+	for _, id in membership do
+		if id == teamId then
+			total += 1
+		end
+	end
+	return total
+end
+
+--[[
+	Quanto vale cada adepto desta bancada.
+
+	Vinte que se deslocaram valem mais por cabeca do que cem em casa — e assim
+	na vida real, e aqui impede que o jogo seja so uma contagem de cabecas.
+]]
+function Teams.minorityBonus(teamId: string): number
+	local mine = Teams.count(teamId)
+	if mine == 0 then
+		return 1
+	end
+
+	local others = 0
+	for otherId in Config.Teams do
+		if otherId ~= teamId then
+			others += Teams.count(otherId)
+		end
+	end
+	if others == 0 then
+		return 1
+	end
+
+	return math.clamp(others / mine, 1, Config.Atmosphere.minorityCap)
+end
+
+return Teams
