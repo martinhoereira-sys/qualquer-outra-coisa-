@@ -171,248 +171,265 @@ end
 
 local spawnPoints: { [string]: Vector3 } = {}
 
-local function buildStand(teamId: string, parent: Instance)
-	local team = Config.Teams[teamId]
-	local side = team.side
+--[[
+	Uma fila e um anel a volta do relvado, nao quatro blocos encostados.
 
+	Cada fila esta a uma distancia do centro (inset) e a uma altura. Como todas
+	as pecas de uma fila nascem desse mesmo inset, nunca se atravessam: o que
+	fazia as bancadas passarem umas por cima das outras era cada lado ser
+	construido por sua conta e encontrarem-se nos cantos.
+
+	`inset` cresce a cada fila, e a altura sobe: e isso que da a inclinacao.
+]]
+local function ringRow(
+	row: number,
+	parent: Instance,
+	colourFor: (Vector3) -> Color3?
+)
+	local topY = row * S.rowHeight
+	local step = (row - 1) * S.rowDepth
+
+	local insetX = S.pitchLength / 2 + S.standGap + step
+	local insetZ = S.pitchWidth / 2 + S.standGap + step
+	local depth = S.rowDepth
+
+	local function block(name: string, size: Vector3, cf: CFrame)
+		local colour = colourFor(cf.Position)
+		part(name, size, cf, colour or TERRACE, parent, {
+			material = colour and Enum.Material.SmoothPlastic or Enum.Material.Concrete,
+		})
+	end
+
+	-- Lados compridos, encostados aos cantos mas sem entrar neles.
+	for _, side in { 1, -1 } do
+		block(
+			"RowZ",
+			Vector3.new(insetX * 2, topY, depth),
+			CFrame.new(0, topY / 2, (insetZ + depth / 2) * side)
+		)
+		block(
+			"RowX",
+			Vector3.new(depth, topY, insetZ * 2),
+			CFrame.new((insetX + depth / 2) * side, topY / 2, 0)
+		)
+	end
+
+	--[[
+		Os cantos. Sao um quarto de circunferencia de blocos pequenos, cada um
+		rodado para a tangente — e isso que faz a curva em vez de um canto seco.
+		Sem eles a taca tem quatro buracos, que e onde todos os estadios a serio
+		tem exactamente isto.
+	]]
+	local segments = S.cornerSegments
+	for _, sx in { 1, -1 } do
+		for _, sz in { 1, -1 } do
+			for i = 1, segments do
+				local t = (i - 0.5) / segments
+				local angle = t * math.pi / 2
+				local x = (insetX + depth / 2) * math.cos(angle) * sx
+				local z = (insetZ + depth / 2) * math.sin(angle) * sz
+
+				-- Comprimento do bloco: o arco que lhe toca, com folga para
+				-- fechar sem deixar fresta.
+				local arc = (math.pi / 2) * ((insetX + insetZ) / 2) / segments + 1.5
+				local facing = math.atan2(x, z)
+
+				block(
+					"Corner",
+					Vector3.new(depth, topY, arc),
+					CFrame.new(x, topY / 2, z) * CFrame.Angles(0, facing, 0)
+				)
+			end
+		end
+	end
+end
+
+--[[
+	As duas claques. Sao faixas de cor nas filas do meio de cada lado comprido —
+	e assim que se le de que lado se esta sem precisar de legenda.
+]]
+local function standColourAt(position: Vector3): Color3?
+	if math.abs(position.X) > S.pitchLength / 2 - 6 then
+		return nil -- os topos sao neutros
+	end
+	for _, teamId in Config.TeamOrder do
+		local team = Config.Teams[teamId]
+		if position.Z * team.side > 0 then
+			return team.color
+		end
+	end
+	return nil
+end
+
+local function buildBowl(parent: Instance)
 	local folder = Instance.new("Folder")
-	folder.Name = "Stand_" .. teamId
+	folder.Name = "Bowl"
 	folder.Parent = parent
 
-	local firstRowZ = (S.pitchWidth / 2 + S.standGap) * side
-	local width = S.pitchLength + 26
-
 	for row = 1, S.standRows do
-		-- Cada fila e um bloco macico do chao ate ao seu topo. Blocos soltos a
-		-- alturas diferentes ficavam a flutuar; e assentarem no chao que faz uma
-		-- escadaria.
-		local topY = row * S.rowHeight
-		local z = firstRowZ + (row - 1) * S.rowDepth * side
-
-		part(
-			"Row" .. row,
-			Vector3.new(width, topY, S.rowDepth),
-			CFrame.new(0, topY / 2, z),
-			TERRACE,
-			folder
-		)
-
-		-- A beira do degrau, mais escura: e o que separa uma fila da seguinte
-		-- quando se olha de longe.
-		part(
-			"Lip" .. row,
-			Vector3.new(width, 0.35, 0.5),
-			CFrame.new(0, topY + 0.18, z - (S.rowDepth / 2 - 0.25) * side),
-			TERRACE_EDGE,
-			folder
-		)
-
 		-- Faixas da claque de tres em tres filas. Poucas e melhor do que todas:
 		-- a bancada le-se na mesma e nao fica um arco-iris.
-		if row % 3 == 0 then
-			part(
-				"Colours" .. row,
-				Vector3.new(width - 8, 0.5, 1.2),
-				CFrame.new(0, topY + 0.25, z + 0.6 * side),
-				team.color,
-				folder,
-				{ material = Enum.Material.SmoothPlastic }
-			)
-		end
+		local coloured = row % 3 == 0
+		ringRow(row, folder, function(position)
+			return coloured and standColourAt(position) or nil
+		end)
 	end
 
 	local topY = S.standRows * S.rowHeight
-	local backZ = firstRowZ + (S.standRows - 1) * S.rowDepth * side + (S.rowDepth / 2 + 1) * side
+	local outerX = S.pitchLength / 2 + S.standGap + S.standRows * S.rowDepth
+	local outerZ = S.pitchWidth / 2 + S.standGap + S.standRows * S.rowDepth
 
-	part("BackWall", Vector3.new(width, topY + 16, 2), CFrame.new(0, (topY + 16) / 2, backZ), STRUCTURE, folder)
+	-- Parede do fundo e cobertura, por cima de toda a volta.
+	for _, side in { 1, -1 } do
+		part("BackZ", Vector3.new(outerX * 2 + 8, topY + 16, 3), CFrame.new(0, (topY + 16) / 2, (outerZ + 2) * side), STRUCTURE, folder)
+		part("BackX", Vector3.new(3, topY + 16, outerZ * 2 + 8), CFrame.new((outerX + 2) * side, (topY + 16) / 2, 0), STRUCTURE, folder)
 
-	-- A faixa da claque na parede do fundo, bem visivel do relvado.
-	part(
-		"Banner",
-		Vector3.new(width - 20, 6, 0.6),
-		CFrame.new(0, topY + 8, backZ - 1.2 * side),
-		team.color,
-		folder,
-		{ material = Enum.Material.Fabric }
-	)
-
-	-- Cobertura. Fecha a bancada por cima, o que prende a luz e o fumo la dentro
-	-- em vez de se perderem no ceu.
-	local depth = S.standRows * S.rowDepth + 6
-	part(
-		"Roof",
-		Vector3.new(width + 4, 1.2, depth),
-		CFrame.new(0, topY + 17, firstRowZ + (depth / 2 - S.rowDepth) * side),
-		STRUCTURE,
-		folder,
-		{ material = Enum.Material.Metal }
-	)
-
-	local spawnRow = math.ceil(S.standRows / 2)
-	spawnPoints[teamId] = Vector3.new(
-		0,
-		spawnRow * S.rowHeight + 3.5,
-		firstRowZ + (spawnRow - 1) * S.rowDepth * side
-	)
-end
-
---------------------------------------------------------------------------------
--- Pontas e chao
---------------------------------------------------------------------------------
-
---[[
-	Bancadas atras das balizas. Nao tem claque nenhuma — existem para fechar o
-	recinto. Sem elas ve-se o vazio por tras das balizas e a coisa deixa de
-	parecer um estadio para parecer duas bancadas largadas num campo.
-]]
-local function buildEndStand(xSign: number, parent: Instance)
-	local folder = Instance.new("Folder")
-	folder.Name = "EndStand" .. (xSign > 0 and "East" or "West")
-	folder.Parent = parent
-
-	local rows = math.floor(S.standRows * 0.85)
-	local firstX = (S.pitchLength / 2 + S.standGap) * xSign
-	local standDepth = S.standRows * S.rowDepth
-	local width = S.pitchWidth + standDepth * 2 + 14
-
-	for row = 1, rows do
-		local topY = row * S.rowHeight
-		local x = firstX + (row - 1) * S.rowDepth * xSign
-
-		part(
-			"Row" .. row,
-			Vector3.new(S.rowDepth, topY, width),
-			CFrame.new(x, topY / 2, 0),
-			TERRACE,
-			folder
-		)
-		part(
-			"Lip" .. row,
-			Vector3.new(0.5, 0.35, width),
-			CFrame.new(x - (S.rowDepth / 2 - 0.25) * xSign, topY + 0.18, 0),
-			TERRACE_EDGE,
-			folder
-		)
+		local roofDepth = S.standRows * S.rowDepth + 8
+		part("RoofZ", Vector3.new(outerX * 2, 1.2, roofDepth), CFrame.new(0, topY + 17, (outerZ - roofDepth / 2 + 4) * side), STRUCTURE, folder, { material = Enum.Material.Metal })
+		part("RoofX", Vector3.new(roofDepth, 1.2, outerZ * 2), CFrame.new((outerX - roofDepth / 2 + 4) * side, topY + 17, 0), STRUCTURE, folder, { material = Enum.Material.Metal })
 	end
 
-	local topY = rows * S.rowHeight
-	local backX = firstX + (rows - 1) * S.rowDepth * xSign + (S.rowDepth / 2 + 1) * xSign
-	part("BackWall", Vector3.new(2, topY + 14, width), CFrame.new(backX, (topY + 14) / 2, 0), STRUCTURE, folder)
+	-- Entradas: vaos abertos na base dos topos, por onde se entra e sai.
+	for _, side in { 1, -1 } do
+		local mouth = part(
+			"Tunnel",
+			Vector3.new(S.standRows * S.rowDepth + 12, 9, S.tunnelWidth),
+			CFrame.new((outerX - (S.standRows * S.rowDepth) / 2) * side, 4.5, 0),
+			Color3.fromRGB(18, 19, 23),
+			folder,
+			{ material = Enum.Material.Concrete, transparency = 1 }
+		)
+		mouth.CanCollide = false
+
+		part("TunnelLintel", Vector3.new(6, 1.5, S.tunnelWidth + 6), CFrame.new((outerX + 1) * side, 9.5, 0), STRUCTURE, folder)
+	end
+
+	local spawnRow = math.ceil(S.standRows * 0.45)
+	for _, teamId in Config.TeamOrder do
+		local side = Config.Teams[teamId].side
+		local step = (spawnRow - 1) * S.rowDepth
+		spawnPoints[teamId] = Vector3.new(
+			0,
+			spawnRow * S.rowHeight + 3.5,
+			(S.pitchWidth / 2 + S.standGap + step + S.rowDepth / 2) * side
+		)
+	end
 end
 
---[[
-	O chao a volta, com limite. O Baseplate ia ate ao horizonte e era o que fazia
-	isto parecer um modelo largado num deserto — o recinto tem de acabar em
-	algum lado.
-]]
-local function buildGround(parent: Instance)
-	local standDepth = S.standRows * S.rowDepth
-	local length = S.pitchLength + standDepth * 2 + 70
-	local width = S.pitchWidth + standDepth * 2 + 70
+--------------------------------------------------------------------------------
+-- Fora: estrada e estacionamento
+--------------------------------------------------------------------------------
 
+local function buildOutside(parent: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "Outside"
+	folder.Parent = parent
+
+	local outerZ = S.pitchWidth / 2 + S.standGap + S.standRows * S.rowDepth + 30
+	local outerX = S.pitchLength / 2 + S.standGap + S.standRows * S.rowDepth + 30
+
+	-- Explanada a volta do estadio.
 	part(
 		"Concourse",
-		Vector3.new(length, 2, width),
+		Vector3.new(outerX * 2 + 90, 2, outerZ * 2 + 90),
 		CFrame.new(0, -1.5, 0),
 		CONCOURSE,
-		parent,
-		{ material = Enum.Material.Asphalt }
-	)
-
-	-- Muro exterior, para nao se ver o fim do mundo por cima das bancadas.
-	local wallHeight = 30
-	local gateWidth = 26
-	local sideRun = (length - gateWidth) / 2
-
-	for _, spec in {
-		-- Lado da estrada: partido em dois, para a entrada ficar aberta.
-		{ Vector3.new(sideRun, wallHeight, 3), CFrame.new(-(gateWidth / 2 + sideRun / 2), wallHeight / 2, width / 2) },
-		{ Vector3.new(sideRun, wallHeight, 3), CFrame.new(gateWidth / 2 + sideRun / 2, wallHeight / 2, width / 2) },
-		{ Vector3.new(length, wallHeight, 3), CFrame.new(0, wallHeight / 2, -width / 2) },
-		{ Vector3.new(3, wallHeight, width), CFrame.new(length / 2, wallHeight / 2, 0) },
-		{ Vector3.new(3, wallHeight, width), CFrame.new(-length / 2, wallHeight / 2, 0) },
-	} do
-		part("OuterWall", spec[1] :: Vector3, spec[2] :: CFrame, STRUCTURE, parent)
-	end
-end
-
---[[
-	A estrada de acesso.
-
-	E por aqui que o corteo ha-de subir ate ao estadio. Por agora e so o caminho
-	— mas o caminho tem de existir primeiro, e ja diz de que lado se entra.
-]]
-local function buildRoad(parent: Instance)
-	local folder = Instance.new("Folder")
-	folder.Name = "Road"
-	folder.Parent = parent
-
-	local standDepth = S.standRows * S.rowDepth
-	local gateZ = S.pitchWidth / 2 + standDepth + 35 -- ja fora do muro
-	local length = 300
-	local width = 26
-
-	part(
-		"Surface",
-		Vector3.new(width, 2, length),
-		CFrame.new(0, -1.5, gateZ + length / 2),
-		Color3.fromRGB(24, 25, 29),
 		folder,
 		{ material = Enum.Material.Asphalt }
 	)
 
-	-- Tracejado do meio.
-	local dashes = 14
-	for i = 1, dashes do
+	--[[
+		A avenida. Corre ao lado do estadio, nao ate a porta: e nela que o corteo
+		se junta e sobe, e para isso tem de ser larga e comprida o suficiente para
+		caber muita gente a andar junta.
+	]]
+	local roadZ = outerZ + 70
+	local roadLength = 900
+	local roadWidth = 60
+
+	part("Avenue", Vector3.new(roadLength, 2, roadWidth), CFrame.new(0, -1.4, roadZ), Color3.fromRGB(22, 23, 27), folder, {
+		material = Enum.Material.Asphalt,
+	})
+
+	for i = 1, 30 do
 		part(
 			"Dash" .. i,
-			Vector3.new(0.9, 2.1, 9),
-			CFrame.new(0, -1.45, gateZ + (i - 0.5) * (length / dashes)),
-			Color3.fromRGB(196, 196, 186),
+			Vector3.new(14, 2.1, 1),
+			CFrame.new(-roadLength / 2 + (i - 0.5) * (roadLength / 30), -1.35, roadZ),
+			Color3.fromRGB(198, 198, 188),
 			folder,
 			{ material = Enum.Material.Asphalt }
 		)
 	end
 
-	-- Passeios e candeeiros dos dois lados.
-	for _, sign in { 1, -1 } do
-		part(
-			"Kerb" .. sign,
-			Vector3.new(5, 2.6, length),
-			CFrame.new((width / 2 + 2.5) * sign, -1.2, gateZ + length / 2),
-			Color3.fromRGB(46, 48, 54),
-			folder
-		)
+	for _, side in { 1, -1 } do
+		part("Kerb", Vector3.new(roadLength, 2.8, 6), CFrame.new(0, -1.1, roadZ + (roadWidth / 2 + 3) * side), Color3.fromRGB(44, 46, 52), folder)
 
-		for i = 1, 7 do
-			local z = gateZ + (i - 0.5) * (length / 7)
-			local x = (width / 2 + 4) * sign
+		for i = 1, 16 do
+			local x = -roadLength / 2 + (i - 0.5) * (roadLength / 16)
+			local z = roadZ + (roadWidth / 2 + 5) * side
 
-			part("Pole", Vector3.new(0.8, 18, 0.8), CFrame.new(x, 9, z), STRUCTURE, folder, {
-				material = Enum.Material.Metal,
+			part("Pole", Vector3.new(0.9, 20, 0.9), CFrame.new(x, 10, z), STRUCTURE, folder, { material = Enum.Material.Metal })
+
+			local lamp = part("Lamp", Vector3.new(4, 0.7, 1.8), CFrame.new(x, 20, z - 2 * side), Color3.fromRGB(255, 224, 168), folder, {
+				material = Enum.Material.Neon,
 			})
-
-			local lamp = part(
-				"Lamp",
-				Vector3.new(3, 0.6, 1.6),
-				CFrame.new(x - 1.6 * sign, 18, z),
-				Color3.fromRGB(255, 226, 170),
-				folder,
-				{ material = Enum.Material.Neon }
-			)
 			lamp.CastShadow = false
 
 			local light = Instance.new("PointLight")
-			light.Brightness = 2.2
-			light.Range = 40
-			light.Color = Color3.fromRGB(255, 214, 150)
+			light.Brightness = 2.6
+			light.Range = 48
+			light.Color = Color3.fromRGB(255, 212, 148)
 			light.Parent = lamp
 		end
 	end
 
-	-- A entrada, aberta no muro exterior.
-	part("GateLeft", Vector3.new(6, 26, 4), CFrame.new(-(width / 2 + 3), 13, gateZ), STRUCTURE, folder)
-	part("GateRight", Vector3.new(6, 26, 4), CFrame.new(width / 2 + 3, 13, gateZ), STRUCTURE, folder)
+	-- A rampa que liga a avenida a explanada, em frente a uma das entradas.
+	part("Approach", Vector3.new(S.tunnelWidth + 20, 2, roadZ - outerZ), CFrame.new(0, -1.45, (roadZ + outerZ) / 2), Color3.fromRGB(26, 27, 32), folder, {
+		material = Enum.Material.Asphalt,
+	})
+
+	--[[
+		Estacionamento do outro lado. Marcado com linhas: um retangulo de asfalto
+		sem marcas nao se le como estacionamento, le-se como chao.
+	]]
+	local parkX = -(outerX + 90)
+	local rows = 4
+	local baysPerRow = 14
+	local bayWidth = 9
+	local bayDepth = 18
+
+	part("ParkFloor", Vector3.new(160, 2, rows * (bayDepth + 6)), CFrame.new(parkX, -1.45, 0), Color3.fromRGB(25, 26, 31), folder, {
+		material = Enum.Material.Asphalt,
+	})
+
+	for r = 1, rows do
+		local z = (r - (rows + 1) / 2) * (bayDepth + 6)
+		for b = 0, baysPerRow do
+			part(
+				"Bay",
+				Vector3.new(0.5, 2.1, bayDepth),
+				CFrame.new(parkX - (baysPerRow * bayWidth) / 2 + b * bayWidth, -1.4, z),
+				Color3.fromRGB(180, 182, 172),
+				folder,
+				{ material = Enum.Material.Asphalt }
+			)
+		end
+	end
+
+	for i = 1, 6 do
+		local z = (i - 3.5) * 24
+		part("ParkPole", Vector3.new(0.8, 18, 0.8), CFrame.new(parkX, 9, z), STRUCTURE, folder, { material = Enum.Material.Metal })
+		local lamp = part("ParkLamp", Vector3.new(3, 0.6, 3), CFrame.new(parkX, 18, z), Color3.fromRGB(255, 230, 180), folder, {
+			material = Enum.Material.Neon,
+		})
+		lamp.CastShadow = false
+		local light = Instance.new("PointLight")
+		light.Brightness = 2.2
+		light.Range = 55
+		light.Color = Color3.fromRGB(255, 218, 160)
+		light.Parent = lamp
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -425,52 +442,90 @@ local function buildFloodlights(parent: Instance)
 	folder.Parent = parent
 
 	local standDepth = S.standRows * S.rowDepth
-	local height = 54
+	local height = 58
+	local aim = Vector3.new(0, 0, 0)
 
 	for _, corner in { Vector2.new(1, 1), Vector2.new(1, -1), Vector2.new(-1, 1), Vector2.new(-1, -1) } do
-		local x = corner.X * (S.pitchLength / 2 + 20)
-		local z = corner.Y * (S.pitchWidth / 2 + standDepth + 16)
+		local x = corner.X * (S.pitchLength / 2 + 22)
+		local z = corner.Y * (S.pitchWidth / 2 + standDepth + 14)
+		local top = Vector3.new(x, height, z)
 
-		part(
-			"Mast",
-			Vector3.new(2.5, height, 2.5),
-			CFrame.new(x, height / 2, z),
-			STRUCTURE,
-			folder,
-			{ material = Enum.Material.Metal }
-		)
+		part("Mast", Vector3.new(2.5, height, 2.5), CFrame.new(x, height / 2, z), STRUCTURE, folder, {
+			material = Enum.Material.Metal,
+		})
 
-		local rig = part(
-			"Rig",
-			Vector3.new(16, 8, 2),
-			CFrame.new(x, height, z),
-			STRUCTURE,
-			folder,
-			{ material = Enum.Material.Metal }
-		)
+		-- A armacao aponta ao centro do relvado. Orientada primeiro, para tudo o
+		-- que se lhe prende nascer ja virado ao sitio certo.
+		local rigCF = CFrame.lookAt(top, aim)
+		local rig = part("Rig", Vector3.new(18, 9, 1.6), rigCF, STRUCTURE, folder, {
+			material = Enum.Material.Metal,
+		})
 
-		-- O painel que se ve aceso da bancada.
-		local lamp = part(
-			"Lamps",
-			Vector3.new(15, 7, 0.6),
-			CFrame.new(x, height, z - 1.2 * corner.Y),
-			Color3.fromRGB(255, 252, 235),
-			folder,
-			{ material = Enum.Material.Neon }
-		)
-		lamp.CastShadow = false
+		-- Quatro painteis acesos, virados com a armacao. Sao eles que se veem da
+		-- bancada; a luz em si nao se ve, ve-se o que ela acerta.
+		for i = 1, 4 do
+			local offset = (i - 2.5) * 4.2
+			local lamp = part(
+				"Lamp" .. i,
+				Vector3.new(3.6, 7.4, 0.5),
+				rigCF * CFrame.new(offset, 0, -1.1),
+				Color3.fromRGB(255, 251, 232),
+				folder,
+				{ material = Enum.Material.Neon }
+			)
+			lamp.CastShadow = false
 
-		-- Apontado ao centro do relvado, que e o que ilumina a coisa toda.
-		local light = Instance.new("SpotLight")
-		light.Face = Enum.NormalId.Front
-		light.Angle = 105
-		light.Brightness = 4.5
-		light.Range = 260
-		light.Color = Color3.fromRGB(238, 244, 255)
-		light.Shadows = true
-		light.Parent = rig
+			local spot = Instance.new("SpotLight")
+			spot.Face = Enum.NormalId.Front
+			spot.Angle = 80
+			spot.Brightness = 6
+			spot.Range = 320
+			spot.Color = Color3.fromRGB(240, 246, 255)
+			spot.Shadows = true
+			spot.Parent = lamp
+		end
+	end
+end
 
-		rig.CFrame = CFrame.lookAt(Vector3.new(x, height, z), Vector3.new(0, 0, 0))
+--[[
+	Luz por baixo das coberturas.
+
+	Sem ela a bancada fica um bloco preto: os holofotes apontam ao relvado, e o
+	telhado tapa o resto. E preciso ver-se gente na bancada — e uma tocha so se
+	le como tocha se houver alguma luz a volta dela para contrastar.
+]]
+local function buildStandLights(parent: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "StandLights"
+	folder.Parent = parent
+
+	local standDepth = S.standRows * S.rowDepth
+	local topY = S.standRows * S.rowHeight
+
+	for _, teamId in Config.TeamOrder do
+		local side = Config.Teams[teamId].side
+		local z = (S.pitchWidth / 2 + S.standGap + standDepth / 2) * side
+
+		for i = 1, 6 do
+			local x = (i - 3.5) * (S.pitchLength / 5)
+			local strip = part(
+				"Strip",
+				Vector3.new(10, 0.4, 2.4),
+				CFrame.new(x, topY + 16.2, z),
+				Color3.fromRGB(226, 232, 244),
+				folder,
+				{ material = Enum.Material.Neon }
+			)
+			strip.CastShadow = false
+
+			local light = Instance.new("SpotLight")
+			light.Face = Enum.NormalId.Bottom
+			light.Angle = 120
+			light.Brightness = 2.4
+			light.Range = 70
+			light.Color = Color3.fromRGB(196, 210, 235)
+			light.Parent = strip
+		end
 	end
 end
 
@@ -508,15 +563,11 @@ function Stadium.build()
 	root.Name = "Stadium"
 	root.Parent = workspace
 
-	buildGround(root)
+	buildOutside(root)
 	buildPitch(root)
-	for _, teamId in Config.TeamOrder do
-		buildStand(teamId, root)
-	end
-	buildEndStand(1, root)
-	buildEndStand(-1, root)
-	buildRoad(root)
+	buildBowl(root)
 	buildFloodlights(root)
+	buildStandLights(root)
 end
 
 return Stadium

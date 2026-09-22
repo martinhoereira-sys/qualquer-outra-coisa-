@@ -2,36 +2,60 @@
 --[[
 	Os jogadores e a bola.
 
-	Sao NPCs de proposito. O futebol aqui so precisa de ser suficiente para a
-	bancada ter algo a que reagir — gastar meses a fazer fisica de bola era
-	gastar no sitio errado, quando o que faz este jogo e a bancada.
+	Sao NPCs de proposito: o futebol aqui so precisa de ser suficiente para a
+	bancada ter algo a que reagir. Mas suficiente quer dizer com intencao — quem
+	tem a bola sabe para que baliza vai, leva-a para la, e remata quando chega
+	perto. Passar a bola ao calhas lia-se logo como ruido.
 
-	Por isso nada disto usa fisica nem Humanoid: e tudo movido a mao, frame a
-	frame. Fica previsivel, barato, e nunca ha bonecos a cair do ceu.
+	Nada disto usa fisica nem Humanoid: e tudo movido a mao, frame a frame. Fica
+	previsivel, barato, e nunca ha bonecos a cair do ceu.
+
+	Os golos nascem daqui, nao de um sorteio — e a pontaria do remate depende do
+	ambiente da bancada. E o que liga cantar a marcar.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 
 local Pitch = {}
 
 local P = Config.Pitch
 local S = Config.Stadium
+local HALF = S.pitchLength / 2
 
 type Footballer = {
-	model: Model,
 	root: BasePart,
-	home: Vector3, -- onde fica quando nao anda atras da bola
+	home: Vector3,
 	teamId: string,
 }
 
-local footballers: { Footballer } = {}
+local squad: { Footballer } = {}
 local ball: BasePart? = nil
-local ballTarget = Vector3.new(0, 1.5, 0)
-local holder: Footballer? = nil
-local root: Folder? = nil
+
+-- Para que lado ataca cada equipa. "home" vai a baliza do lado +X.
+local function attackingX(teamId: string): number
+	return teamId == "home" and HALF or -HALF
+end
+
+local state = {
+	mode = "loose" :: "loose" | "carry" | "kick",
+	carrier = nil :: Footballer?,
+	target = Vector3.new(0, 1.2, 0),
+	lastTeam = nil :: string?,
+	resetAt = 0,
+}
+
+local onGoal: ((string) -> ())? = nil
+
+function Pitch.onGoal(fn: (string) -> ())
+	onGoal = fn
+end
+
+--------------------------------------------------------------------------------
+-- Construcao
+--------------------------------------------------------------------------------
 
 local function makePart(name: string, size: Vector3, colour: Color3, parent: Instance): Part
 	local p = Instance.new("Part")
@@ -58,111 +82,141 @@ local function buildFootballer(teamId: string, home: Vector3, parent: Instance):
 	torso.CFrame = CFrame.new(home)
 	model.PrimaryPart = torso
 
-	local head = makePart("Head", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(215, 178, 140), model)
-	head.CFrame = torso.CFrame * CFrame.new(0, 1.8, 0)
-	local headWeld = Instance.new("WeldConstraint")
-	headWeld.Part0 = torso
-	headWeld.Part1 = head
-	headWeld.Parent = torso
-
-	local legs = makePart("Legs", Vector3.new(1.8, 2, 0.9), Color3.fromRGB(28, 30, 36), model)
-	legs.CFrame = torso.CFrame * CFrame.new(0, -2.2, 0)
-	local legWeld = Instance.new("WeldConstraint")
-	legWeld.Part0 = torso
-	legWeld.Part1 = legs
-	legWeld.Parent = torso
-
-	return { model = model, root = torso, home = home, teamId = teamId }
-end
-
--- Uma formacao simples: guarda-redes, defesas, meio, avancados.
-local function formationFor(teamId: string): { Vector3 }
-	local sign = teamId == "home" and 1 or -1
-	local half = S.pitchLength / 2
-	local spots = {}
-
-	table.insert(spots, Vector3.new(half * 0.92 * sign, 1.2, 0))
-
-	local lines = { { x = 0.62, count = 2 }, { x = 0.3, count = 2 }, { x = 0.08, count = 1 } }
-	for _, line in lines do
-		for i = 1, line.count do
-			local spread = (i - (line.count + 1) / 2) * (S.pitchWidth / (line.count + 1))
-			table.insert(spots, Vector3.new(half * line.x * sign, 1.2, spread))
-		end
+	local function attach(name: string, size: Vector3, colour: Color3, offset: CFrame)
+		local piece = makePart(name, size, colour, model)
+		piece.CFrame = torso.CFrame * offset
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = torso
+		weld.Part1 = piece
+		weld.Parent = torso
 	end
 
-	while #spots < P.perSide do
-		table.insert(spots, Vector3.new(half * 0.2 * sign, 1.2, 0))
+	attach("Head", Vector3.new(1.2, 1.2, 1.2), Color3.fromRGB(215, 178, 140), CFrame.new(0, 1.8, 0))
+	attach("Legs", Vector3.new(1.8, 2, 0.9), Color3.fromRGB(26, 28, 34), CFrame.new(0, -2.2, 0))
+
+	return { root = torso, home = home, teamId = teamId }
+end
+
+local function formationFor(teamId: string): { Vector3 }
+	local sign = teamId == "home" and 1 or -1
+	local spots = { Vector3.new(HALF * 0.93 * sign, 1.2, 0) }
+
+	for _, line in { { x = 0.62, n = 2 }, { x = 0.32, n = 2 }, { x = 0.1, n = 1 } } do
+		for i = 1, line.n do
+			local spread = (i - (line.n + 1) / 2) * (S.pitchWidth / (line.n + 1))
+			table.insert(spots, Vector3.new(HALF * line.x * sign, 1.2, spread))
+		end
 	end
 
 	return spots
-end
-
-local function nearestTo(position: Vector3): Footballer?
-	local best: Footballer? = nil
-	local bestDist = math.huge
-	for _, f in footballers do
-		local d = (f.root.Position - position).Magnitude
-		if d < bestDist then
-			bestDist = d
-			best = f
-		end
-	end
-	return best
-end
-
--- Para onde a bola vai a seguir: um passe para a frente, com ruido.
-local function pickTarget(from: Footballer?): Vector3
-	local half = S.pitchLength / 2 - 6
-	local edge = S.pitchWidth / 2 - 6
-
-	if from then
-		local sign = from.teamId == "home" and 1 or -1
-		local forward = math.clamp(from.root.Position.X + sign * math.random(25, 50), -half, half)
-		return Vector3.new(forward, 1.5, math.clamp(math.random(-edge, edge), -edge, edge))
-	end
-
-	return Vector3.new(math.random(-half, half), 1.5, math.random(-edge, edge))
 end
 
 function Pitch.build(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "Match"
 	folder.Parent = parent
-	root = folder
 
-	table.clear(footballers)
-
+	table.clear(squad)
 	for _, teamId in Config.TeamOrder do
 		for _, spot in formationFor(teamId) do
-			table.insert(footballers, buildFootballer(teamId, spot, folder))
+			table.insert(squad, buildFootballer(teamId, spot, folder))
 		end
 	end
 
-	local b = makePart("Ball", Vector3.new(1.6, 1.6, 1.6), Color3.fromRGB(245, 245, 245), folder)
+	local b = makePart("Ball", Vector3.new(1.6, 1.6, 1.6), Color3.fromRGB(246, 246, 246), folder)
 	b.Shape = Enum.PartType.Ball
-	b.CFrame = CFrame.new(0, 1.5, 0)
-	b.Material = Enum.Material.SmoothPlastic
+	b.CFrame = CFrame.new(0, 1.2, 0)
 	ball = b
-	ballTarget = pickTarget(nil)
+end
+
+--------------------------------------------------------------------------------
+-- Decisoes
+--------------------------------------------------------------------------------
+
+local function nearest(position: Vector3, teamId: string?): Footballer?
+	local best: Footballer? = nil
+	local bestDist = math.huge
+	for _, f in squad do
+		if teamId == nil or f.teamId == teamId then
+			local d = (f.root.Position - position).Magnitude
+			if d < bestDist then
+				bestDist = d
+				best = f
+			end
+		end
+	end
+	return best
 end
 
 --[[
-	Manda a bola para uma das balizas — e o que se ve quando ha golo. Quem decide
-	que houve golo e o MatchLoop; isto e so a imagem.
+	Rematar a baliza contraria. O desvio vem do ambiente da propria bancada:
+	calada, o remate sai torto; ao rubro, vai onde deve.
 ]]
-function Pitch.driveToGoal(teamId: string)
-	local sign = teamId == "home" and 1 or -1
-	ballTarget = Vector3.new((S.pitchLength / 2 - 2) * sign, 3, math.random(-6, 6))
-	holder = nil
+local function shoot(from: Footballer)
+	local goalX = attackingX(from.teamId)
+	local heat = Atmosphere.fraction(from.teamId)
+	local spread = P.shotSpreadCold + (P.shotSpreadHot - P.shotSpreadCold) * heat
+
+	state.mode = "kick"
+	state.carrier = nil
+	state.lastTeam = from.teamId
+	state.target = Vector3.new(
+		goalX + (goalX > 0 and 3 or -3),
+		math.random() * 5 + 1.5,
+		math.clamp(math.random() * spread * 2 - spread, -22, 22)
+	)
+end
+
+local function passForward(from: Footballer)
+	local sign = from.teamId == "home" and 1 or -1
+	local edge = S.pitchWidth / 2 - 6
+
+	state.mode = "kick"
+	state.carrier = nil
+	state.lastTeam = from.teamId
+	state.target = Vector3.new(
+		math.clamp(from.root.Position.X + sign * math.random(24, 44), -HALF + 5, HALF - 5),
+		1.2,
+		math.clamp(math.random(-edge, edge), -edge, edge)
+	)
+end
+
+local function crossedGoalLine(position: Vector3): string?
+	if math.abs(position.Z) > P.goalHalfWidth or position.Y > P.goalHeight then
+		return nil
+	end
+	if position.X >= HALF - 1 then
+		return "home" -- marcou quem ataca este lado
+	elseif position.X <= -HALF + 1 then
+		return "away"
+	end
+	return nil
+end
+
+--------------------------------------------------------------------------------
+-- Movimento
+--------------------------------------------------------------------------------
+
+local function moveTowards(f: Footballer, goal: Vector3, speed: number, dt: number)
+	local here = f.root.Position
+	local delta = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
+	if delta.Magnitude < 0.3 then
+		return
+	end
+	local step = delta.Unit * math.min(speed * dt, delta.Magnitude)
+	local landed = here + step
+	f.root.CFrame = CFrame.lookAt(landed, landed + delta.Unit)
 end
 
 function Pitch.kickOff()
-	if ball then
-		ball.CFrame = CFrame.new(0, 1.5, 0)
+	local b = ball
+	if b then
+		b.CFrame = CFrame.new(0, 1.2, 0)
 	end
-	ballTarget = pickTarget(nil)
-	holder = nil
+	state.mode = "loose"
+	state.carrier = nil
+	state.target = Vector3.new(0, 1.2, 0)
+	state.resetAt = 0
 end
 
 function Pitch.step(dt: number, playing: boolean)
@@ -171,40 +225,85 @@ function Pitch.step(dt: number, playing: boolean)
 		return
 	end
 
-	-- Entre partes toda a gente volta ao seu lugar e a bola fica quieta.
 	if not playing then
-		for _, f in footballers do
-			local goal = f.home
-			local here = f.root.Position
-			if (goal - here).Magnitude > 1 then
-				local step = (goal - here).Unit * math.min(P.speed * dt, (goal - here).Magnitude)
-				f.root.CFrame = CFrame.lookAt(here + step, goal)
-			end
+		for _, f in squad do
+			moveTowards(f, f.home, P.speed, dt)
 		end
 		return
 	end
 
-	-- A bola viaja para o alvo. Ao chegar, quem estiver perto chuta outra vez.
-	local toTarget = ballTarget - b.Position
-	if toTarget.Magnitude > 0.5 then
-		local step = toTarget.Unit * math.min(P.ballSpeed * dt, toTarget.Magnitude)
-		b.CFrame = b.CFrame + step
-	else
-		holder = nearestTo(b.Position)
-		ballTarget = pickTarget(holder)
+	-- Pausa curta depois do golo, para se ver a bola na rede.
+	if state.resetAt > 0 then
+		if os.clock() >= state.resetAt then
+			Pitch.kickOff()
+		end
+		for _, f in squad do
+			moveTowards(f, f.home, P.speed, dt)
+		end
+		return
 	end
 
-	-- Os dois mais proximos perseguem a bola; os outros seguram a posicao. Chega
-	-- para se ler um jogo sem ter de simular um.
-	local chaser = nearestTo(b.Position)
-	for _, f in footballers do
-		local goal = (f == chaser) and b.Position or f.home
-		local here = f.root.Position
-		local delta = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
+	if state.mode == "carry" then
+		local carrier = state.carrier
+		if carrier then
+			local goalX = attackingX(carrier.teamId)
+			local aim = Vector3.new(goalX, 1.2, 0)
+			moveTowards(carrier, aim, P.speed, dt)
 
-		if delta.Magnitude > P.kickRange * 0.4 then
-			local step = delta.Unit * math.min(P.speed * dt, delta.Magnitude)
-			f.root.CFrame = CFrame.lookAt(here + step, here + step + delta.Unit)
+			-- A bola vai a frente dos pes de quem a leva.
+			local forward = carrier.root.CFrame.LookVector
+			b.CFrame = CFrame.new(carrier.root.Position + forward * 2 + Vector3.new(0, -0.5, 0))
+
+			local distance = math.abs(goalX - carrier.root.Position.X)
+			if distance <= P.shootRange then
+				shoot(carrier)
+			elseif math.random() < dt * 0.35 then
+				passForward(carrier)
+			end
+		else
+			state.mode = "loose"
+		end
+	else
+		-- A bola viaja para onde foi mandada.
+		local toTarget = state.target - b.Position
+		local speed = state.mode == "kick" and P.ballSpeed or P.passSpeed
+		if toTarget.Magnitude > 0.6 then
+			b.CFrame = b.CFrame + toTarget.Unit * math.min(speed * dt, toTarget.Magnitude)
+		else
+			state.mode = "loose"
+		end
+
+		local scorer = crossedGoalLine(b.Position)
+		if scorer and state.lastTeam == scorer then
+			state.resetAt = os.clock() + 2.5
+			state.lastTeam = nil
+			if onGoal then
+				onGoal(scorer)
+			end
+			return
+		end
+
+		-- Quem chegar primeiro fica com ela.
+		local claimer = nearest(b.Position, nil)
+		if claimer and (claimer.root.Position - b.Position).Magnitude <= P.controlRange then
+			state.mode = "carry"
+			state.carrier = claimer
+			state.lastTeam = claimer.teamId
+		end
+	end
+
+	-- Um perseguidor de cada equipa; os outros seguram a forma. Chega para se ler
+	-- um jogo sem ter de simular um.
+	for _, teamId in Config.TeamOrder do
+		local chaser = nearest(b.Position, teamId)
+		for _, f in squad do
+			if f.teamId == teamId then
+				if f == chaser and f ~= state.carrier then
+					moveTowards(f, b.Position, P.chaseSpeed, dt)
+				elseif f ~= state.carrier then
+					moveTowards(f, f.home, P.speed, dt)
+				end
+			end
 		end
 	end
 end

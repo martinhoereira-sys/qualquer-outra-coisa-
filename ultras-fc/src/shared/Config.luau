@@ -63,9 +63,6 @@ Config.Match = {
 	halfTimeLength = 20,
 	fullTimeLength = 25, -- rescaldo antes de recomecar
 
-	chanceInterval = 5, -- de quantos em quantos segundos se tenta um lance
-	baseGoalChance = 0.10, -- hipotese base de golo por lance
-	atmosphereSwing = 1.6, -- bancada cheia multiplica a hipotese por (1 + isto)
 }
 
 --[[
@@ -80,10 +77,13 @@ Config.Stadium = {
 	pitchLength = 110, -- ao longo do eixo X
 	pitchWidth = 70, -- ao longo do eixo Z
 
-	standRows = 12,
-	rowHeight = 2.6,
-	rowDepth = 3.6,
-	standGap = 7, -- distancia da linha lateral a primeira fila
+	standRows = 14,
+	rowHeight = 2.4,
+	rowDepth = 3.2,
+	standGap = 9, -- distancia da linha lateral a primeira fila
+
+	cornerSegments = 7, -- quantos blocos fazem cada canto curvo
+	tunnelWidth = 14, -- vao das entradas por baixo da bancada
 }
 
 --[[
@@ -99,9 +99,19 @@ Config.Stadium = {
 ]]
 Config.Pitch = {
 	perSide = 6,
-	speed = 18, -- studs por segundo
-	ballSpeed = 46,
-	kickRange = 5,
+	speed = 17, -- studs por segundo com bola nos pes
+	chaseSpeed = 21, -- sem bola corre-se mais
+	ballSpeed = 58, -- remate
+	passSpeed = 40,
+	controlRange = 4.5, -- a que distancia se ganha a bola
+	shootRange = 34, -- daqui para dentro, remata-se
+	goalHalfWidth = 8,
+	goalHeight = 9,
+
+	-- O ambiente da bancada entra aqui: com a bancada cheia o remate sai mais
+	-- certeiro. E a ligacao entre cantar e marcar, e e o coracao do jogo.
+	shotSpreadCold = 16, -- desvio com a bancada calada
+	shotSpreadHot = 3, -- desvio com a bancada ao rubro
 }
 
 Config.Flares = {

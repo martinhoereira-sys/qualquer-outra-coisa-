@@ -215,7 +215,7 @@ flareLabel.Size = UDim2.new(1, 0, 0, 18)
 flareLabel.Position = UDim2.new(0.5, 0, 1, -76)
 flareLabel.AnchorPoint = Vector2.new(0.5, 0)
 
-local hint = label(gui, "E  cantar          F  tocha          espaco  saltar", 12, MUTED)
+local hint = label(gui, "E  cantar     F  pegar tocha  ·  clicar para acender     espaco  saltar", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
@@ -328,8 +328,8 @@ Remotes.FlareCount.OnClientEvent:Connect(function(count)
 	updateFlareLabel()
 end)
 
--- Quem decide se acende e o servidor: tem de arder para toda a gente, nao so
--- para quem carregou.
+-- O F so pede a tocha; ela vai para a mochila. Acende-se depois, ao pegar nela
+-- e clicar — o gesto de a levantar e metade da coisa.
 ContextActionService:BindAction("Tocha", function(_, inputState)
 	if inputState == Enum.UserInputState.Begin and myTeam then
 		Remotes.Flare:FireServer()

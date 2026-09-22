@@ -102,14 +102,17 @@ Remotes.Chant.OnServerEvent:Connect(function(player)
 	Atmosphere.registerChant(teamId, offset)
 end)
 
+Flares.onCountChanged(function(player, count)
+	Remotes.FlareCount:FireClient(player, count)
+end)
+
 local function sendFlareCount(player: Player)
 	Remotes.FlareCount:FireClient(player, Flares.remaining(player))
 end
 
+-- O cliente pede uma tocha; ela aparece na mochila e acende-se ao usa-la.
 Remotes.Flare.OnServerEvent:Connect(function(player)
-	if Flares.light(player) then
-		sendFlareCount(player)
-	end
+	Flares.issue(player)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
@@ -156,12 +159,6 @@ MatchLoop.onChange(function(snapshot)
 		Pitch.kickOff()
 	end
 
-	-- O golo ja foi decidido pelo MatchLoop; aqui a bola vai la mostra-lo.
-	if snapshot.lastGoal and snapshot.goalStamp > lastGoalStamp then
-		lastGoalStamp = snapshot.goalStamp
-		Pitch.driveToGoal(snapshot.lastGoal)
-	end
-
 	lastPhase = snapshot.phase
 end)
 
@@ -174,6 +171,14 @@ end)
 
 Stadium.build()
 Pitch.build(workspace:WaitForChild("Stadium"))
+
+-- A bola entrar na baliza e que marca. O ambiente da bancada ja entrou na
+-- pontaria do remate, la no campo.
+Pitch.onGoal(function(teamId)
+	MatchLoop.scoreGoal(teamId)
+end)
+
+Flares.start()
 MatchLoop.start()
 
 print("[Ultras FC] Servidor a postos.")
