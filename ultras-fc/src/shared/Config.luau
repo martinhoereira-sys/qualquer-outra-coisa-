@@ -16,12 +16,14 @@ Config.Teams = {
 		name = "Aguias do Norte",
 		short = "AGN",
 		color = Color3.fromRGB(196, 58, 48),
+		side = 1, -- bancada norte
 	},
 	away = {
 		id = "away",
 		name = "Leoes do Sul",
 		short = "LES",
 		color = Color3.fromRGB(46, 98, 178),
+		side = -1, -- bancada sul
 	},
 }
 
@@ -64,6 +66,24 @@ Config.Match = {
 	chanceInterval = 5, -- de quantos em quantos segundos se tenta um lance
 	baseGoalChance = 0.10, -- hipotese base de golo por lance
 	atmosphereSwing = 1.6, -- bancada cheia multiplica a hipotese por (1 + isto)
+}
+
+--[[
+	O estadio. E propositadamente simples: partes soltas, sem modelos nem texturas.
+	Serve para haver um sitio, e para se perceber de que lado se esta. Quando
+	quiseres um estadio a serio, constroi-o a mao no Studio e poe
+	Config.Stadium.build a false para este nao te apagar o trabalho.
+]]
+Config.Stadium = {
+	build = true,
+
+	pitchLength = 110, -- ao longo do eixo X
+	pitchWidth = 70, -- ao longo do eixo Z
+
+	standRows = 9,
+	rowHeight = 3.2,
+	rowDepth = 4.5,
+	standGap = 8, -- distancia da linha lateral a primeira fila
 }
 
 return Config
