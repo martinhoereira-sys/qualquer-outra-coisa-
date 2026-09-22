@@ -189,7 +189,8 @@ local function clubhouse(teamId: string, centre: Vector3, parent: Instance)
 	light.Parent = glow
 
 	-- Sai-se de frente para a rua, virado para o estadio.
-	spawnPoints[teamId] = Vector3.new(centre.X, 4, centre.Z + depth / 2 + 8)
+	-- A porta da sede, assente no chao: alto de mais e cai-se a entrar.
+	spawnPoints[teamId] = Vector3.new(centre.X, 3.5, centre.Z + depth / 2 + 9)
 end
 
 function City.spawnPoint(teamId: string): Vector3?
@@ -204,6 +205,25 @@ function City.build(parent: Instance)
 	local outerZ = S.pitchWidth / 2 + S.standGap + S.standRows * S.rowDepth + 30
 	local roadZ = outerZ + 70
 	local roadLength = 900
+
+	--[[
+		Chao debaixo de tudo, antes de mais nada.
+
+		As sedes ficam a 450 studs do centro e a explanada do estadio so chega a
+		perto de 180: sem isto, aparecia-se em cima do vazio e caia-se. Uma laje
+		so, do tamanho do bairro inteiro, e o topo a mesma altura da explanada
+		para nao haver degrau nenhum entre a rua e o recinto.
+	]]
+	local span = roadLength + 400
+	local depthSpan = (roadZ + 320) + (outerZ + 160)
+	part(
+		"Ground",
+		Vector3.new(span, 4, depthSpan),
+		CFrame.new(0, -2.5, (roadZ + 320 - outerZ - 160) / 2),
+		Color3.fromRGB(30, 32, 37),
+		folder,
+		Enum.Material.Asphalt
+	)
 
 	-- Quarteiroes dos dois lados da avenida, deixando a faixa da estrada livre.
 	local blockDepth = 90
