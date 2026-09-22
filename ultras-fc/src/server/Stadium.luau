@@ -47,24 +47,26 @@ local function buildStand(teamId: string, parent: Instance): Vector3
 	local firstRowZ = (S.pitchWidth / 2 + S.standGap) * side
 
 	for row = 1, S.standRows do
-		local y = (row - 0.5) * S.rowHeight
+		-- Cada fila e um bloco macico do chao ate ao seu topo. Blocos da altura
+		-- de um degrau so, colocados a alturas diferentes, ficavam a flutuar com
+		-- vazio por baixo — e o que faz uma escadaria e cada um assentar no chao.
+		local topY = row * S.rowHeight
 		local z = firstRowZ + (row - 1) * S.rowDepth * side
 
-		-- O degrau onde se fica de pe.
 		part(
 			"Row" .. row,
-			Vector3.new(S.pitchLength + 20, S.rowHeight, S.rowDepth),
-			CFrame.new(0, y / 2, z),
+			Vector3.new(S.pitchLength + 20, topY, S.rowDepth),
+			CFrame.new(0, topY / 2, z),
 			CONCRETE,
 			folder
 		)
 
-		-- Uma faixa da cor da equipa a marcar a fila. E o que torna a bancada
-		-- reconhecivel de longe, que e metade do efeito.
+		-- Faixa da cor da equipa na beira do degrau, virada para o relvado. E o
+		-- que torna a bancada reconhecivel de longe, que e metade do efeito.
 		part(
 			"Stripe" .. row,
-			Vector3.new(S.pitchLength + 20, 0.4, 0.8),
-			CFrame.new(0, y + 0.2, z - (S.rowDepth / 2 - 0.4) * side),
+			Vector3.new(S.pitchLength + 20, 0.4, 0.9),
+			CFrame.new(0, topY + 0.2, z - (S.rowDepth / 2 - 0.45) * side),
 			team.color,
 			folder
 		)
@@ -86,7 +88,7 @@ local function buildStand(teamId: string, parent: Instance): Vector3
 	local spawnRow = math.ceil(S.standRows / 2)
 	return Vector3.new(
 		0,
-		spawnRow * S.rowHeight + 4,
+		spawnRow * S.rowHeight + 3.5, -- em cima do degrau, com folga para assentar
 		firstRowZ + (spawnRow - 1) * S.rowDepth * side
 	)
 end

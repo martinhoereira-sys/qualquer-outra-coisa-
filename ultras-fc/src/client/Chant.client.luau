@@ -2,9 +2,13 @@
 --[[
 	O que o adepto ve e faz.
 
-	Duas coisas: escolher equipa a entrada, e depois cantar ao compasso. O
-	compasso nao vem pela rede — o cliente le o mesmo relogio do servidor e
-	calcula-o sozinho, por isso o pulso e suave mesmo com ping.
+	Duas coisas: escolher equipa a entrada, e depois cantar ao compasso.
+
+	O compasso nao vem pela rede — o cliente le o mesmo relogio do servidor e
+	calcula-o sozinho, por isso o ritmo mantem-se suave mesmo com ping.
+
+	Regra do ecra: ESPACO E PARA SALTAR. Cantar e no E. Um jogo onde se esta numa
+	bancada tem de deixar saltar, e a barra de espaco e onde a mao ja esta.
 ]]
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -23,8 +27,8 @@ local myTeam: string? = nil
 	Sons. Poe aqui os ids dos teus audios (rbxassetid://NUMERO) e passa a haver
 	som sem mexer em mais nada. Vazios, o jogo funciona igual — so em silencio.
 
-	O `drum` toca em cada batida e e o mais importante: e ele que da o compasso.
-	Sem som, a pessoa tem de o ler no circulo, o que e bem mais dificil.
+	Comeca pelo `drum`: e ele que marca o compasso. Sem som, o ritmo tem de se
+	ler no ecra, que e bem mais dificil do que ouvi-lo.
 ]]
 local SOUNDS = {
 	drum = "",
@@ -49,6 +53,9 @@ end
 local INK = Color3.fromRGB(14, 17, 22)
 local TEXT = Color3.fromRGB(232, 234, 237)
 local MUTED = Color3.fromRGB(141, 150, 163)
+local BRASS = Color3.fromRGB(217, 164, 65)
+local GOOD = Color3.fromRGB(79, 180, 119)
+local BAD = Color3.fromRGB(224, 84, 78)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "UltrasHud"
@@ -86,10 +93,6 @@ pickHint.Font = Enum.Font.Gotham
 pickHint.Size = UDim2.new(1, -40, 0, 22)
 pickHint.Position = UDim2.new(0, 20, 0.5, -98)
 
-local function showPicker(visible: boolean)
-	picker.Visible = visible
-end
-
 for index, teamId in Config.TeamOrder do
 	local team = Config.Teams[teamId]
 
@@ -111,33 +114,31 @@ for index, teamId in Config.TeamOrder do
 	button.Activated:Connect(function()
 		myTeam = teamId
 		Remotes.PickTeam:FireServer(teamId)
-		showPicker(false)
+		picker.Visible = false
 	end)
 end
 
 --------------------------------------------------------------------------------
--- Marcador e barras
+-- Marcador
 --------------------------------------------------------------------------------
 
-local hud = Instance.new("Frame")
-hud.Size = UDim2.new(1, 0, 0, 132)
-hud.BackgroundTransparency = 1
-hud.Parent = gui
-
-local scoreLabel = label(hud, "0 - 0", 40, TEXT)
+local scoreLabel = label(gui, "0 - 0", 40, TEXT)
 scoreLabel.Size = UDim2.new(1, 0, 0, 46)
 scoreLabel.Position = UDim2.new(0, 0, 0, 16)
 
-local phaseLabel = label(hud, "AQUECIMENTO", 14, MUTED)
+local phaseLabel = label(gui, "AQUECIMENTO", 14, MUTED)
 phaseLabel.Font = Enum.Font.Gotham
 phaseLabel.Size = UDim2.new(1, 0, 0, 20)
 phaseLabel.Position = UDim2.new(0, 0, 0, 62)
 
-local goalLabel = label(hud, "", 30, TEXT)
+local goalLabel = label(gui, "", 30, TEXT)
 goalLabel.Size = UDim2.new(1, 0, 0, 36)
-goalLabel.Position = UDim2.new(0, 0, 0, 86)
+goalLabel.Position = UDim2.new(0, 0, 0, 88)
 
--- Uma barra por bancada, encostada a cada lado do ecra.
+--------------------------------------------------------------------------------
+-- As bancadas, uma barra de cada lado
+--------------------------------------------------------------------------------
+
 local bars: { [string]: Frame } = {}
 
 for index, teamId in Config.TeamOrder do
@@ -145,9 +146,10 @@ for index, teamId in Config.TeamOrder do
 	local onLeft = index == 1
 
 	local track = Instance.new("Frame")
-	track.Size = UDim2.new(0, 26, 0, 240)
-	track.Position = UDim2.new(onLeft and 0 or 1, onLeft and 24 or -50, 0.5, -120)
+	track.Size = UDim2.new(0, 22, 0, 220)
+	track.Position = UDim2.new(onLeft and 0 or 1, onLeft and 20 or -42, 0.5, -110)
 	track.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
+	track.BackgroundTransparency = 0.25
 	track.BorderSizePixel = 0
 	track.Parent = gui
 
@@ -159,66 +161,74 @@ for index, teamId in Config.TeamOrder do
 	fill.BorderSizePixel = 0
 	fill.Parent = track
 
-	local tag = label(track, team.short, 13, MUTED)
+	local tag = label(track, team.short, 12, MUTED)
 	tag.Font = Enum.Font.Gotham
-	tag.Size = UDim2.new(1, 20, 0, 18)
-	tag.Position = UDim2.new(0, -10, 1, 6)
+	tag.Size = UDim2.new(1, 20, 0, 16)
+	tag.Position = UDim2.new(0, -10, 1, 5)
 
 	bars[teamId] = fill
 end
 
 --------------------------------------------------------------------------------
--- O compasso
+-- O compasso, discreto, em baixo
 --------------------------------------------------------------------------------
 
-local pulse = Instance.new("Frame")
-pulse.AnchorPoint = Vector2.new(0.5, 0.5)
-pulse.Size = UDim2.fromOffset(96, 96)
-pulse.Position = UDim2.new(0.5, 0, 1, -120)
-pulse.BackgroundColor3 = Color3.fromRGB(217, 164, 65)
-pulse.BorderSizePixel = 0
-pulse.Parent = gui
+-- Uma barra fina que enche entre batidas e estala no momento certo. Chega para
+-- se ler o ritmo sem tapar meio ecra com um botao.
+local beatTrack = Instance.new("Frame")
+beatTrack.AnchorPoint = Vector2.new(0.5, 1)
+beatTrack.Size = UDim2.fromOffset(200, 5)
+beatTrack.Position = UDim2.new(0.5, 0, 1, -56)
+beatTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
+beatTrack.BackgroundTransparency = 0.3
+beatTrack.BorderSizePixel = 0
+beatTrack.Parent = gui
 
-local pulseCorner = Instance.new("UICorner")
-pulseCorner.CornerRadius = UDim.new(1, 0)
-pulseCorner.Parent = pulse
+local beatFill = Instance.new("Frame")
+beatFill.AnchorPoint = Vector2.new(0.5, 0.5)
+beatFill.Position = UDim2.fromScale(0.5, 0.5)
+beatFill.Size = UDim2.fromScale(0, 1)
+beatFill.BackgroundColor3 = BRASS
+beatFill.BorderSizePixel = 0
+beatFill.Parent = beatTrack
 
-local pulseText = label(pulse, "CANTA", 15, INK)
-pulseText.Size = UDim2.fromScale(1, 1)
-
--- O veredicto aparece imediatamente por cima do circulo. A barra continua a ser
--- decidida pelo servidor; isto e o que a pessoa ve, e tem de ser instantaneo.
-local feedback = label(gui, "", 26, TEXT)
-feedback.Size = UDim2.new(1, 0, 0, 32)
-feedback.Position = UDim2.new(0, 0, 1, -196)
-feedback.TextTransparency = 1
-
-local comboLabel = label(gui, "", 15, Color3.fromRGB(217, 164, 65))
-comboLabel.Font = Enum.Font.GothamBold
-comboLabel.Size = UDim2.new(1, 0, 0, 20)
-comboLabel.Position = UDim2.new(0, 0, 1, -168)
-comboLabel.TextTransparency = 1
-
--- A barra da propria bancada, junto ao circulo: a das bordas fica longe demais
--- do sitio para onde se esta a olhar.
+-- A barra da propria bancada, junto ao compasso: a das bordas fica longe do
+-- sitio para onde se esta a olhar.
 local ownTrack = Instance.new("Frame")
-ownTrack.AnchorPoint = Vector2.new(0.5, 0)
-ownTrack.Size = UDim2.fromOffset(160, 8)
-ownTrack.Position = UDim2.new(0.5, 0, 1, -38)
+ownTrack.AnchorPoint = Vector2.new(0.5, 1)
+ownTrack.Size = UDim2.fromOffset(200, 5)
+ownTrack.Position = UDim2.new(0.5, 0, 1, -44)
 ownTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
+ownTrack.BackgroundTransparency = 0.3
 ownTrack.BorderSizePixel = 0
 ownTrack.Parent = gui
 
 local ownFill = Instance.new("Frame")
 ownFill.Size = UDim2.fromScale(0, 1)
-ownFill.BackgroundColor3 = Color3.fromRGB(217, 164, 65)
+ownFill.BackgroundColor3 = TEXT
 ownFill.BorderSizePixel = 0
 ownFill.Parent = ownTrack
 
-local chantHint = label(gui, "espaco  ou  toca no circulo", 13, MUTED)
-chantHint.Font = Enum.Font.Gotham
-chantHint.Size = UDim2.new(1, 0, 0, 18)
-chantHint.Position = UDim2.new(0, 0, 1, -56)
+local hint = label(gui, "E  cantar          espaco  saltar", 12, MUTED)
+hint.Font = Enum.Font.Gotham
+hint.Size = UDim2.new(1, 0, 0, 16)
+hint.Position = UDim2.new(0, 0, 1, -26)
+
+local feedback = label(gui, "", 24, TEXT)
+feedback.Size = UDim2.new(1, 0, 0, 30)
+feedback.Position = UDim2.new(0.5, 0, 1, -104)
+feedback.AnchorPoint = Vector2.new(0.5, 0)
+feedback.TextTransparency = 1
+
+local comboLabel = label(gui, "", 14, BRASS)
+comboLabel.Size = UDim2.new(1, 0, 0, 18)
+comboLabel.Position = UDim2.new(0.5, 0, 1, -80)
+comboLabel.AnchorPoint = Vector2.new(0.5, 0)
+comboLabel.TextTransparency = 1
+
+--------------------------------------------------------------------------------
+-- Cantar
+--------------------------------------------------------------------------------
 
 local combo = 0
 local feedbackToken = 0
@@ -242,9 +252,10 @@ local function showFeedback(text: string, colour: Color3)
 	end)
 end
 
--- O cliente le o mesmo relogio do servidor, por isso julga o proprio acerto sem
--- esperar resposta. Ir e voltar ao servidor para mostrar "PERFEITO" fazia o
--- ritmo sentir-se pastoso, que e precisamente o que este jogo nao pode ser.
+-- O cliente julga o proprio acerto pelo mesmo relogio que o servidor usa. Ir e
+-- voltar ao servidor so para mostrar "PERFEITO" fazia o ritmo sentir-se pastoso,
+-- que e precisamente o que este jogo nao pode ser. A barra continua a ser
+-- decidida pelo servidor: isto muda o que se ve, nao o que conta.
 local function beatOffset(): number
 	local now = workspace:GetServerTimeNow()
 	local index = math.floor(now / Config.Beat.interval + 0.5)
@@ -261,32 +272,32 @@ local function chant()
 	local offset = beatOffset()
 	if offset <= Config.Beat.perfectWindow then
 		combo += 1
-		showFeedback("PERFEITO", Color3.fromRGB(217, 164, 65))
+		showFeedback("PERFEITO", BRASS)
 		play(SOUNDS.perfect, 0.6)
 	elseif offset <= Config.Beat.window then
 		combo = 0
-		showFeedback("BOA", Color3.fromRGB(79, 180, 119))
+		showFeedback("BOA", GOOD)
 		play(SOUNDS.hit, 0.5)
 	else
 		combo = 0
-		showFeedback("FORA DE TEMPO", Color3.fromRGB(224, 84, 78))
+		showFeedback("FORA DE TEMPO", BAD)
 		play(SOUNDS.miss, 0.4)
 	end
 end
 
-local pulseButton = Instance.new("TextButton")
-pulseButton.Size = UDim2.fromScale(1, 1)
-pulseButton.BackgroundTransparency = 1
-pulseButton.Text = ""
-pulseButton.Parent = pulse
-pulseButton.Activated:Connect(chant)
-
-ContextActionService:BindAction("UltrasChant", function(_, inputState)
+--[[
+	E para cantar, e nada mais. O terceiro argumento pede um botao tactil, que
+	o Roblox so cria em telemovel — no computador o ecra fica limpo, e a barra
+	de espaco continua a fazer o que toda a gente espera: saltar.
+]]
+ContextActionService:BindAction("Cantar", function(_, inputState)
 	if inputState == Enum.UserInputState.Begin then
 		chant()
 	end
-	return Enum.ContextActionResult.Sink
-end, false, Enum.KeyCode.Space)
+	return Enum.ContextActionResult.Pass
+end, true, Enum.KeyCode.E)
+
+ContextActionService:SetTitle("Cantar", "CANTA")
 
 --------------------------------------------------------------------------------
 -- Ligacao ao servidor
@@ -332,26 +343,26 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 	end
 end)
 
--- O tambor e o compasso. Sem som e preciso ler o circulo, o que e bem mais
--- dificil — por isso o `drum` e o primeiro som a valer a pena por.
+--------------------------------------------------------------------------------
+-- O compasso a correr
+--------------------------------------------------------------------------------
+
 local lastDrumBeat = -1
 
--- O pulso respira ao compasso: grande na batida, pequeno entre batidas.
 RunService.RenderStepped:Connect(function()
 	local now = workspace:GetServerTimeNow()
+	local interval = Config.Beat.interval
 
-	local beat = math.floor(now / Config.Beat.interval + 0.5)
-	if beat ~= lastDrumBeat and math.abs(now - beat * Config.Beat.interval) < 0.05 then
+	local beat = math.floor(now / interval + 0.5)
+	local offset = now - beat * interval
+
+	if beat ~= lastDrumBeat and math.abs(offset) < 0.05 then
 		lastDrumBeat = beat
 		play(SOUNDS.drum, 0.35)
 	end
 
-	local phase = (now % Config.Beat.interval) / Config.Beat.interval
-	local closeness = 1 - math.abs(phase - 0.5) * 2 -- 1 na batida, 0 a meio
-	local scale = 0.82 + closeness * 0.30
-
-	pulse.Size = UDim2.fromOffset(96 * scale, 96 * scale)
-	pulse.BackgroundTransparency = 0.45 - closeness * 0.45
+	-- Cheia na batida, vazia entre batidas: o pico e o momento de carregar.
+	local closeness = math.clamp(1 - math.abs(offset) / (interval / 2), 0, 1)
+	beatFill.Size = UDim2.fromScale(closeness, 1)
+	beatFill.BackgroundTransparency = 0.55 - closeness * 0.55
 end)
-
-showPicker(true)
