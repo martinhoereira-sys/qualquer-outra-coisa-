@@ -14,9 +14,12 @@ local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local RunService = game:GetService("RunService")
+
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local TifoDesigns = require(Shared:WaitForChild("TifoDesigns"))
 
 local player = Players.LocalPlayer
 local myTeam: string? = nil
@@ -241,7 +244,7 @@ gearLabel.Size = UDim2.new(1, 0, 0, 18)
 gearLabel.Position = UDim2.new(0.5, 0, 1, -78)
 gearLabel.AnchorPoint = Vector2.new(0.5, 0)
 
-local hint = label(gui, "material na sede    ·    B  pedir ao arbitro    ·    espaco  saltar", 12, MUTED)
+local hint = label(gui, "material na sede    ·    B  pedir ao arbitro    ·    T  tifo    ·    espaco  saltar", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
@@ -462,5 +465,308 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 				goalLabel.Text = ""
 			end
 		end)
+	end
+end)
+
+--------------------------------------------------------------------------------
+-- Tifos
+--------------------------------------------------------------------------------
+
+--[[
+	O lider ve um botao com os tifos que restam e se agora e o momento certo;
+	carrega, escolhe o desenho, e sai. Quem esta no bloco recebe a cor do seu
+	lugar e carrega em T para levantar.
+
+	O aviso de "momento certo" esta ali para o lider decidir com a informacao
+	toda: o tifo vale o dobro no apito inicial e depois de um golo nosso.
+]]
+
+local TIFO = Config.Tifo
+local lastSnapshot: any = nil
+local tifoLeft: { [string]: number } = {}
+local tifoActive: { [string]: any } = {}
+local myCard: any = nil
+local pickerOpen = false
+
+Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
+	lastSnapshot = snapshot
+end)
+
+local function isPlaying(): boolean
+	return lastSnapshot ~= nil and (lastSnapshot.phase == "first" or lastSnapshot.phase == "second")
+end
+
+-- A mesma conta que o servidor faz, para o lider saber antes de carregar.
+local function isMoment(): boolean
+	local snap = lastSnapshot
+	if not snap or not myTeam then
+		return false
+	end
+	if snap.phase == "first" and Config.Match.halfLength - snap.clock <= TIFO.momentWindow then
+		return true
+	end
+	return snap.lastGoal == myTeam and workspace:GetServerTimeNow() - snap.goalStamp <= TIFO.momentWindow
+end
+
+local function isLeader(): boolean
+	return player:GetAttribute("Leader") == true
+end
+
+-- O botao do lider, no canto de baixo a direita.
+local tifoButton = Instance.new("TextButton")
+tifoButton.AnchorPoint = Vector2.new(1, 1)
+tifoButton.Size = UDim2.fromOffset(210, 54)
+tifoButton.Position = UDim2.new(1, -20, 1, -20)
+tifoButton.BackgroundColor3 = INK
+tifoButton.BackgroundTransparency = 0.15
+tifoButton.BorderSizePixel = 0
+tifoButton.Text = ""
+tifoButton.Visible = false
+tifoButton.Parent = gui
+
+local tifoButtonCorner = Instance.new("UICorner")
+tifoButtonCorner.CornerRadius = UDim.new(0, 10)
+tifoButtonCorner.Parent = tifoButton
+
+local tifoButtonTitle = label(tifoButton, "", 16, TEXT)
+tifoButtonTitle.Size = UDim2.new(1, 0, 0, 22)
+tifoButtonTitle.Position = UDim2.new(0, 0, 0, 7)
+
+local tifoButtonNote = label(tifoButton, "", 12, MUTED)
+tifoButtonNote.Font = Enum.Font.Gotham
+tifoButtonNote.Size = UDim2.new(1, 0, 0, 16)
+tifoButtonNote.Position = UDim2.new(0, 0, 0, 31)
+
+-- O seletor: um cartao por desenho, com o desenho em ponto pequeno.
+local picker = Instance.new("Frame")
+picker.AnchorPoint = Vector2.new(1, 1)
+picker.Size = UDim2.fromOffset(#TIFO.designs * 150 + 10, 150)
+picker.Position = UDim2.new(1, -20, 1, -84)
+picker.BackgroundColor3 = INK
+picker.BackgroundTransparency = 0.1
+picker.BorderSizePixel = 0
+picker.Visible = false
+picker.Parent = gui
+
+local pickerCorner = Instance.new("UICorner")
+pickerCorner.CornerRadius = UDim.new(0, 12)
+pickerCorner.Parent = picker
+
+local previews: { { cells: { Frame }, design: any } } = {}
+
+for i, design in TIFO.designs do
+	local card = Instance.new("TextButton")
+	card.Size = UDim2.fromOffset(140, 130)
+	card.Position = UDim2.fromOffset(10 + (i - 1) * 150, 10)
+	card.BackgroundColor3 = Color3.fromRGB(30, 35, 43)
+	card.BorderSizePixel = 0
+	card.Text = ""
+	card.Parent = picker
+
+	local cardCorner = Instance.new("UICorner")
+	cardCorner.CornerRadius = UDim.new(0, 8)
+	cardCorner.Parent = card
+
+	-- Cada quadrado do desenho, pintado quando se sabe a equipa.
+	local cell = 8
+	local grid = Instance.new("Frame")
+	grid.Size = UDim2.fromOffset(TIFO.columns * cell, TIFO.rows * cell)
+	grid.Position = UDim2.new(0.5, -TIFO.columns * cell / 2, 0, 12)
+	grid.BackgroundTransparency = 1
+	grid.Parent = card
+
+	local cells = {}
+	for r = 1, TIFO.rows do
+		for c = 1, TIFO.columns do
+			local square = Instance.new("Frame")
+			square.Size = UDim2.fromOffset(cell - 1, cell - 1)
+			square.Position = UDim2.fromOffset((c - 1) * cell, (r - 1) * cell)
+			square.BorderSizePixel = 0
+			square.Parent = grid
+			cells[(r - 1) * TIFO.columns + c] = square
+		end
+	end
+	table.insert(previews, { cells = cells, design = design })
+
+	local name = label(card, design.name, 15, TEXT)
+	name.Size = UDim2.new(1, 0, 0, 20)
+	name.Position = UDim2.new(0, 0, 1, -34)
+
+	card.Activated:Connect(function()
+		Remotes.Tifo:FireServer("launch", design.id)
+		pickerOpen = false
+		picker.Visible = false
+	end)
+end
+
+local function paintPreviews()
+	if not myTeam then
+		return
+	end
+	for _, preview in previews do
+		local rows = TifoDesigns.rows(preview.design, myTeam)
+		for r = 1, TIFO.rows do
+			for c = 1, TIFO.columns do
+				preview.cells[(r - 1) * TIFO.columns + c].BackgroundColor3 =
+					TifoDesigns.colour(string.sub(rows[r] or "", c, c), myTeam)
+			end
+		end
+	end
+end
+
+player:GetAttributeChangedSignal("Team"):Connect(paintPreviews)
+paintPreviews()
+
+local function canLaunch(): boolean
+	return myTeam ~= nil and isLeader() and isPlaying() and not tifoActive[myTeam] and (tifoLeft[myTeam] or TIFO.perMatch) > 0
+end
+
+local function togglePicker()
+	pickerOpen = not pickerOpen and canLaunch()
+	picker.Visible = pickerOpen
+end
+
+tifoButton.Activated:Connect(togglePicker)
+
+-- O aviso a meio do ecra: o que vai subir, quando, e se o momento e bom.
+local tifoBanner = label(gui, "", 30, TEXT)
+tifoBanner.Font = Enum.Font.GothamBlack
+tifoBanner.Size = UDim2.new(1, 0, 0, 38)
+tifoBanner.Position = UDim2.new(0, 0, 0.26, 0)
+
+local tifoBannerNote = label(gui, "", 14, MUTED)
+tifoBannerNote.Font = Enum.Font.Gotham
+tifoBannerNote.Size = UDim2.new(1, 0, 0, 20)
+tifoBannerNote.Position = UDim2.new(0, 0, 0.26, 40)
+
+-- A cartolina de cada um, por cima da barra do rodape.
+local cardPrompt = Instance.new("Frame")
+cardPrompt.AnchorPoint = Vector2.new(0.5, 1)
+cardPrompt.Size = UDim2.fromOffset(300, 44)
+cardPrompt.Position = UDim2.new(0.5, 0, 1, -104)
+cardPrompt.BackgroundColor3 = INK
+cardPrompt.BackgroundTransparency = 0.15
+cardPrompt.BorderSizePixel = 0
+cardPrompt.Visible = false
+cardPrompt.Parent = gui
+
+local cardPromptCorner = Instance.new("UICorner")
+cardPromptCorner.CornerRadius = UDim.new(0, 10)
+cardPromptCorner.Parent = cardPrompt
+
+local swatch = Instance.new("Frame")
+swatch.Size = UDim2.fromOffset(30, 30)
+swatch.Position = UDim2.fromOffset(7, 7)
+swatch.BorderSizePixel = 0
+swatch.Parent = cardPrompt
+
+local swatchStroke = Instance.new("UIStroke")
+swatchStroke.Color = TEXT
+swatchStroke.Thickness = 1
+swatchStroke.Parent = swatch
+
+local cardText = label(cardPrompt, "", 15, TEXT)
+cardText.Size = UDim2.new(1, -48, 1, 0)
+cardText.Position = UDim2.fromOffset(44, 0)
+cardText.TextXAlignment = Enum.TextXAlignment.Left
+
+local function lift()
+	if myCard and not myCard.lifted then
+		myCard.lifted = true
+		Remotes.Tifo:FireServer("lift")
+	end
+end
+
+-- T: levantar a cartolina se houver uma na mao; senao, o lider abre o seletor.
+ContextActionService:BindAction("Tifo", function(_, inputState)
+	if inputState ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Pass
+	end
+	if myCard and not myCard.lifted and workspace:GetServerTimeNow() < myCard.lowerAt then
+		lift()
+	elseif isLeader() then
+		togglePicker()
+	end
+	return Enum.ContextActionResult.Pass
+end, true, Enum.KeyCode.T)
+
+ContextActionService:SetTitle("Tifo", "TIFO")
+
+Remotes.TifoState.OnClientEvent:Connect(function(payload)
+	if payload.kind == "card" then
+		myCard = { colour = payload.colour, raiseAt = payload.raiseAt, lowerAt = payload.lowerAt, lifted = false }
+		swatch.BackgroundColor3 = payload.colour
+		return
+	end
+
+	tifoLeft[payload.teamId] = payload.left
+	tifoActive[payload.teamId] = payload.active and payload or nil
+	if payload.teamId == myTeam and not payload.active then
+		myCard = nil
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	local t = workspace:GetServerTimeNow()
+
+	-- O botao do lider.
+	local leaderHere = myTeam ~= nil and isLeader() and isPlaying()
+	tifoButton.Visible = leaderHere
+	if leaderHere and myTeam then
+		local left = tifoLeft[myTeam] or TIFO.perMatch
+		tifoButtonTitle.Text = string.format("T  TIFO  (%d)", left)
+		if tifoActive[myTeam] then
+			tifoButtonNote.Text = "no ar"
+			tifoButtonNote.TextColor3 = MUTED
+		elseif left <= 0 then
+			tifoButtonNote.Text = "acabaram-se neste jogo"
+			tifoButtonNote.TextColor3 = MUTED
+		elseif isMoment() then
+			tifoButtonNote.Text = "MOMENTO CERTO  ·  vale o dobro"
+			tifoButtonNote.TextColor3 = BRASS
+		else
+			tifoButtonNote.Text = "fora de tempo  ·  vale metade"
+			tifoButtonNote.TextColor3 = MUTED
+		end
+	end
+	if pickerOpen and not canLaunch() then
+		pickerOpen = false
+		picker.Visible = false
+	end
+
+	-- O aviso: o tifo de qualquer claque le-se no ecra de toda a gente.
+	local shown = (myTeam and tifoActive[myTeam]) or nil
+	if not shown then
+		for _, teamId in Config.TeamOrder do
+			shown = shown or tifoActive[teamId]
+		end
+	end
+
+	if shown and t < shown.lowerAt then
+		local team = Config.Teams[shown.teamId]
+		tifoBanner.TextColor3 = team.color
+		if t < shown.raiseAt then
+			tifoBanner.Text = string.format("TIFO %s  ·  %d", string.upper(shown.name), math.ceil(shown.raiseAt - t))
+		else
+			tifoBanner.Text = "TIFO " .. string.upper(shown.name)
+		end
+		tifoBannerNote.Text = team.name .. (shown.strong and "  ·  no momento certo" or "  ·  fora de tempo")
+	else
+		tifoBanner.Text = ""
+		tifoBannerNote.Text = ""
+	end
+
+	-- A cartolina na mao.
+	if myCard and t < myCard.lowerAt then
+		cardPrompt.Visible = true
+		if myCard.lifted then
+			cardText.Text = "cartolina no ar"
+		elseif t < myCard.raiseAt then
+			cardText.Text = "a tua cor  ·  T para levantar"
+		else
+			cardText.Text = "T  LEVANTA A CARTOLINA"
+		end
+	else
+		cardPrompt.Visible = false
 	end
 end)

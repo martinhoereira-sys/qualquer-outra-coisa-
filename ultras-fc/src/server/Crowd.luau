@@ -16,6 +16,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Stadium = require(script.Parent:WaitForChild("Stadium"))
 
 local Crowd = {}
 
@@ -30,6 +31,9 @@ type Supporter = {
 }
 
 local people: { Supporter } = {}
+
+-- Claques com o tifo no ar: ficam quietas a segurar a cartolina.
+local holding: { [string]: boolean } = {}
 
 local SKIN = {
 	Color3.fromRGB(226, 190, 152),
@@ -97,9 +101,9 @@ function Crowd.build(parent: Instance)
 	table.clear(people)
 
 	--[[
-		Enche-se so o miolo das filas baixas de cada lado comprido. A claque
-		ocupa um bloco, nao a bancada toda: e a mancha compacta que se le como
-		claque, gente espalhada le-se como publico.
+		Enche-se so o miolo das filas baixas de cada topo, atras da baliza. A
+		claque ocupa um bloco, nao a bancada toda: e a mancha compacta que se le
+		como claque, gente espalhada le-se como publico.
 	]]
 	local rows = { 2, 3, 4, 5, 6, 7 }
 	local perRow = math.ceil(C.perStand / #rows)
@@ -110,10 +114,10 @@ function Crowd.build(parent: Instance)
 
 		for _, row in rows do
 			local topY = row * S.rowHeight
-			local z = (S.pitchWidth / 2 + S.standGap + (row - 0.5) * S.rowDepth) * side
-			-- Ocupam o miolo da bancada, nao a largura toda: a claque e um bloco
-			-- compacto, e gente espalhada le-se como publico.
-			local spread = S.pitchLength * 0.3
+			local x = (S.pitchLength / 2 + S.standGap + (row - 0.5) * S.rowDepth) * side
+			-- Ocupam o bloco do meio de ponta a ponta, e so ele: e o sector da
+			-- claque, entre as duas escadas que lhe servem de entrada.
+			local spread = Stadium.claqueHalfWidth() - 1
 
 			for i = 1, perRow do
 				if made >= C.perStand then
@@ -121,8 +125,8 @@ function Crowd.build(parent: Instance)
 				end
 				made += 1
 
-				local x = (i - (perRow + 1) / 2) * (spread * 2 / perRow)
-				local at = Vector3.new(x + math.random() * 0.5 - 0.25, topY + 2.6, z)
+				local z = -spread + (i - 1) * (spread * 2 / (perRow - 1))
+				local at = Vector3.new(x, topY + 2.6, z + math.random() * 0.5 - 0.25)
 				table.insert(people, buildSupporter(teamId, at, made % C.flagEvery == 0, folder))
 			end
 		end
@@ -139,13 +143,31 @@ function Crowd.step(now: number, intensityByTeam: { [string]: number })
 		local rate = C.baseRate + (C.drumRate - C.baseRate) * intensity
 		local height = C.bounceHeight * (0.45 + intensity * 0.55)
 
-		local lift = math.abs(math.sin((now + person.phase) * rate * math.pi)) * height
+		local lift = holding[person.teamId] and 0 or math.abs(math.sin((now + person.phase) * rate * math.pi)) * height
 		local root = person.model.PrimaryPart
 		if root then
 			root.CFrame = CFrame.lookAt(
 				person.base + Vector3.new(0, lift, 0),
 				Vector3.new(0, person.base.Y - 4, 0)
 			)
+		end
+	end
+end
+
+--[[
+	Tifo no ar: a claque para de saltar e recolhe as bandeiras. Quem segura uma
+	cartolina nao salta, e um mastro de nove studs furava o desenho.
+]]
+function Crowd.setTifo(teamId: string, on: boolean)
+	holding[teamId] = on or nil
+	for _, person in people do
+		if person.teamId == teamId then
+			for _, name in { "Pole", "Flag" } do
+				local piece = person.model:FindFirstChild(name) :: BasePart?
+				if piece then
+					piece.Transparency = on and 1 or 0
+				end
+			end
 		end
 	end
 end

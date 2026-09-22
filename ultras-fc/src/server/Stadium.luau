@@ -11,6 +11,10 @@
 	12 m de uma. E dai que vem a divisao em blocos, que e o que faz uma bancada
 	parecer arrumada em vez de uma rampa unica.
 
+	Entra-se como num estadio a serio: por uma porta da muralha, e depois por
+	um vomitorio nas costas da bancada. Cada claque tem a sua porta, a sua
+	bancada e o seu sector vedado — as duas nao se misturam nem a entrar.
+
 	Fim de tarde, nao noite: a luz vem do sol, rasante, e quase nao ha candeeiros
 	acesos. O estadio anterior tinha luzes a mais por estar escuro de mais — era
 	o escuro que estava errado, nao a falta de luz.
@@ -42,8 +46,8 @@ local CONCRETE_DARK = Color3.fromRGB(134, 136, 142)
 local STEEL = Color3.fromRGB(152, 156, 162)
 local ROOF = Color3.fromRGB(108, 112, 120)
 local PLINTH = Color3.fromRGB(112, 114, 120)
-local SEAT_A = Color3.fromRGB(96, 104, 120)
-local SEAT_B = Color3.fromRGB(80, 88, 104)
+local SEAT_A = Color3.fromRGB(122, 124, 128)
+local SEAT_B = Color3.fromRGB(106, 108, 112)
 local RAIL = Color3.fromRGB(232, 234, 238)
 local BOARD = Color3.fromRGB(38, 41, 48)
 local ASPHALT = Color3.fromRGB(88, 90, 96)
@@ -63,6 +67,63 @@ local function part(name: string, size: Vector3, cf: CFrame, colour: Color3, par
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	p.Parent = parent
 	return p
+end
+
+-- Letras brancas numa face de uma peca: placas das portas e dos vomitorios.
+local function label(on: BasePart, face: Enum.NormalId, text: string)
+	local sign = Instance.new("SurfaceGui")
+	sign.Face = face
+	local sideways = face == Enum.NormalId.Left or face == Enum.NormalId.Right
+	sign.CanvasSize = Vector2.new((sideways and on.Size.Z or on.Size.X) * 40, on.Size.Y * 40)
+	sign.Parent = on
+
+	local caption = Instance.new("TextLabel")
+	caption.Size = UDim2.fromScale(0.94, 0.8)
+	caption.Position = UDim2.fromScale(0.03, 0.1)
+	caption.BackgroundTransparency = 1
+	caption.Font = Enum.Font.GothamBlack
+	caption.Text = text
+	caption.TextScaled = true
+	caption.TextColor3 = Color3.fromRGB(248, 248, 248)
+	caption.Parent = sign
+end
+
+-- Uma peca esticada entre dois pontos: rampas, corrimaos, vedacoes na diagonal.
+local function span(name: string, from: Vector3, to: Vector3, width: number, height: number, colour: Color3, parent: Instance, opts: Opts?): Part
+	local length = (to - from).Magnitude
+	return part(name, Vector3.new(width, height, length), CFrame.lookAt((from + to) / 2, to), colour, parent, opts)
+end
+
+type Block = { centre: number, width: number }
+
+--[[
+	Os blocos de uma bancada e as escadas entre eles, medidos ao longo dela.
+
+	Com `middle`, o bloco do meio tem essa largura e os outros dividem o resto:
+	e o bloco da claque, que mede o mesmo seja qual for o tamanho do campo.
+]]
+local function layout(run: number, blocks: number, middle: number?): ({ Block }, { number })
+	local free = run - (blocks + 1) * S.gangwayWidth
+	local mid = (blocks + 1) // 2
+	local hasMiddle = middle ~= nil and blocks % 2 == 1 and blocks > 1
+
+	local list: { Block } = {}
+	local gangways: { number } = {}
+	local x = -run / 2
+	for b = 1, blocks do
+		local width = free / blocks
+		if hasMiddle and middle then
+			width = (b == mid) and middle or (free - middle) / (blocks - 1)
+		end
+
+		table.insert(gangways, x + S.gangwayWidth / 2)
+		x += S.gangwayWidth
+		table.insert(list, { centre = x + width / 2, width = width })
+		x += width
+	end
+	table.insert(gangways, x + S.gangwayWidth / 2)
+
+	return list, gangways
 end
 
 --------------------------------------------------------------------------------
@@ -133,20 +194,27 @@ local function buildPitch(parent: Instance)
 	line("TouchN", Vector3.new(S.pitchLength, 1.04, 0.5), CFrame.new(0, -0.48, S.pitchWidth / 2))
 	line("TouchS", Vector3.new(S.pitchLength, 1.04, 0.5), CFrame.new(0, -0.48, -S.pitchWidth / 2))
 
-	for i = 1, 36 do
-		local angle = (i / 36) * math.pi * 2
+	-- As marcacoes crescem com o campo, nas proporcoes de um relvado oficial
+	-- (105 x 68 m): circulo de 9,15 m, grande area de 16,5 x 40,3 m.
+	local radius = S.pitchLength * 9.15 / 105
+	local boxDepth = S.pitchLength * 16.5 / 105
+	local boxWidth = S.pitchWidth * 40.3 / 68
+
+	local segments = 48
+	for i = 1, segments do
+		local angle = (i / segments) * math.pi * 2
 		line(
 			"Circle" .. i,
-			Vector3.new(0.5, 1.04, (math.pi * 2 * 10) / 36 + 0.3),
-			CFrame.new(math.cos(angle) * 10, -0.48, math.sin(angle) * 10) * CFrame.Angles(0, -angle, 0)
+			Vector3.new(0.5, 1.04, (math.pi * 2 * radius) / segments + 0.3),
+			CFrame.new(math.cos(angle) * radius, -0.48, math.sin(angle) * radius) * CFrame.Angles(0, -angle, 0)
 		)
 	end
 
 	for _, sign in { 1, -1 } do
-		local boxX = (S.pitchLength / 2 - 8) * sign
-		line("Box" .. sign, Vector3.new(0.5, 1.04, 40), CFrame.new(boxX, -0.48, 0))
-		line("BoxA" .. sign, Vector3.new(16, 1.04, 0.5), CFrame.new(boxX + 8 * sign, -0.48, 20))
-		line("BoxB" .. sign, Vector3.new(16, 1.04, 0.5), CFrame.new(boxX + 8 * sign, -0.48, -20))
+		local boxX = (S.pitchLength / 2 - boxDepth) * sign
+		line("Box" .. sign, Vector3.new(0.5, 1.04, boxWidth), CFrame.new(boxX, -0.48, 0))
+		line("BoxA" .. sign, Vector3.new(boxDepth, 1.04, 0.5), CFrame.new(boxX + boxDepth / 2 * sign, -0.48, boxWidth / 2))
+		line("BoxB" .. sign, Vector3.new(boxDepth, 1.04, 0.5), CFrame.new(boxX + boxDepth / 2 * sign, -0.48, -boxWidth / 2))
 		line("Goalline" .. sign, Vector3.new(0.5, 1.04, S.pitchWidth), CFrame.new((S.pitchLength / 2) * sign, -0.48, 0))
 
 		local goalX = (S.pitchLength / 2 - 0.5) * sign
@@ -185,17 +253,20 @@ end
 
 local spawnPoints: { [string]: Vector3 } = {}
 
+-- As portas dos vomitorios numeram-se seguidas a volta do recinto todo.
+local doorNumber = 0
+
 --[[
 	Uma bancada recta, dividida em blocos.
 
 	`alongZ` diz se ela corre ao longo do eixo Z (bancadas de topo) ou do X
-	(laterais). `side` e de que lado do relvado esta.
+	(laterais). `side` e de que lado do relvado esta. `claque` e a equipa dona
+	dela, se for bancada de claque — e so essas levam sector vedado.
 
-	Cada bloco e um troco de degraus; entre blocos fica uma escada, e no fundo de
-	cada escada abre-se um vomitorio — a porta por onde se entra na bancada. E
-	essa grelha, escada-bloco-escada, que faz uma bancada ler-se como arrumada.
+	Cada bloco e um troco de degraus; entre blocos fica uma escada. E essa
+	grelha, escada-bloco-escada, que faz uma bancada ler-se como arrumada.
 ]]
-local function buildStand(alongZ: boolean, side: number, blocks: number, parent: Instance)
+local function buildStand(alongZ: boolean, side: number, blocks: number, parent: Instance, claque: string?)
 	local folder = Instance.new("Folder")
 	folder.Name = (alongZ and "EndStand" or "SideStand") .. (side > 0 and "A" or "B")
 	folder.Parent = parent
@@ -203,68 +274,120 @@ local function buildStand(alongZ: boolean, side: number, blocks: number, parent:
 	local run = alongZ and S.pitchWidth or S.pitchLength -- largura da bancada
 	local inner = alongZ and INNER_X or INNER_Z
 
-	local gangways = blocks + 1
-	local blockRun = (run - gangways * S.gangwayWidth) / blocks
+	-- Os topos tem o bloco da claque ao meio, com medida propria.
+	local blockList, centres = layout(run, blocks, alongZ and S.claqueBlockWidth or nil)
+	local gangways = #centres
 
-	local function place(name: string, length: number, depth: number, height: number, along: number, across: number, y: number, colour: Color3, opts: Opts?)
+	local function place(name: string, length: number, depth: number, height: number, along: number, across: number, y: number, colour: Color3, opts: Opts?): Part
 		local size = alongZ and Vector3.new(depth, height, length) or Vector3.new(length, height, depth)
 		local cf = alongZ and CFrame.new(across, y, along) or CFrame.new(along, y, across)
-		part(name, size, cf, colour, folder, opts)
+		return part(name, size, cf, colour, folder, opts)
 	end
+
+	local function at(along: number, across: number, y: number): Vector3
+		return alongZ and Vector3.new(across, y, along) or Vector3.new(along, y, across)
+	end
+
+	-- As escadas das pontas descem ate a frente; as do meio tem vomitorio.
+	local function hasVomitory(g: number): boolean
+		return g > 1 and g < gangways
+	end
+
+	--[[
+		O vomitorio, em corte: a rampa sobe por baixo das filas de tras, abre-se
+		em trincheira nas quatro filas acima da de saida, e desemboca na escada
+		ao nivel de `vomitoryRow`. As filas mais altas ficam por cima como tecto.
+	]]
+	local exitRow = S.vomitoryRow
+	local mouthTop = math.min(exitRow + 4, S.rows - 1)
+	local tunnelTop = mouthTop * S.rowHeight
 
 	for row = 1, S.rows do
 		local topY = row * S.rowHeight
 		local across = (inner + (row - 0.5) * S.rowDepth) * side
 
 		-- Os degraus de cada bloco.
-		for b = 1, blocks do
-			local centre = -run / 2 + b * S.gangwayWidth + (b - 0.5) * blockRun
-			place("Step", blockRun, S.rowDepth, topY, centre, across, topY / 2, CONCRETE)
+		for _, block in blockList do
+			place("Step", block.width, S.rowDepth, topY, block.centre, across, topY / 2, CONCRETE)
 
 			local seatColour = (row % 2 == 0) and SEAT_A or SEAT_B
-			place("Seats", blockRun - 1.2, S.rowDepth - 0.8, 0.4, centre, across, topY + 0.2, seatColour, {
+			place("Seats", block.width - 1.2, S.rowDepth - 0.8, 0.4, block.centre, across, topY + 0.2, seatColour, {
 				material = Enum.Material.SmoothPlastic,
 			})
 		end
 
-		-- As escadas entre blocos, um degrau mais baixas para se verem.
-		for g = 1, gangways do
-			local centre = -run / 2 + (g - 0.5) * S.gangwayWidth + (g - 1) * blockRun
-			place("Gangway", S.gangwayWidth, S.rowDepth, topY, centre, across, topY / 2, CONCRETE_DARK)
+		for g, centre in centres do
+			if not hasVomitory(g) or row <= exitRow then
+				place("Gangway", S.gangwayWidth, S.rowDepth, topY, centre, across, topY / 2, CONCRETE_DARK)
+			elseif row > mouthTop then
+				place("TunnelRoof", S.gangwayWidth, S.rowDepth, topY - tunnelTop, centre, across, (topY + tunnelTop) / 2, CONCRETE_DARK)
+			end
+		end
+	end
+
+	local backAcross = (inner + STAND_DEPTH + 1) * side
+	local backHeight = TOP_Y + 9
+
+	for g, centre in centres do
+		if not hasVomitory(g) then
+			continue
+		end
+
+		-- A rampa, da rua ate ao degrau da fila de saida.
+		local low = at(centre, (inner + STAND_DEPTH + 3) * side, -0.5)
+		local high = at(centre, (inner + exitRow * S.rowDepth) * side, exitRow * S.rowHeight)
+		local ramp = span("Ramp", low, high, S.gangwayWidth, 1, CONCRETE_DARK, folder)
+		ramp.CFrame *= CFrame.new(0, -0.5, 0)
+
+		-- Corrimao dos dois lados da boca, que e um buraco no meio da bancada.
+		for _, edge in { -1, 1 } do
+			local a = centre + edge * S.gangwayWidth / 2
+			span(
+				"MouthRail",
+				at(a, (inner + exitRow * S.rowDepth) * side, (exitRow + 1) * S.rowHeight + 1.2),
+				at(a, (inner + mouthTop * S.rowDepth) * side, mouthTop * S.rowHeight + 1.2),
+				0.3,
+				0.3,
+				RAIL,
+				folder,
+				{ material = Enum.Material.Metal }
+			)
 		end
 	end
 
 	--[[
-		A parede do fundo, com um vomitorio por escada.
-
-		Sao vaos ao nivel do chao: entra-se por baixo da bancada e sai-se no topo
-		dela. E por isso que as escadas e os vomitorios tem de estar alinhados —
-		um vomitorio que nao desemboque numa escada nao leva a lado nenhum.
+		A parede do fundo. Abre-se so onde ha vomitorio, a toda a altura do
+		tunel: e por ali que se entra, e e o unico sitio por onde se entra.
 	]]
-	local backAcross = (inner + STAND_DEPTH + 1) * side
-	local backHeight = TOP_Y + 9
-
-	for g = 0, gangways do
-		local from = -run / 2 + g * (S.gangwayWidth + blockRun) + S.gangwayWidth / 2
-		local to = from + blockRun
-		if g == 0 then
-			from = -run / 2 - 4
-			to = -run / 2 + S.gangwayWidth / 2 - S.vomitoryWidth / 2
-		elseif g == gangways then
-			from = run / 2 - S.gangwayWidth / 2 + S.vomitoryWidth / 2
-			to = run / 2 + 4
-		end
-
-		if to > from then
-			place("Back", to - from, 1.5, backHeight, (from + to) / 2, backAcross, backHeight / 2, CONCRETE)
+	local edges = { -run / 2 - 4 }
+	for g, centre in centres do
+		if hasVomitory(g) then
+			table.insert(edges, centre - S.gangwayWidth / 2)
+			table.insert(edges, centre + S.gangwayWidth / 2)
 		end
 	end
+	table.insert(edges, run / 2 + 4)
 
-	-- A verga por cima de cada vomitorio, para a parede nao ficar com buracos
-	-- abertos ate ao telhado.
-	for g = 1, gangways - 1 do
-		local centre = -run / 2 + (g - 0.5) * S.gangwayWidth + (g - 1) * blockRun
-		place("Lintel", S.vomitoryWidth, 1.5, backHeight - 9, centre, backAcross, 9 + (backHeight - 9) / 2, CONCRETE_DARK)
+	for i = 1, #edges, 2 do
+		local from, to = edges[i], edges[i + 1]
+		place("Back", to - from, 1.5, backHeight, (from + to) / 2, backAcross, backHeight / 2, CONCRETE)
+		place("Plinth", to - from, 2.5, 4, (from + to) / 2, backAcross, 2, PLINTH)
+	end
+
+	-- A face da parede virada para fora, para as placas das portas.
+	local outward = if alongZ then (side > 0 and Enum.NormalId.Right or Enum.NormalId.Left)
+		else (side > 0 and Enum.NormalId.Back or Enum.NormalId.Front)
+
+	for g, centre in centres do
+		if hasVomitory(g) then
+			doorNumber += 1
+			local lintel = place("Lintel", S.gangwayWidth, 1.5, backHeight - tunnelTop, centre, backAcross, tunnelTop + (backHeight - tunnelTop) / 2, CONCRETE_DARK)
+			local plate = place("DoorPlate", S.gangwayWidth, 0.2, 2.2, centre, backAcross + 0.85 * side, tunnelTop + 1.8, BOARD, {
+				material = Enum.Material.SmoothPlastic,
+			})
+			label(plate, outward, "PORTA " .. doorNumber)
+			lintel.Name = "Lintel" .. doorNumber
+		end
 	end
 
 	--[[
@@ -276,30 +399,50 @@ local function buildStand(alongZ: boolean, side: number, blocks: number, parent:
 	local roofAcross = (inner + STAND_DEPTH - roofDepth / 2 + 2) * side
 	place("Roof", run + 3, roofDepth, 0.7, 0, roofAcross, TOP_Y + 9, ROOF, { material = Enum.Material.Metal })
 
-	-- Vigas a vista por baixo da pala: e o que se ve de dentro de uma bancada
-	-- coberta, e e o que a impede de ser uma laje.
-	for g = 0, gangways do
-		local centre = -run / 2 + g * (S.gangwayWidth + blockRun)
-		place("Truss", 0.8, roofDepth, 0.8, centre, roofAcross, TOP_Y + 8.4, STEEL, { material = Enum.Material.Metal })
-		place("Column", 1.1, 1.1, TOP_Y + 9, centre, backAcross, (TOP_Y + 9) / 2, STEEL, { material = Enum.Material.Metal })
+	--[[
+		Vigas, pilares e pilastras vao a meio de cada bloco e nas pontas, nunca
+		nas escadas: e ai que estao as portas, e um pilar no meio de uma porta
+		tapava-a.
+	]]
+	local bays = { -run / 2 - 1, run / 2 + 1 }
+	for _, block in blockList do
+		table.insert(bays, block.centre)
 	end
 
-	--[[
-		A fachada: embasamento em baixo e pilastras entre os vomitorios.
-
-		Por fora isto era uma parede lisa e branca. Duas linhas horizontais e um
-		ritmo de pilares chegam para se ler como um edificio — e e por fora que
-		se chega, portanto e o que se ve primeiro.
-	]]
-	place("Plinth", run + 5, 2.5, 4, 0, backAcross, 2, PLINTH)
-	place("Cornice", run + 5, 2.2, 1, 0, backAcross, backHeight, PLINTH)
-
-	for g = 0, gangways do
-		local centre = -run / 2 + g * (S.gangwayWidth + blockRun)
+	for _, centre in bays do
+		place("Truss", 0.8, roofDepth, 0.8, centre, roofAcross, TOP_Y + 8.4, STEEL, { material = Enum.Material.Metal })
+		place("Column", 1.1, 1.1, TOP_Y + 9, centre, backAcross, (TOP_Y + 9) / 2, STEEL, { material = Enum.Material.Metal })
 		place("Pilaster", 2.2, 0.8, backHeight - 4, centre, backAcross * 1.01, 4 + (backHeight - 4) / 2, PLINTH)
 	end
 
-	return blockRun, gangways
+	place("Cornice", run + 5, 2.2, 1, 0, backAcross, backHeight, PLINTH)
+
+	--[[
+		O sector da claque: o bloco do meio e as duas escadas que o ladeiam, que
+		sao as suas entradas, vedados do resto por uma malha que acompanha os
+		degraus. Os outros blocos, com os seus vomitorios, ficam para o publico.
+	]]
+	if claque then
+		local team = Config.Teams[claque]
+		local edge = S.claqueBlockWidth / 2 + S.gangwayWidth
+
+		for _, a in { -edge, edge } do
+			for row = 1, S.rows do
+				local topY = row * S.rowHeight
+				local across = (inner + (row - 0.5) * S.rowDepth) * side
+				place("SectorMesh", 0.15, S.rowDepth, 7, a, across, topY + 3.5, RAIL, {
+					material = Enum.Material.DiamondPlate,
+					transparency = 0.6,
+				})
+				place("SectorPost", 0.35, 0.35, 7.4, a, (inner + (row - 1) * S.rowDepth + 0.2) * side, topY + 3.7, RAIL, {
+					material = Enum.Material.Metal,
+				})
+				place("SectorRail", 0.4, S.rowDepth, 0.35, a, across, topY + 7.2, team.color, {
+					material = Enum.Material.Metal,
+				})
+			end
+		end
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -307,11 +450,11 @@ end
 --------------------------------------------------------------------------------
 
 --[[
-	A vedacao a frente das duas bancadas laterais, e a tarja presa nela.
+	A vedacao a frente dos dois topos das claques, e a tarja presa nela.
 
 	E a imagem de uma bancada de ultras: malha a toda a largura, a tarja da
-	claque atada por cima. Sem a malha a bancada acaba no ar e nao ha onde
-	prender nada.
+	claque atada por cima, atras da baliza. Sem a malha a bancada acaba no ar e
+	nao ha onde prender nada.
 ]]
 local function buildClaqueFront(parent: Instance)
 	local folder = Instance.new("Folder")
@@ -321,28 +464,30 @@ local function buildClaqueFront(parent: Instance)
 	for _, teamId in Config.TeamOrder do
 		local team = Config.Teams[teamId]
 		local side = team.side
-		local z = (INNER_Z - 1.5) * side
-		local width = S.pitchLength
+		local x = (INNER_X - 1.5) * side
+		local width = S.pitchWidth
 
-		for i = 0, 22 do
-			local x = -width / 2 + i * (width / 22)
+		for i = 0, 16 do
+			local z = -width / 2 + i * (width / 16)
 			part("Post", Vector3.new(0.3, 6, 0.3), CFrame.new(x, 3, z), RAIL, folder, { material = Enum.Material.Metal })
 		end
 
-		local mesh = part("Mesh", Vector3.new(width, 5.4, 0.1), CFrame.new(0, 2.9, z), RAIL, folder, {
+		local mesh = part("Mesh", Vector3.new(0.1, 5.4, width), CFrame.new(x, 2.9, 0), RAIL, folder, {
 			material = Enum.Material.DiamondPlate,
 			transparency = 0.6,
 		})
 		mesh.CanCollide = false
 
-		part("Rail", Vector3.new(width, 0.25, 0.4), CFrame.new(0, 5.9, z), RAIL, folder, { material = Enum.Material.Metal })
+		part("Rail", Vector3.new(0.4, 0.25, width), CFrame.new(x, 5.9, 0), RAIL, folder, { material = Enum.Material.Metal })
 
-		local banner = part("Banner", Vector3.new(width * 0.44, 2.8, 0.2), CFrame.new(0, 2.6, z - 0.2 * side), team.color, folder, {
+		-- A tarja fica a frente do bloco da claque, nao a toda a largura, e com
+		-- o nome virado para o campo.
+		local banner = part("Banner", Vector3.new(0.2, 2.8, S.claqueBlockWidth + 2 * S.gangwayWidth), CFrame.new(x - 0.2 * side, 2.6, 0), team.color, folder, {
 			material = Enum.Material.Fabric,
 		})
 
 		local sign = Instance.new("SurfaceGui")
-		sign.Face = side > 0 and Enum.NormalId.Back or Enum.NormalId.Front
+		sign.Face = side > 0 and Enum.NormalId.Left or Enum.NormalId.Right
 		sign.CanvasSize = Vector2.new(1100, 160)
 		sign.Parent = banner
 
@@ -389,6 +534,95 @@ local function buildSurround(parent: Instance)
 			rig.CastShadow = false
 		end
 	end
+
+	--[[
+		A muralha, a toda a volta da explanada, com quatro portas: a de cada
+		claque atras do seu topo, e uma em cada lateral para o publico. Com
+		torniquetes, para a porta se ler como porta e nao como buraco no muro.
+	]]
+	local H = S.wallHeight
+	local gates = {
+		{ centre = Vector3.new(outX, 0, 0), outward = Vector3.xAxis, width = S.claqueGateWidth },
+		{ centre = Vector3.new(-outX, 0, 0), outward = -Vector3.xAxis, width = S.claqueGateWidth },
+		{ centre = Vector3.new(0, 0, outZ), outward = Vector3.zAxis, width = S.publicGateWidth },
+		{ centre = Vector3.new(0, 0, -outZ), outward = -Vector3.zAxis, width = S.publicGateWidth },
+	}
+
+	for _, gate in gates do
+		-- De que claque e esta porta, se for de alguma.
+		local owner: typeof(Config.Teams.home)? = nil
+		for _, teamId in Config.TeamOrder do
+			if gate.outward.X == Config.Teams[teamId].side then
+				owner = Config.Teams[teamId]
+			end
+		end
+
+		-- Os dois panos de muro, de canto a porta.
+		local along = Vector3.new(gate.outward.Z, 0, -gate.outward.X)
+		local half = (gate.outward.Z ~= 0) and outX or outZ
+		for _, s in { -1, 1 } do
+			local from = gate.centre + along * s * (gate.width / 2 + 3)
+			local to = gate.centre + along * s * (half + 0.75)
+			span("Wall", from + Vector3.new(0, H / 2 - 0.5, 0), to + Vector3.new(0, H / 2 - 0.5, 0), 1.5, H, CONCRETE, folder)
+			span("WallCap", from + Vector3.new(0, H, 0), to + Vector3.new(0, H, 0), 2.2, 0.8, PLINTH, folder)
+		end
+
+		local base = CFrame.lookAt(gate.centre, gate.centre + gate.outward)
+		for _, s in { -1, 1 } do
+			part("GatePillar", Vector3.new(6, H + 5, 3), base * CFrame.new(s * (gate.width / 2), (H + 5) / 2 - 0.5, 0), CONCRETE_DARK, folder)
+		end
+
+		local beam = part("GateBeam", Vector3.new(gate.width + 6, 3.4, 2), base * CFrame.new(0, H + 3, 0), owner and owner.color or BOARD, folder, {
+			material = Enum.Material.SmoothPlastic,
+		})
+		local title = owner and ("PORTA " .. string.upper(owner.name)) or "PORTA PUBLICO"
+		label(beam, Enum.NormalId.Front, title)
+		label(beam, Enum.NormalId.Back, title)
+
+		-- Torniquetes de 6 em 6 studs; entre eles passa-se.
+		local lanes = math.floor(gate.width / 6)
+		for i = 1, lanes - 1 do
+			local x = -gate.width / 2 + i * (gate.width / lanes)
+			part("Turnstile", Vector3.new(0.8, 3.4, 3.6), base * CFrame.new(x, 1.2, 0), STEEL, folder, { material = Enum.Material.Metal })
+		end
+	end
+
+	--[[
+		A separacao das claques. Uma vedacao alta em cada canto aberto, da
+		esquina do relvado ate a esquina da muralha, parte a explanada em quatro:
+		o topo de cada claque, com a sua porta e a sua bancada, e as duas
+		laterais do publico. Quem entra pela porta de uma claque so chega a
+		bancada dessa claque.
+	]]
+	for _, cx in { 1, -1 } do
+		for _, cz in { 1, -1 } do
+			local from = Vector3.new(cx * (S.pitchLength / 2 + 3), 0, cz * (S.pitchWidth / 2 + 3))
+			local to = Vector3.new(cx * outX, 0, cz * outZ)
+			local mesh = span("SplitMesh", from + Vector3.new(0, H / 2 - 0.5, 0), to + Vector3.new(0, H / 2 - 0.5, 0), 0.2, H, RAIL, folder, {
+				material = Enum.Material.DiamondPlate,
+				transparency = 0.55,
+			})
+			mesh.CastShadow = false
+			span("SplitRail", from + Vector3.new(0, H, 0), to + Vector3.new(0, H, 0), 0.4, 0.4, STEEL, folder, {
+				material = Enum.Material.Metal,
+			})
+
+			local posts = math.floor((to - from).Magnitude / 8)
+			for i = 0, posts do
+				local p = from:Lerp(to, i / posts)
+				part("SplitPost", Vector3.new(0.4, H + 0.5, 0.4), CFrame.new(p.X, H / 2 - 0.25, p.Z), STEEL, folder, {
+					material = Enum.Material.Metal,
+				})
+			end
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
+
+-- Meia largura do bloco do meio dos topos, que e onde a claque se junta.
+function Stadium.claqueHalfWidth(): number
+	return S.claqueBlockWidth / 2
 end
 
 --------------------------------------------------------------------------------
@@ -427,19 +661,27 @@ function Stadium.build()
 	buildSurround(root)
 	buildPitch(root)
 
-	-- Laterais (as claques) e topos. Cantos abertos, como num recinto pequeno.
+	-- Laterais (o publico) e topos (as claques). Cantos abertos, como num
+	-- recinto pequeno.
+	doorNumber = 0
 	for _, side in { 1, -1 } do
+		local claque: string? = nil
+		for _, teamId in Config.TeamOrder do
+			if Config.Teams[teamId].side == side then
+				claque = teamId
+			end
+		end
 		buildStand(false, side, S.blocksLong, root)
-		buildStand(true, side, S.blocksEnd, root)
+		buildStand(true, side, S.blocksEnd, root, claque)
 	end
 
 	buildClaqueFront(root)
 
-	-- A meio da bancada da propria claque, com o relvado a frente.
+	-- A meio do topo da propria claque, com a baliza a frente.
 	local spawnRow = math.ceil(S.rows * 0.5)
 	for _, teamId in Config.TeamOrder do
 		local side = Config.Teams[teamId].side
-		spawnPoints[teamId] = Vector3.new(0, spawnRow * S.rowHeight + 3, (INNER_Z + (spawnRow - 0.5) * S.rowDepth) * side)
+		spawnPoints[teamId] = Vector3.new((INNER_X + (spawnRow - 0.5) * S.rowDepth) * side, spawnRow * S.rowHeight + 3, 0)
 	end
 
 	City.build(root)

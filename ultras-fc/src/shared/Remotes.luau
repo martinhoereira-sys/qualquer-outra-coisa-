@@ -19,6 +19,8 @@ local NAMES = {
 	"Decide", -- arbitro -> servidor: a decisao
 	"Pressure", -- adepto -> servidor: pedir ao arbitro
 	"RefState", -- servidor -> todos: quem apita, suspeicao, ultima decisao
+	"Tifo", -- cliente -> servidor: o lider dispara um tifo, ou alguem levanta a cartolina
+	"TifoState", -- servidor -> clientes: tifo no ar, e a cartolina de cada um
 }
 
 local folder: Folder

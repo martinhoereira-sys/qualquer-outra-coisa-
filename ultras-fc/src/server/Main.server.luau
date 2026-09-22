@@ -22,6 +22,7 @@ local Clubhouse = require(script.Parent:WaitForChild("Clubhouse"))
 local March = require(script.Parent:WaitForChild("March"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
+local Tifo = require(script.Parent:WaitForChild("Tifo"))
 
 --[[
 	A forca do tambor de cada bancada, de 0 a 1.
@@ -62,7 +63,7 @@ end
 local function sendToStand(player: Player, teamId: string)
 	local point = City.spawnPoint(teamId) or Stadium.spawnPoint(teamId)
 	if point then
-		placeAt(player, point, Vector3.new(point.X, point.Y - 8, point.Z - 40))
+		placeAt(player, point, Vector3.new(0, point.Y - 8, 0))
 	end
 end
 
@@ -125,6 +126,7 @@ Players.PlayerRemoving:Connect(function(player)
 	Teams.forget(player)
 	Gear.forget(player)
 	March.forget(player)
+	Tifo.forget(player)
 	Referee.release(player)
 	lastHit[player] = nil
 end)
@@ -152,6 +154,19 @@ task.spawn(function()
 	end
 end)
 
+-- O que resta a cada um na mochila, para o rodape do ecra.
+local function sendGearCount(player: Player)
+	Remotes.GearCount:FireClient(player, {
+		tocha = Gear.remaining(player, "tocha"),
+		fumo = Gear.remaining(player, "fumo"),
+		tambor = Gear.remaining(player, "tambor"),
+	})
+end
+
+Gear.onCountChanged(function(player, counts)
+	Remotes.GearCount:FireClient(player, counts)
+end)
+
 local lastPhase = ""
 local lastGoalStamp = 0
 
@@ -160,6 +175,16 @@ MatchLoop.onChange(function(snapshot)
 
 	local wasPlaying = playing
 	playing = snapshot.phase == "first" or snapshot.phase == "second"
+	Tifo.setPlaying(playing)
+
+	-- Os dois momentos do tifo: o apito inicial e o golo.
+	if snapshot.phase == "first" and lastPhase ~= "first" then
+		Tifo.markKickoff()
+	end
+	if snapshot.lastGoal and snapshot.goalStamp > lastGoalStamp then
+		lastGoalStamp = snapshot.goalStamp
+		Tifo.markGoal(snapshot.lastGoal)
+	end
 
 	-- O corteo sai no aquecimento e acaba ao apito.
 	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
@@ -184,6 +209,7 @@ MatchLoop.onChange(function(snapshot)
 	-- sao para o momento, nao para acumular.
 	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
 		Gear.refill()
+		Tifo.refill()
 		for _, player in Players:GetPlayers() do
 			sendGearCount(player)
 		end
@@ -206,6 +232,7 @@ end)
 Players.PlayerAdded:Connect(function(player)
 	Remotes.MatchState:FireClient(player, MatchLoop.snapshot())
 	sendGearCount(player)
+	Tifo.sync(player)
 
 	task.spawn(sendToSquare, player)
 	player.CharacterAdded:Connect(function()
@@ -223,6 +250,16 @@ end)
 Stadium.build()
 Pitch.build(workspace:WaitForChild("Stadium"))
 Crowd.build(workspace:WaitForChild("Stadium"))
+Tifo.build(workspace:WaitForChild("Stadium"))
+
+-- O lider dispara o tifo; cada um levanta a sua cartolina.
+Remotes.Tifo.OnServerEvent:Connect(function(player, action, designId)
+	if action == "launch" and type(designId) == "string" then
+		Tifo.launch(player, designId)
+	elseif action == "lift" then
+		Tifo.lift(player)
+	end
+end)
 
 -- A bola entrar na baliza e que marca. O ambiente da bancada ja entrou na
 -- pontaria do remate, la no campo.

@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Gear = require(script.Parent:WaitForChild("Gear"))
+local Tifo = require(script.Parent:WaitForChild("Tifo"))
 
 local Atmosphere = {}
 
@@ -64,7 +65,8 @@ end
 
 	O material aceso empurra na direcao contraria enquanto dura: acender uma
 	tocha compra a bancada uns segundos de folga, o que e exactamente o que uma
-	tocha faz numa bancada a serio.
+	tocha faz numa bancada a serio. Um tifo no ar faz o mesmo, e mais ainda se
+	subiu no momento certo.
 ]]
 function Atmosphere.step(dt: number)
 	local drop = Config.Atmosphere.decayPerSecond * dt
@@ -74,7 +76,7 @@ function Atmosphere.step(dt: number)
 	local floor = Config.Atmosphere.max * Config.Atmosphere.crowdFloor
 
 	for teamId, value in levels do
-		local fromGear = Gear.heatFor(teamId) * dt
+		local fromGear = (Gear.heatFor(teamId) + Tifo.heatFor(teamId)) * dt
 		levels[teamId] = math.clamp(value - drop + fromGear, floor, Config.Atmosphere.max)
 	end
 end

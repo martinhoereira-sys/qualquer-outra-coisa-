@@ -46,8 +46,9 @@ function March.forget(player: Player)
 end
 
 --[[
-	O percurso: sede, avenida, e entrada do estadio. Tres pernas chegam — o que
-	interessa e que passe pela rua principal, nao que seja sinuoso.
+	O percurso: sede, avenida, e a porta do topo da claque. Cada sede fica do
+	lado do seu topo, por isso os dois corteos descem a avenida cada um para o
+	seu lado e nunca se cruzam.
 ]]
 local function routeFor(teamId: string): { Vector3 }
 	local start = City.spawnPoint(teamId)
@@ -56,14 +57,20 @@ local function routeFor(teamId: string): { Vector3 }
 	end
 
 	local S = Config.Stadium
-	local outerZ = S.pitchWidth / 2 + S.standGap + S.rows * S.rowDepth + 26
+	local standDepth = S.rows * S.rowDepth
+	local outerZ = S.pitchWidth / 2 + S.standGap + standDepth + 26
+	local outerX = S.pitchLength / 2 + S.standGap + standDepth + 26
 	local roadZ = outerZ + 70
+
+	-- Por fora da muralha, rente ao topo da claque.
+	local side = Config.Teams[teamId].side
+	local flank = side * (outerX + 20)
 
 	return {
 		start,
 		Vector3.new(start.X * 0.55, 3, roadZ), -- desce a rua ate a avenida
-		Vector3.new(0, 3, roadZ), -- sobe a avenida ate ao cruzamento
-		Vector3.new(0, 3, outerZ + 10), -- entra no recinto
+		Vector3.new(flank, 3, roadZ), -- segue a avenida ate a esquina do seu topo
+		Vector3.new(side * (outerX + 10), 3, 0), -- a porta da claque
 	}
 end
 

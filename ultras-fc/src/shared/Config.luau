@@ -9,21 +9,27 @@
 
 local Config = {}
 
--- As duas equipas da Fase 1. Uma bancada cada.
+--[[
+	As duas equipas da Fase 1. Cada claque tem o seu topo, atras de uma baliza,
+	como num estadio a serio — as laterais sao do publico.
+
+	`side` e o topo, ao longo do eixo X: -1 o poente, 1 o nascente. Cada claque
+	fica do lado da sua sede, para os dois corteos chegarem sem se cruzarem.
+]]
 Config.Teams = {
 	home = {
 		id = "home",
 		name = "Aguias do Norte",
 		short = "AGN",
 		color = Color3.fromRGB(196, 58, 48),
-		side = 1, -- bancada norte
+		side = -1, -- topo poente
 	},
 	away = {
 		id = "away",
 		name = "Leoes do Sul",
 		short = "LES",
 		color = Color3.fromRGB(46, 98, 178),
-		side = -1, -- bancada sul
+		side = 1, -- topo nascente
 	},
 }
 
@@ -89,8 +95,14 @@ Config.Match = {
 Config.Stadium = {
 	build = true,
 
-	pitchLength = 105, -- ao longo do eixo X
-	pitchWidth = 68, -- ao longo do eixo Z
+	--[[
+		O campo, em studs. Cerca de 70 x 45 m: menos do que um relvado oficial,
+		mas o suficiente para jogadores a serio (5 studs de altura, 16 por segundo
+		a correr) terem espaco. Tudo o resto — bancadas, muralha, cidade, corteo —
+		mede-se a partir daqui, menos o bloco da claque, que tem medida propria.
+	]]
+	pitchLength = 210, -- ao longo do eixo X
+	pitchWidth = 136, -- ao longo do eixo Z
 
 	--[[
 		Medidas de um recinto a serio, convertidas para studs (1 m ~ 3 studs).
@@ -106,14 +118,34 @@ Config.Stadium = {
 	standGap = 8, -- da linha lateral a primeira fila
 
 	--[[
-		Blocos. A regra e que ninguem fique a mais de 12 m de uma escada, ou seja
-		escadas de 24 em 24 m. Com bancadas desta largura dao cinco blocos, e e
-		isso que faz uma bancada parecer arrumada em vez de uma rampa unica.
+		Blocos. E a divisao que faz uma bancada parecer arrumada em vez de uma
+		rampa unica.
+
+		Nos topos, o bloco do meio e da claque, mesmo atras da baliza, e uma
+		claque quer-se junta: nenhuma escada o corta ao meio, so tem as duas dos
+		lados, e sao essas as suas entradas. Tem largura fixa — nao cresce com o
+		campo — porque e sobre ele que assenta a grelha do tifo, e uma claque
+		espalhada deixa de o ser. Os outros blocos dividem o resto. `blocksEnd`
+		tem de ser impar, para haver bloco do meio.
 	]]
-	blocksLong = 5, -- nas bancadas laterais
-	blocksEnd = 3, -- nas bancadas de topo
-	gangwayWidth = 4,
-	vomitoryWidth = 7,
+	blocksLong = 5, -- nas bancadas laterais, do publico
+	blocksEnd = 3, -- nas bancadas de topo, das claques
+	claqueBlockWidth = 28, -- o bloco do meio dos topos
+	gangwayWidth = 5, -- tambem a largura do tunel de cada vomitorio
+
+	--[[
+		Os vomitorios. Entra-se pelas costas da bancada ao nivel da rua, sobe-se
+		uma rampa por baixo dos degraus e sai-se a meio da bancada, nesta fila.
+		A meio e de proposito: sair ca em baixo obrigava a subir a bancada toda,
+		sair la em cima obrigava a desce-la.
+	]]
+	vomitoryRow = 6,
+
+	-- A muralha a volta do recinto. Cada claque entra pela porta do seu topo;
+	-- o publico pelas das laterais.
+	wallHeight = 10,
+	claqueGateWidth = 24,
+	publicGateWidth = 16,
 }
 
 
@@ -211,5 +243,79 @@ Config.Gear = {
 	},
 }
 
+--[[
+	Os tifos: um mosaico de cartolinas por cima do bloco da claque.
+
+	O lider escolhe o desenho e dispara; cada um no bloco recebe a cartolina da
+	cor do seu lugar e levanta-a. O lugar de quem nao levanta fica um buraco no
+	desenho — ve-se de longe quem nao esteve.
+
+	Vale pelo MOMENTO. Um tifo e para o apito inicial ou para o golo, nao para
+	meio da segunda parte: nessas janelas da o dobro, fora delas da metade.
+	E isso que torna disparar uma decisao do lider e nao um botao a toa.
+]]
+Config.Tifo = {
+	perMatch = 2, -- por claque, e renova-se no aquecimento
+	countdown = 3, -- segundos de aviso antes de subir
+	duration = 12, -- quanto tempo fica no ar
+	gainPerSecond = 3, -- ambiente por segundo enquanto esta no ar
+	momentWindow = 20, -- segundos depois do apito inicial ou de um golo nosso
+	momentMultiplier = 2, -- na janela certa
+	offMomentMultiplier = 0.5, -- fora dela
+	crowdShare = 0.5, -- a parte do efeito que a bancada ja da sozinha; o resto e de quem levanta
+
+	-- A grelha, sobre o bloco do meio da bancada: colunas ao longo dela, filas
+	-- a partir desta, para cima.
+	columns = 14,
+	rows = 8,
+	firstRow = 2,
+	liftHeight = 6.6, -- a que altura acima do degrau fica a cartolina
+
+	--[[
+		Os desenhos. Cada linha e uma fila de cartolinas vista do relvado, de cima
+		para baixo e da esquerda para a direita:
+
+			E  cor da equipa
+			B  branco
+			P  preto
+
+		Com `initials`, o desenho e gerado a partir da sigla da equipa.
+	]]
+	designs = {
+		{
+			id = "riscas",
+			name = "Riscas",
+			rows = {
+				"EEBBEEBBEEBBEE",
+				"EEBBEEBBEEBBEE",
+				"EEBBEEBBEEBBEE",
+				"EEBBEEBBEEBBEE",
+				"EEBBEEBBEEBBEE",
+				"EEBBEEBBEEBBEE",
+				"EEBBEEBBEEBBEE",
+				"EEBBEEBBEEBBEE",
+			},
+		},
+		{
+			id = "iniciais",
+			name = "Iniciais",
+			initials = true,
+		},
+		{
+			id = "estrela",
+			name = "Estrela",
+			rows = {
+				"EEEEEEBBEEEEEE",
+				"EEEEEBBBBEEEEE",
+				"BBBBBBBBBBBBBB",
+				"EBBBBBBBBBBBBE",
+				"EEBBBBBBBBBBEE",
+				"EEEBBBBBBBBEEE",
+				"EEBBBBEEBBBBEE",
+				"EBBBEEEEEEBBBE",
+			},
+		},
+	},
+}
 
 return Config

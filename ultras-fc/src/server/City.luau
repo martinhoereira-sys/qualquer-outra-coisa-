@@ -301,6 +301,7 @@ function City.build(parent: Instance)
 	folder.Parent = parent
 
 	local outerZ = S.pitchWidth / 2 + S.standGap + S.rows * S.rowDepth + 26
+	local outerX = S.pitchLength / 2 + S.standGap + S.rows * S.rowDepth + 26
 	local roadZ = outerZ + 70
 	local roadLength = 900
 
@@ -330,10 +331,15 @@ function City.build(parent: Instance)
 
 		for i = 1, 9 do
 			local x = -roadLength / 2 + 40 + (i - 1) * 100
+			local width = math.random(38, 62)
+			local depth = math.random(34, 54)
+
+			-- Do lado do estadio, nada em cima do recinto nem do caminho do corteo
+			-- que da a volta a muralha.
+			local onStadium = side < 0 and math.abs(x) - width / 2 < outerX + 30
+
 			-- Deixa um vao a meio: e por ali que se corta para o estadio.
-			if math.abs(x) > 70 then
-				local width = math.random(38, 62)
-				local depth = math.random(34, 54)
+			if math.abs(x) > 70 and not onStadium then
 				building(Vector3.new(x, 0, rowZ), Vector2.new(width, depth), math.random(3, 9), folder)
 			end
 		end
