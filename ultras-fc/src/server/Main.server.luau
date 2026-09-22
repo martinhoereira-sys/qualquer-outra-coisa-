@@ -12,6 +12,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Teams = require(script.Parent:WaitForChild("Teams"))
+local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 
@@ -25,11 +26,41 @@ local function currentBeat(now: number): (number, number)
 	return index, offset
 end
 
+--[[
+	Poe o jogador na bancada da equipa dele. Sem isto, escolher equipa era so uma
+	etiqueta — e o que faz a escolha significar alguma coisa e estar mesmo la.
+]]
+local function sendToStand(player: Player, teamId: string)
+	local point = Stadium.spawnPoint(teamId)
+	if not point then
+		return
+	end
+
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return
+	end
+
+	-- Virado para o relvado, que e para onde se olha.
+	root.CFrame = CFrame.lookAt(point, Vector3.new(0, point.Y - 6, 0))
+end
+
 Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	if type(teamId) ~= "string" or not Teams.isValid(teamId) then
 		return
 	end
+
 	Teams.assign(player, teamId)
+	sendToStand(player, teamId)
+
+	-- E depois de cada morte ou respawn, volta para o mesmo lado.
+	player.CharacterAdded:Connect(function()
+		task.wait(0.4)
+		if Teams.get(player) == teamId then
+			sendToStand(player, teamId)
+		end
+	end)
 end)
 
 Remotes.Chant.OnServerEvent:Connect(function(player)
@@ -84,6 +115,7 @@ Players.PlayerAdded:Connect(function(player)
 	Remotes.MatchState:FireClient(player, MatchLoop.snapshot())
 end)
 
+Stadium.build()
 MatchLoop.start()
 
 print("[Ultras FC] Servidor a postos.")

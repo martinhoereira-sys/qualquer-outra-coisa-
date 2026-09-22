@@ -64,11 +64,30 @@ src/server/Main.server.luau Arranque e ligação dos módulos
 src/client/Chant.client.luau  HUD, compasso e input
 ```
 
+## Som
+
+Falta só o som, e é o que mais se nota. Abre `src/client/Chant.client.luau` e
+preenche a tabela `SOUNDS` no topo com ids de áudio do Roblox:
+
+```lua
+local SOUNDS = {
+	drum = "rbxassetid://123456789",
+	perfect = "",
+	hit = "",
+	miss = "",
+	goal = "",
+}
+```
+
+Vazios, o jogo funciona na mesma — só em silêncio. **Começa pelo `drum`:** é ele
+que marca o compasso. Sem som, o ritmo tem de se ler no círculo, o que é bem
+mais difícil do que ouvi-lo.
+
 ## Ainda por fazer
 
-- **O estádio.** Não há relvado nem bancadas — isso constrói-se à mão no Studio.
-  O código não depende da geometria, por isso podes montar o espaço a teu gosto.
-- **Spawn na bancada certa.** Escolher equipa ainda não te leva para o teu lado.
-- **Som.** Cânticos e tambores. É metade do efeito e está por pôr.
-- **Testar.** Este código nunca correu — foi escrito fora do Studio. Conta com
-  erros na primeira vez que carregares em Play.
+- **Um estádio a sério.** O que existe são peças soltas para haver um sítio.
+  Quando construíres o teu à mão, põe `Config.Stadium.build` a `false` para o
+  código não to apagar.
+- **Cânticos com letra**, tifos, tochas, corteo — a Fase 2.
+- **Testar a dois.** O bónus de minoria e a disputa entre bancadas só se sentem
+  com mais do que uma pessoa: **Test → Players → 2 Players**.

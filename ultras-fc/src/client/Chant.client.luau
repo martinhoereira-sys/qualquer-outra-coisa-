@@ -19,6 +19,33 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local player = Players.LocalPlayer
 local myTeam: string? = nil
 
+--[[
+	Sons. Poe aqui os ids dos teus audios (rbxassetid://NUMERO) e passa a haver
+	som sem mexer em mais nada. Vazios, o jogo funciona igual — so em silencio.
+
+	O `drum` toca em cada batida e e o mais importante: e ele que da o compasso.
+	Sem som, a pessoa tem de o ler no circulo, o que e bem mais dificil.
+]]
+local SOUNDS = {
+	drum = "",
+	perfect = "",
+	hit = "",
+	miss = "",
+	goal = "",
+}
+
+local function play(id: string, volume: number?)
+	if id == "" then
+		return
+	end
+	local sound = Instance.new("Sound")
+	sound.SoundId = id
+	sound.Volume = volume or 0.5
+	sound.PlayOnRemove = true
+	sound.Parent = workspace
+	sound:Destroy()
+end
+
 local INK = Color3.fromRGB(14, 17, 22)
 local TEXT = Color3.fromRGB(232, 234, 237)
 local MUTED = Color3.fromRGB(141, 150, 163)
@@ -159,14 +186,91 @@ pulseCorner.Parent = pulse
 local pulseText = label(pulse, "CANTA", 15, INK)
 pulseText.Size = UDim2.fromScale(1, 1)
 
+-- O veredicto aparece imediatamente por cima do circulo. A barra continua a ser
+-- decidida pelo servidor; isto e o que a pessoa ve, e tem de ser instantaneo.
+local feedback = label(gui, "", 26, TEXT)
+feedback.Size = UDim2.new(1, 0, 0, 32)
+feedback.Position = UDim2.new(0, 0, 1, -196)
+feedback.TextTransparency = 1
+
+local comboLabel = label(gui, "", 15, Color3.fromRGB(217, 164, 65))
+comboLabel.Font = Enum.Font.GothamBold
+comboLabel.Size = UDim2.new(1, 0, 0, 20)
+comboLabel.Position = UDim2.new(0, 0, 1, -168)
+comboLabel.TextTransparency = 1
+
+-- A barra da propria bancada, junto ao circulo: a das bordas fica longe demais
+-- do sitio para onde se esta a olhar.
+local ownTrack = Instance.new("Frame")
+ownTrack.AnchorPoint = Vector2.new(0.5, 0)
+ownTrack.Size = UDim2.fromOffset(160, 8)
+ownTrack.Position = UDim2.new(0.5, 0, 1, -38)
+ownTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
+ownTrack.BorderSizePixel = 0
+ownTrack.Parent = gui
+
+local ownFill = Instance.new("Frame")
+ownFill.Size = UDim2.fromScale(0, 1)
+ownFill.BackgroundColor3 = Color3.fromRGB(217, 164, 65)
+ownFill.BorderSizePixel = 0
+ownFill.Parent = ownTrack
+
 local chantHint = label(gui, "espaco  ou  toca no circulo", 13, MUTED)
 chantHint.Font = Enum.Font.Gotham
 chantHint.Size = UDim2.new(1, 0, 0, 18)
 chantHint.Position = UDim2.new(0, 0, 1, -56)
 
+local combo = 0
+local feedbackToken = 0
+
+local function showFeedback(text: string, colour: Color3)
+	feedbackToken += 1
+	local token = feedbackToken
+
+	feedback.Text = text
+	feedback.TextColor3 = colour
+	feedback.TextTransparency = 0
+
+	comboLabel.Text = combo >= 2 and (combo .. " seguidos") or ""
+	comboLabel.TextTransparency = combo >= 2 and 0 or 1
+
+	task.delay(0.55, function()
+		if feedbackToken == token then
+			feedback.TextTransparency = 1
+			comboLabel.TextTransparency = 1
+		end
+	end)
+end
+
+-- O cliente le o mesmo relogio do servidor, por isso julga o proprio acerto sem
+-- esperar resposta. Ir e voltar ao servidor para mostrar "PERFEITO" fazia o
+-- ritmo sentir-se pastoso, que e precisamente o que este jogo nao pode ser.
+local function beatOffset(): number
+	local now = workspace:GetServerTimeNow()
+	local index = math.floor(now / Config.Beat.interval + 0.5)
+	return math.abs(now - index * Config.Beat.interval)
+end
+
 local function chant()
-	if myTeam then
-		Remotes.Chant:FireServer()
+	if not myTeam then
+		return
+	end
+
+	Remotes.Chant:FireServer()
+
+	local offset = beatOffset()
+	if offset <= Config.Beat.perfectWindow then
+		combo += 1
+		showFeedback("PERFEITO", Color3.fromRGB(217, 164, 65))
+		play(SOUNDS.perfect, 0.6)
+	elseif offset <= Config.Beat.window then
+		combo = 0
+		showFeedback("BOA", Color3.fromRGB(79, 180, 119))
+		play(SOUNDS.hit, 0.5)
+	else
+		combo = 0
+		showFeedback("FORA DE TEMPO", Color3.fromRGB(224, 84, 78))
+		play(SOUNDS.miss, 0.4)
 	end
 end
 
@@ -193,6 +297,11 @@ Remotes.Atmosphere.OnClientEvent:Connect(function(levels)
 		local fraction = (levels[teamId] or 0) / Config.Atmosphere.max
 		fill.Size = UDim2.fromScale(1, math.clamp(fraction, 0, 1))
 	end
+
+	if myTeam then
+		local mine = (levels[myTeam] or 0) / Config.Atmosphere.max
+		ownFill.Size = UDim2.fromScale(math.clamp(mine, 0, 1), 1)
+	end
 end)
 
 local PHASE_TEXT = {
@@ -214,6 +323,7 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 		local team = Config.Teams[snapshot.lastGoal]
 		goalLabel.Text = "GOLO  " .. team.short
 		goalLabel.TextColor3 = team.color
+		play(SOUNDS.goal, 0.7)
 		task.delay(4, function()
 			if lastGoalStamp == snapshot.goalStamp then
 				goalLabel.Text = ""
@@ -222,9 +332,20 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 	end
 end)
 
+-- O tambor e o compasso. Sem som e preciso ler o circulo, o que e bem mais
+-- dificil — por isso o `drum` e o primeiro som a valer a pena por.
+local lastDrumBeat = -1
+
 -- O pulso respira ao compasso: grande na batida, pequeno entre batidas.
 RunService.RenderStepped:Connect(function()
 	local now = workspace:GetServerTimeNow()
+
+	local beat = math.floor(now / Config.Beat.interval + 0.5)
+	if beat ~= lastDrumBeat and math.abs(now - beat * Config.Beat.interval) < 0.05 then
+		lastDrumBeat = beat
+		play(SOUNDS.drum, 0.35)
+	end
+
 	local phase = (now % Config.Beat.interval) / Config.Beat.interval
 	local closeness = 1 - math.abs(phase - 0.5) * 2 -- 1 na batida, 0 a meio
 	local scale = 0.82 + closeness * 0.30
