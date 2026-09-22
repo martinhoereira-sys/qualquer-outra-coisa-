@@ -28,8 +28,12 @@ local function currentBeat(now: number): (number, number)
 end
 
 --[[
-	Poe o jogador na bancada da equipa dele. Sem isto, escolher equipa era so uma
-	etiqueta — e o que faz a escolha significar alguma coisa e estar mesmo la.
+	Poe o jogador na bancada da equipa dele.
+
+	Espera pelo corpo em vez de desistir se ele ainda nao existir: escolher
+	equipa antes do personagem carregar e o caso normal, nao a excepcao, e
+	desistir ai deixava a pessoa largada no chao la fora — que e exactamente o
+	que acontecia.
 ]]
 local function sendToStand(player: Player, teamId: string)
 	local point = Stadium.spawnPoint(teamId)
@@ -37,14 +41,14 @@ local function sendToStand(player: Player, teamId: string)
 		return
 	end
 
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local character = player.Character or player.CharacterAdded:Wait()
+	local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
 	if not root then
 		return
 	end
 
 	-- Virado para o relvado, que e para onde se olha.
-	root.CFrame = CFrame.lookAt(point, Vector3.new(0, point.Y - 6, 0))
+	root.CFrame = CFrame.lookAt(point, Vector3.new(0, point.Y - 8, 0))
 end
 
 Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
@@ -52,16 +56,25 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 		return
 	end
 
+	-- Uma vez so: se a pessoa carregar no botao duas vezes, nao fica com duas
+	-- ligacoes a atirarem-na para a bancada a cada respawn.
+	local first = Teams.get(player) == nil
 	Teams.assign(player, teamId)
-	sendToStand(player, teamId)
 
-	-- E depois de cada morte ou respawn, volta para o mesmo lado.
-	player.CharacterAdded:Connect(function()
-		task.wait(0.4)
-		if Teams.get(player) == teamId then
-			sendToStand(player, teamId)
-		end
-	end)
+	task.spawn(sendToStand, player, teamId)
+
+	if first then
+		player.CharacterAdded:Connect(function(character)
+			local current = Teams.get(player)
+			if not current then
+				return
+			end
+			-- Deixa o Roblox acabar de montar o personagem antes de o mover.
+			character:WaitForChild("HumanoidRootPart", 10)
+			task.wait(0.2)
+			sendToStand(player, current)
+		end)
+	end
 end)
 
 Remotes.Chant.OnServerEvent:Connect(function(player)

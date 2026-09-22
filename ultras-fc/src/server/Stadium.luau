@@ -21,8 +21,9 @@ local Stadium = {}
 local S = Config.Stadium
 
 -- Escuros, e escolhidos: o cinzento neutro e o que faz isto parecer betao barato.
-local PITCH_DARK = Color3.fromRGB(34, 74, 43)
-local PITCH_LIGHT = Color3.fromRGB(43, 92, 52)
+local PITCH_DARK = Color3.fromRGB(38, 86, 46)
+local PITCH_LIGHT = Color3.fromRGB(54, 112, 63)
+local CONCOURSE = Color3.fromRGB(28, 30, 35)
 local LINE = Color3.fromRGB(222, 228, 224)
 local TERRACE = Color3.fromRGB(46, 49, 56)
 local TERRACE_EDGE = Color3.fromRGB(32, 35, 41)
@@ -256,6 +257,81 @@ local function buildStand(teamId: string, parent: Instance)
 end
 
 --------------------------------------------------------------------------------
+-- Pontas e chao
+--------------------------------------------------------------------------------
+
+--[[
+	Bancadas atras das balizas. Nao tem claque nenhuma — existem para fechar o
+	recinto. Sem elas ve-se o vazio por tras das balizas e a coisa deixa de
+	parecer um estadio para parecer duas bancadas largadas num campo.
+]]
+local function buildEndStand(xSign: number, parent: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "EndStand" .. (xSign > 0 and "East" or "West")
+	folder.Parent = parent
+
+	local rows = math.floor(S.standRows * 0.6)
+	local firstX = (S.pitchLength / 2 + S.standGap) * xSign
+	local standDepth = S.standRows * S.rowDepth
+	local width = S.pitchWidth + standDepth * 2 + 14
+
+	for row = 1, rows do
+		local topY = row * S.rowHeight
+		local x = firstX + (row - 1) * S.rowDepth * xSign
+
+		part(
+			"Row" .. row,
+			Vector3.new(S.rowDepth, topY, width),
+			CFrame.new(x, topY / 2, 0),
+			TERRACE,
+			folder
+		)
+		part(
+			"Lip" .. row,
+			Vector3.new(0.5, 0.35, width),
+			CFrame.new(x - (S.rowDepth / 2 - 0.25) * xSign, topY + 0.18, 0),
+			TERRACE_EDGE,
+			folder
+		)
+	end
+
+	local topY = rows * S.rowHeight
+	local backX = firstX + (rows - 1) * S.rowDepth * xSign + (S.rowDepth / 2 + 1) * xSign
+	part("BackWall", Vector3.new(2, topY + 14, width), CFrame.new(backX, (topY + 14) / 2, 0), STRUCTURE, folder)
+end
+
+--[[
+	O chao a volta, com limite. O Baseplate ia ate ao horizonte e era o que fazia
+	isto parecer um modelo largado num deserto — o recinto tem de acabar em
+	algum lado.
+]]
+local function buildGround(parent: Instance)
+	local standDepth = S.standRows * S.rowDepth
+	local length = S.pitchLength + standDepth * 2 + 70
+	local width = S.pitchWidth + standDepth * 2 + 70
+
+	part(
+		"Concourse",
+		Vector3.new(length, 2, width),
+		CFrame.new(0, -1.5, 0),
+		CONCOURSE,
+		parent,
+		{ material = Enum.Material.Asphalt }
+	)
+
+	-- Muro exterior, para nao se ver o fim do mundo por cima das bancadas.
+	local wallHeight = 30
+	for _, spec in {
+		{ Vector3.new(length, wallHeight, 3), CFrame.new(0, wallHeight / 2, width / 2) },
+		{ Vector3.new(length, wallHeight, 3), CFrame.new(0, wallHeight / 2, -width / 2) },
+		{ Vector3.new(3, wallHeight, width), CFrame.new(length / 2, wallHeight / 2, 0) },
+		{ Vector3.new(3, wallHeight, width), CFrame.new(-length / 2, wallHeight / 2, 0) },
+	} do
+		part("OuterWall", spec[1] :: Vector3, spec[2] :: CFrame, STRUCTURE, parent)
+	end
+end
+
+--------------------------------------------------------------------------------
 -- Holofotes
 --------------------------------------------------------------------------------
 
@@ -332,14 +408,29 @@ function Stadium.build()
 
 	setNight()
 
+	-- O Baseplate do place novo fica por baixo de tudo e estende-se ate ao
+	-- horizonte. Enquanto la estiver, e nele que se cai, e nao na bancada.
+	local baseplate = workspace:FindFirstChild("Baseplate")
+	if baseplate then
+		baseplate:Destroy()
+	end
+	for _, child in workspace:GetChildren() do
+		if child:IsA("SpawnLocation") then
+			child:Destroy()
+		end
+	end
+
 	local root = Instance.new("Folder")
 	root.Name = "Stadium"
 	root.Parent = workspace
 
+	buildGround(root)
 	buildPitch(root)
 	for _, teamId in Config.TeamOrder do
 		buildStand(teamId, root)
 	end
+	buildEndStand(1, root)
+	buildEndStand(-1, root)
 	buildFloodlights(root)
 end
 
