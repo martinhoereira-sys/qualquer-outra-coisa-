@@ -13,6 +13,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
+local Flares = require(script.Parent:WaitForChild("Flares"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 
@@ -87,8 +88,19 @@ Remotes.Chant.OnServerEvent:Connect(function(player)
 	Atmosphere.registerChant(teamId, offset)
 end)
 
+local function sendFlareCount(player: Player)
+	Remotes.FlareCount:FireClient(player, Flares.remaining(player))
+end
+
+Remotes.Flare.OnServerEvent:Connect(function(player)
+	if Flares.light(player) then
+		sendFlareCount(player)
+	end
+end)
+
 Players.PlayerRemoving:Connect(function(player)
 	Teams.forget(player)
+	Flares.forget(player)
 	lastBeatUsed[player] = nil
 end)
 
@@ -105,14 +117,27 @@ task.spawn(function()
 	end
 end)
 
+local lastPhase = ""
+
 MatchLoop.onChange(function(snapshot)
 	Remotes.MatchState:FireAllClients(snapshot)
+
+	-- Jogo novo, tochas novas. Guardar as do jogo anterior nao faria sentido:
+	-- sao para o momento, nao para acumular.
+	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
+		Flares.refill()
+		for _, player in Players:GetPlayers() do
+			sendFlareCount(player)
+		end
+	end
+	lastPhase = snapshot.phase
 end)
 
 -- Quem chega a meio de um jogo tem de ver o estado atual, nao esperar pela
 -- proxima mudanca de fase.
 Players.PlayerAdded:Connect(function(player)
 	Remotes.MatchState:FireClient(player, MatchLoop.snapshot())
+	sendFlareCount(player)
 end)
 
 Stadium.build()

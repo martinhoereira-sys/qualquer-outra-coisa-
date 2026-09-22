@@ -14,6 +14,8 @@ local NAMES = {
 	"Chant", -- cliente -> servidor: cantei agora
 	"Atmosphere", -- servidor -> clientes: as barras das duas bancadas
 	"MatchState", -- servidor -> clientes: fase, relogio, resultado
+	"Flare", -- cliente -> servidor: acender tocha
+	"FlareCount", -- servidor -> cliente: quantas lhe restam
 }
 
 local folder: Folder

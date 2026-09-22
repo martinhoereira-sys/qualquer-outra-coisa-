@@ -209,7 +209,13 @@ ownFill.BackgroundColor3 = TEXT
 ownFill.BorderSizePixel = 0
 ownFill.Parent = ownTrack
 
-local hint = label(gui, "E  cantar          espaco  saltar", 12, MUTED)
+-- Tochas restantes, ao lado do compasso.
+local flareLabel = label(gui, "", 13, BRASS)
+flareLabel.Size = UDim2.new(1, 0, 0, 18)
+flareLabel.Position = UDim2.new(0.5, 0, 1, -76)
+flareLabel.AnchorPoint = Vector2.new(0.5, 0)
+
+local hint = label(gui, "E  cantar          F  tocha          espaco  saltar", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
@@ -298,6 +304,40 @@ ContextActionService:BindAction("Cantar", function(_, inputState)
 end, true, Enum.KeyCode.E)
 
 ContextActionService:SetTitle("Cantar", "CANTA")
+
+--------------------------------------------------------------------------------
+-- Tochas
+--------------------------------------------------------------------------------
+
+local flaresLeft = Config.Flares.perMatch
+
+local function updateFlareLabel()
+	if flaresLeft > 0 then
+		flareLabel.Text = string.format("%d tochas", flaresLeft)
+		flareLabel.TextColor3 = BRASS
+	else
+		flareLabel.Text = "sem tochas"
+		flareLabel.TextColor3 = MUTED
+	end
+end
+
+updateFlareLabel()
+
+Remotes.FlareCount.OnClientEvent:Connect(function(count)
+	flaresLeft = count
+	updateFlareLabel()
+end)
+
+-- Quem decide se acende e o servidor: tem de arder para toda a gente, nao so
+-- para quem carregou.
+ContextActionService:BindAction("Tocha", function(_, inputState)
+	if inputState == Enum.UserInputState.Begin and myTeam then
+		Remotes.Flare:FireServer()
+	end
+	return Enum.ContextActionResult.Pass
+end, true, Enum.KeyCode.F)
+
+ContextActionService:SetTitle("Tocha", "TOCHA")
 
 --------------------------------------------------------------------------------
 -- Ligacao ao servidor

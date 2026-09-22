@@ -80,10 +80,24 @@ Config.Stadium = {
 	pitchLength = 110, -- ao longo do eixo X
 	pitchWidth = 70, -- ao longo do eixo Z
 
-	standRows = 9,
-	rowHeight = 3.2,
-	rowDepth = 4.5,
-	standGap = 8, -- distancia da linha lateral a primeira fila
+	standRows = 12,
+	rowHeight = 2.6,
+	rowDepth = 3.6,
+	standGap = 7, -- distancia da linha lateral a primeira fila
+}
+
+--[[
+	Tochas.
+
+	E a imagem da coisa toda: uma bancada as escuras e um ponto de luz vermelha a
+	arder no meio dela. Por isso sao poucas e duram pouco — se cada um pudesse ter
+	sempre uma acesa, deixava de ser um momento e passava a ser o fundo do ecra.
+]]
+Config.Flares = {
+	perMatch = 3, -- quantas cada adepto recebe por jogo
+	duration = 14, -- segundos acesa
+	cooldown = 6, -- espera entre tochas
+	gainPerSecond = 2.4, -- quanto acrescenta ao ambiente enquanto arde
 }
 
 return Config

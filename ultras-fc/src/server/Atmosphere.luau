@@ -10,6 +10,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
+local Flares = require(script.Parent:WaitForChild("Flares"))
 
 local Atmosphere = {}
 
@@ -55,11 +56,19 @@ function Atmosphere.registerChant(teamId: string, offset: number)
 	levels[teamId] = math.min(levels[teamId] + gain, Config.Atmosphere.max)
 end
 
--- Chamado todos os frames. A descida constante e o que obriga a manter o ritmo.
+--[[
+	Chamado todos os frames. A descida constante e o que obriga a manter o ritmo.
+
+	As tochas acesas empurram na direcao contraria enquanto ardem: acender uma
+	compra a bancada uns segundos de folga, o que e exactamente o que uma tocha
+	faz numa bancada a serio.
+]]
 function Atmosphere.step(dt: number)
 	local drop = Config.Atmosphere.decayPerSecond * dt
+
 	for teamId, value in levels do
-		levels[teamId] = math.max(value - drop, 0)
+		local fromFlares = Flares.countFor(teamId) * Config.Flares.gainPerSecond * dt
+		levels[teamId] = math.clamp(value - drop + fromFlares, 0, Config.Atmosphere.max)
 	end
 end
 
