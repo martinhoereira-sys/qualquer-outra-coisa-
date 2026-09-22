@@ -129,7 +129,9 @@ Config.Stadium = {
 	futebol so precisa de ser suficiente para a bancada ter algo a que reagir.
 ]]
 Config.Pitch = {
-	perSide = 6,
+	-- Zero: o relvado fica livre para jogadores a serio. Bonecos a correr atras
+	-- da bola liam-se como enchimento, e o jogo nao e sobre eles.
+	perSide = 0,
 	speed = 17, -- studs por segundo com bola nos pes
 	chaseSpeed = 21, -- sem bola corre-se mais
 	ballSpeed = 58, -- remate

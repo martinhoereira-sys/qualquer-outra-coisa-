@@ -108,6 +108,12 @@ local function formationFor(teamId: string): { Vector3 }
 		end
 	end
 
+	-- A formacao e desenhada a pensar em onze; corta-se a quantos se querem.
+	-- Com zero o relvado fica vazio, a espera de jogadores a serio.
+	while #spots > P.perSide do
+		table.remove(spots)
+	end
+
 	return spots
 end
 
@@ -233,9 +239,68 @@ function Pitch.kickOff()
 	state.resetAt = 0
 end
 
+--[[
+	Sem ninguem em campo, a bola joga sozinha: corre para uma baliza, remata, e a
+	pontaria sai do ambiente da bancada que ataca.
+
+	E de proposito. O relvado fica livre para jogadores a serio quando os
+	houver, e ate la o que importa continua a valer — cantar, ou melhor, encher
+	a bancada, e que faz a bola entrar.
+]]
+local function stepEmptyPitch(b: BasePart, dt: number)
+	if state.resetAt > 0 then
+		if os.clock() >= state.resetAt then
+			Pitch.kickOff()
+		end
+		return
+	end
+
+	local toTarget = state.target - b.Position
+	if toTarget.Magnitude > 0.8 then
+		b.CFrame = b.CFrame + toTarget.Unit * math.min(P.ballSpeed * dt, toTarget.Magnitude)
+	else
+		-- Chegou. Ou remata a baliza, ou avanca mais um pouco no campo.
+		local teamId = Config.TeamOrder[math.random(1, #Config.TeamOrder)]
+		local goalX = attackingX(teamId)
+
+		if math.abs(goalX - b.Position.X) <= P.shootRange and math.random() < 0.55 then
+			local heat = Atmosphere.fraction(teamId)
+			local spread = P.shotSpreadCold + (P.shotSpreadHot - P.shotSpreadCold) * heat
+			state.lastTeam = teamId
+			state.target = Vector3.new(
+				goalX + (goalX > 0 and 3 or -3),
+				math.random() * 4 + 1.5,
+				math.clamp(math.random() * spread * 2 - spread, -22, 22)
+			)
+		else
+			local sign = teamId == "home" and 1 or -1
+			state.lastTeam = teamId
+			state.target = Vector3.new(
+				math.clamp(b.Position.X + sign * math.random(20, 45), -HALF + 6, HALF - 6),
+				1.4,
+				math.clamp(math.random(-1, 1) * math.random(4, 24), -(S.pitchWidth / 2 - 6), S.pitchWidth / 2 - 6)
+			)
+		end
+	end
+
+	local scorer = crossedGoalLine(b.Position)
+	if scorer and state.lastTeam == scorer then
+		state.resetAt = os.clock() + 2.5
+		state.lastTeam = nil
+		if onGoal then
+			onGoal(scorer)
+		end
+	end
+end
+
 function Pitch.step(dt: number, playing: boolean)
 	local b = ball
 	if not b then
+		return
+	end
+
+	if playing and #squad == 0 then
+		stepEmptyPitch(b, dt)
 		return
 	end
 

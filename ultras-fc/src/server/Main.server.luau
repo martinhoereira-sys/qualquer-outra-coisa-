@@ -32,6 +32,40 @@ local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 local intensity: { [string]: number } = {}
 local lastHit: { [Player]: number } = {}
 
+--[[
+	Onde cada papel aparece.
+
+	Os adeptos a porta da sede da sua claque; quem apita, na praca, que fica
+	fora das duas — nao se entra num estadio por magia, e o caminho ate la e a
+	melhor parte.
+
+	Ambas esperam pelo corpo em vez de desistir se ele ainda nao existir:
+	escolher o papel antes do personagem carregar e o caso normal, nao a
+	excepcao, e desistir ai deixava a pessoa largada onde nasceu.
+]]
+local function placeAt(player: Player, point: Vector3, lookAt: Vector3?)
+	local character = player.Character or player.CharacterAdded:Wait()
+	local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+	if not root then
+		return
+	end
+	root.CFrame = lookAt and CFrame.lookAt(point, lookAt) or CFrame.new(point)
+end
+
+local function sendToSquare(player: Player)
+	local point = City.arrivalPoint()
+	if point then
+		placeAt(player, point)
+	end
+end
+
+local function sendToStand(player: Player, teamId: string)
+	local point = City.spawnPoint(teamId) or Stadium.spawnPoint(teamId)
+	if point then
+		placeAt(player, point, Vector3.new(point.X, point.Y - 8, point.Z - 40))
+	end
+end
+
 Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	if type(teamId) ~= "string" then
 		return
@@ -39,7 +73,9 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 
 	-- O apito e um papel como os outros, escolhido a entrada.
 	if teamId == "arbitro" then
-		Referee.take(player)
+		if Referee.take(player) then
+			task.spawn(sendToSquare, player)
+		end
 		return
 	end
 
@@ -167,22 +203,6 @@ end)
 
 -- Quem chega a meio de um jogo tem de ver o estado atual, nao esperar pela
 -- proxima mudanca de fase.
---[[
-	Quem chega aparece na praca, sem lado nenhum. Escolher e ir a uma das sedes e
-	entrar — e o que faz a claque ser um sitio, nao uma caixa de dialogo.
-]]
-local function sendToSquare(player: Player)
-	local point = City.arrivalPoint()
-	if not point then
-		return
-	end
-	local character = player.Character or player.CharacterAdded:Wait()
-	local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
-	if root then
-		root.CFrame = CFrame.new(point)
-	end
-end
-
 Players.PlayerAdded:Connect(function(player)
 	Remotes.MatchState:FireClient(player, MatchLoop.snapshot())
 	sendGearCount(player)

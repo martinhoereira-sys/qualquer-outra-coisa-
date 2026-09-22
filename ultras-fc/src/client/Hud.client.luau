@@ -67,16 +67,72 @@ local function label(parent: Instance, text: string, size: number, colour: Color
 end
 
 --------------------------------------------------------------------------------
--- Quem sou
+-- Menu de entrada
 --------------------------------------------------------------------------------
 
 --[[
-	Nao ha ecra de escolha. Chega-se a praca sem lado nenhum e escolhe-se indo a
-	uma das sedes e entrando ao balcao — e isso que faz a claque ser um sitio em
-	vez de uma caixa de dialogo.
+	Escolhe-se o papel a entrada e o servidor poe cada um no seu sitio: os
+	adeptos a porta da sede da claque, o arbitro na praca.
 
-	O atributo vem do servidor quando se entra numa claque ou se pega no apito.
+	O balcao da sede continua a funcionar para trocar de lado depois — o menu e
+	para nao se ficar parado na rua a adivinhar, nao para substituir o mundo.
 ]]
+local menu = Instance.new("Frame")
+menu.Size = UDim2.fromScale(1, 1)
+menu.BackgroundColor3 = INK
+menu.BackgroundTransparency = 0.06
+menu.Parent = gui
+
+local title = label(menu, "Escolhe o teu papel", 34, TEXT)
+title.Size = UDim2.new(1, -40, 0, 44)
+title.Position = UDim2.new(0, 20, 0.5, -150)
+
+local subtitle = label(menu, "Sais da sede, vais com o corteo, e entras no estadio", 16, MUTED)
+subtitle.Font = Enum.Font.Gotham
+subtitle.Size = UDim2.new(1, -40, 0, 22)
+subtitle.Position = UDim2.new(0, 20, 0.5, -108)
+
+local function choice(text: string, note: string, colour: Color3, x: number, width: number, y: number, pick: string)
+	local button = Instance.new("TextButton")
+	button.Size = UDim2.new(0, width, 0, 76)
+	button.Position = UDim2.new(0.5, x, 0.5, y)
+	button.BackgroundColor3 = colour
+	button.BorderSizePixel = 0
+	button.Font = Enum.Font.GothamBold
+	button.Text = ""
+	button.Parent = menu
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = button
+
+	local name = label(button, text, 19, TEXT)
+	name.Size = UDim2.new(1, 0, 0, 24)
+	name.Position = UDim2.new(0, 0, 0, 16)
+
+	local hintText = label(button, note, 13, Color3.fromRGB(232, 234, 237))
+	hintText.Font = Enum.Font.Gotham
+	hintText.TextTransparency = 0.35
+	hintText.Size = UDim2.new(1, 0, 0, 18)
+	hintText.Position = UDim2.new(0, 0, 0, 42)
+
+	button.Activated:Connect(function()
+		Remotes.PickTeam:FireServer(pick)
+		menu.Visible = false
+	end)
+end
+
+for index, teamId in Config.TeamOrder do
+	local team = Config.Teams[teamId]
+	choice(team.name, "claque  ·  tochas, fumo, corteo", team.color, (index == 1) and -232 or 12, 220, -56, teamId)
+end
+
+choice("Apitar o jogo", "arbitro  ·  decides, e podes ceder", Color3.fromRGB(46, 50, 58), -232, 452, 36, "arbitro")
+
+--------------------------------------------------------------------------------
+-- Quem sou
+--------------------------------------------------------------------------------
+
 local function myRole(): string?
 	return player:GetAttribute("Team")
 end
