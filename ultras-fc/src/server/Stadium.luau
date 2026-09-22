@@ -25,13 +25,14 @@ local S = Config.Stadium
 local PITCH_DARK = Color3.fromRGB(38, 86, 46)
 local PITCH_LIGHT = Color3.fromRGB(54, 112, 63)
 local CONCOURSE = Color3.fromRGB(28, 30, 35)
-local SEAT_A = Color3.fromRGB(78, 84, 96)
-local SEAT_B = Color3.fromRGB(64, 70, 82)
-local BOARD = Color3.fromRGB(30, 33, 40)
+local SEAT_A = Color3.fromRGB(108, 114, 128)
+local SEAT_B = Color3.fromRGB(92, 98, 112)
+local BOARD = Color3.fromRGB(34, 37, 44)
+local RAIL = Color3.fromRGB(226, 228, 232)
 local LINE = Color3.fromRGB(222, 228, 224)
-local TERRACE = Color3.fromRGB(46, 49, 56)
-local TERRACE_EDGE = Color3.fromRGB(32, 35, 41)
-local STRUCTURE = Color3.fromRGB(26, 28, 33)
+local TERRACE = Color3.fromRGB(150, 152, 156)
+local TERRACE_EDGE = Color3.fromRGB(118, 120, 126)
+local STRUCTURE = Color3.fromRGB(176, 178, 182)
 
 type PartOpts = {
 	material: Enum.Material?,
@@ -69,9 +70,9 @@ end
 
 local function setNight()
 	Lighting.ClockTime = 20.2
-	Lighting.Brightness = 1.8
-	Lighting.Ambient = Color3.fromRGB(46, 50, 60)
-	Lighting.OutdoorAmbient = Color3.fromRGB(52, 57, 68)
+	Lighting.Brightness = 2.4
+	Lighting.Ambient = Color3.fromRGB(72, 76, 86)
+	Lighting.OutdoorAmbient = Color3.fromRGB(78, 84, 96)
 	Lighting.EnvironmentDiffuseScale = 0.35
 	Lighting.EnvironmentSpecularScale = 0.35
 	Lighting.GlobalShadows = true
@@ -368,6 +369,84 @@ local function buildBowl(parent: Instance)
 		})
 		part("DugoutBench", Vector3.new(24, 1, 2), CFrame.new(side * 20, 1.8, dugoutZ), Color3.fromRGB(40, 43, 50), folder)
 		part("DugoutBack", Vector3.new(26, 5, 0.6), CFrame.new(side * 20, 2.5, dugoutZ + 3.2 * side), STRUCTURE, folder)
+	end
+
+	--[[
+		A vedacao a frente da claque, e a faixa presa nela.
+
+		E a imagem de uma bancada de ultras: malha branca a toda a largura, a
+		tarja da claque atada por cima, e a tocha a arder por tras. Sem a malha a
+		bancada acaba no ar e nao ha onde prender nada — e a tarja so existe
+		porque ha uma rede onde a pendurar.
+	]]
+	for _, teamId in Config.TeamOrder do
+		local team = Config.Teams[teamId]
+		local side = team.side
+		local frontZ = (S.pitchWidth / 2 + S.standGap - 1) * side
+		local width = S.pitchLength * 0.86
+
+		-- Prumos de metro e meio em metro e meio, como numa vedacao a serio.
+		local posts = 26
+		for i = 0, posts do
+			local x = -width / 2 + i * (width / posts)
+			part("FencePost", Vector3.new(0.35, 7, 0.35), CFrame.new(x, 3.5, frontZ), RAIL, folder, {
+				material = Enum.Material.Metal,
+			})
+		end
+
+		-- A malha: uma chapa fina e transparente entre os prumos. Ve-se atraves,
+		-- que e o que interessa, e continua a marcar o limite.
+		local mesh = part("FenceMesh", Vector3.new(width, 6.4, 0.12), CFrame.new(0, 3.4, frontZ), RAIL, folder, {
+			material = Enum.Material.DiamondPlate,
+			transparency = 0.55,
+		})
+		mesh.CanCollide = false
+
+		part("FenceRail", Vector3.new(width, 0.3, 0.5), CFrame.new(0, 6.9, frontZ), RAIL, folder, {
+			material = Enum.Material.Metal,
+		})
+
+		-- A tarja da claque, atada a meia altura.
+		local banner = part(
+			"ClaqueBanner",
+			Vector3.new(width * 0.62, 3.4, 0.25),
+			CFrame.new(0, 3.2, frontZ - 0.25 * side),
+			team.color,
+			folder,
+			{ material = Enum.Material.Fabric }
+		)
+
+		local sign = Instance.new("SurfaceGui")
+		sign.Face = side > 0 and Enum.NormalId.Back or Enum.NormalId.Front
+		sign.CanvasSize = Vector2.new(1200, 180)
+		sign.Parent = banner
+
+		local text = Instance.new("TextLabel")
+		text.Size = UDim2.fromScale(1, 1)
+		text.BackgroundTransparency = 1
+		text.Font = Enum.Font.GothamBlack
+		text.Text = string.upper(team.name)
+		text.TextScaled = true
+		text.TextColor3 = Color3.fromRGB(248, 248, 248)
+		text.Parent = sign
+
+		--[[
+			Escadas a subir pela bancada, entre blocos de lugares.
+
+			Sao os corredores por onde se sobe num estadio, e aqui sao tambem o
+			caminho a serio: sem elas subia-se degrau a degrau, o que funciona
+			mas nao e o que se faz.
+		]]
+		for _, atX in { -S.pitchLength * 0.3, 0, S.pitchLength * 0.3 } do
+			for row = 1, S.standRows do
+				local topY = row * S.rowHeight
+				local step = (row - 1) * S.rowDepth
+				local z = (S.pitchWidth / 2 + S.standGap + step + S.rowDepth / 2) * side
+				part("Gangway", Vector3.new(4.5, 0.5, S.rowDepth), CFrame.new(atX, topY + 0.25, z), RAIL, folder, {
+					material = Enum.Material.Concrete,
+				})
+			end
+		end
 	end
 
 	local spawnRow = math.ceil(S.standRows * 0.45)

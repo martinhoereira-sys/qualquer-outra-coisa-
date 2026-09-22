@@ -79,13 +79,6 @@ function Gear.heatFor(teamId: string): number
 	return total
 end
 
-function Gear.drumMultiplier(player: Player): number
-	local entry = burning[player]
-	if entry and entry.kind == "tambor" then
-		return KINDS.tambor.chantMultiplier
-	end
-	return 1
-end
 
 --------------------------------------------------------------------------------
 -- O objecto

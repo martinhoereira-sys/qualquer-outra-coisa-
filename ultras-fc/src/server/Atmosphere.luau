@@ -48,23 +48,14 @@ function Atmosphere.all(): { [string]: number }
 end
 
 --[[
-	Um adepto acertou no compasso.
-
-	`offset` e a distancia (em segundos) a batida mais proxima: quanto menor,
-	melhor o acerto.
+	Uma pancada no tambor. E o unico gesto que empurra o ambiente para cima por
+	si — o resto vem do material aceso e de estar la gente na bancada.
 ]]
-function Atmosphere.registerChant(teamId: string, offset: number, multiplier: number?)
+function Atmosphere.registerDrum(teamId: string)
 	if levels[teamId] == nil then
 		return
 	end
-
-	local gain = Config.Atmosphere.gainPerHit
-	if offset <= Config.Beat.perfectWindow then
-		gain *= Config.Atmosphere.perfectMultiplier
-	end
-	gain *= Teams.minorityBonus(teamId)
-	gain *= multiplier or 1
-
+	local gain = Config.Drum.hitGain * Teams.minorityBonus(teamId)
 	levels[teamId] = math.min(levels[teamId] + gain, Config.Atmosphere.max)
 end
 
@@ -78,9 +69,13 @@ end
 function Atmosphere.step(dt: number)
 	local drop = Config.Atmosphere.decayPerSecond * dt
 
+	-- A bancada cheia segura um minimo: uma claque presente ja apoia, mesmo
+	-- calada. O piso e o que impede o ambiente de chegar a zero com gente la.
+	local floor = Config.Atmosphere.max * Config.Atmosphere.crowdFloor
+
 	for teamId, value in levels do
 		local fromGear = Gear.heatFor(teamId) * dt
-		levels[teamId] = math.clamp(value - drop + fromGear, 0, Config.Atmosphere.max)
+		levels[teamId] = math.clamp(value - drop + fromGear, floor, Config.Atmosphere.max)
 	end
 end
 

@@ -11,7 +11,6 @@ local RunService = game:GetService("RunService")
 
 local NAMES = {
 	"PickTeam", -- cliente -> servidor: escolhi esta equipa
-	"Chant", -- cliente -> servidor: cantei agora
 	"Atmosphere", -- servidor -> clientes: as barras das duas bancadas
 	"MatchState", -- servidor -> clientes: fase, relogio, resultado
 	"Gear", -- cliente -> servidor: pedir material (tocha, fumo, tambor)

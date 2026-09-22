@@ -1,20 +1,18 @@
 --!strict
 --[[
-	O que o adepto ve e faz.
+	O que o adepto ve.
 
-	Duas coisas: escolher equipa a entrada, e depois cantar ao compasso.
+	Escolhe-se o lado a entrada e o resto e material: tocha, fumo, tambor. Nao ha
+	minijogo de ritmo nenhum — o apoio e estar la, levar material e bater no
+	tambor, nao acertar num botao ao compasso.
 
-	O compasso nao vem pela rede — o cliente le o mesmo relogio do servidor e
-	calcula-o sozinho, por isso o ritmo mantem-se suave mesmo com ping.
-
-	Regra do ecra: ESPACO E PARA SALTAR. Cantar e no E. Um jogo onde se esta numa
-	bancada tem de deixar saltar, e a barra de espaco e onde a mao ja esta.
+	Regra do ecra: ESPACO E PARA SALTAR, sempre. Um jogo passado numa bancada tem
+	de deixar saltar.
 ]]
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -27,14 +25,10 @@ local myTeam: string? = nil
 	Sons. Poe aqui os ids dos teus audios (rbxassetid://NUMERO) e passa a haver
 	som sem mexer em mais nada. Vazios, o jogo funciona igual — so em silencio.
 
-	Comeca pelo `drum`: e ele que marca o compasso. Sem som, o ritmo tem de se
-	ler no ecra, que e bem mais dificil do que ouvi-lo.
+	Comeca pelo `drum`: e o som que manda na bancada.
 ]]
 local SOUNDS = {
 	drum = "",
-	perfect = "",
-	hit = "",
-	miss = "",
 	goal = "",
 }
 
@@ -54,8 +48,6 @@ local INK = Color3.fromRGB(14, 17, 22)
 local TEXT = Color3.fromRGB(232, 234, 237)
 local MUTED = Color3.fromRGB(141, 150, 163)
 local BRASS = Color3.fromRGB(217, 164, 65)
-local GOOD = Color3.fromRGB(79, 180, 119)
-local BAD = Color3.fromRGB(224, 84, 78)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "UltrasHud"
@@ -75,7 +67,7 @@ local function label(parent: Instance, text: string, size: number, colour: Color
 end
 
 --------------------------------------------------------------------------------
--- Escolher equipa
+-- Escolher lado
 --------------------------------------------------------------------------------
 
 local picker = Instance.new("Frame")
@@ -88,7 +80,7 @@ local pickTitle = label(picker, "Escolhe o teu lado", 34, TEXT)
 pickTitle.Size = UDim2.new(1, -40, 0, 44)
 pickTitle.Position = UDim2.new(0, 20, 0.5, -140)
 
-local pickHint = label(picker, "Canta ao ritmo para encher a bancada", 16, MUTED)
+local pickHint = label(picker, "Sais da sede e vais com o corteo ate ao estadio", 16, MUTED)
 pickHint.Font = Enum.Font.Gotham
 pickHint.Size = UDim2.new(1, -40, 0, 22)
 pickHint.Position = UDim2.new(0, 20, 0.5, -98)
@@ -126,7 +118,7 @@ local scoreLabel = label(gui, "0 - 0", 40, TEXT)
 scoreLabel.Size = UDim2.new(1, 0, 0, 46)
 scoreLabel.Position = UDim2.new(0, 0, 0, 16)
 
-local phaseLabel = label(gui, "AQUECIMENTO", 14, MUTED)
+local phaseLabel = label(gui, "", 14, MUTED)
 phaseLabel.Font = Enum.Font.Gotham
 phaseLabel.Size = UDim2.new(1, 0, 0, 20)
 phaseLabel.Position = UDim2.new(0, 0, 0, 62)
@@ -136,7 +128,7 @@ goalLabel.Size = UDim2.new(1, 0, 0, 36)
 goalLabel.Position = UDim2.new(0, 0, 0, 88)
 
 --------------------------------------------------------------------------------
--- As bancadas, uma barra de cada lado
+-- As duas bancadas
 --------------------------------------------------------------------------------
 
 local bars: { [string]: Frame } = {}
@@ -169,35 +161,12 @@ for index, teamId in Config.TeamOrder do
 	bars[teamId] = fill
 end
 
---------------------------------------------------------------------------------
--- O compasso, discreto, em baixo
---------------------------------------------------------------------------------
-
--- Uma barra fina que enche entre batidas e estala no momento certo. Chega para
--- se ler o ritmo sem tapar meio ecra com um botao.
-local beatTrack = Instance.new("Frame")
-beatTrack.AnchorPoint = Vector2.new(0.5, 1)
-beatTrack.Size = UDim2.fromOffset(200, 5)
-beatTrack.Position = UDim2.new(0.5, 0, 1, -56)
-beatTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
-beatTrack.BackgroundTransparency = 0.3
-beatTrack.BorderSizePixel = 0
-beatTrack.Parent = gui
-
-local beatFill = Instance.new("Frame")
-beatFill.AnchorPoint = Vector2.new(0.5, 0.5)
-beatFill.Position = UDim2.fromScale(0.5, 0.5)
-beatFill.Size = UDim2.fromScale(0, 1)
-beatFill.BackgroundColor3 = BRASS
-beatFill.BorderSizePixel = 0
-beatFill.Parent = beatTrack
-
--- A barra da propria bancada, junto ao compasso: a das bordas fica longe do
--- sitio para onde se esta a olhar.
+-- A da propria bancada junto ao rodape, onde a vista ja esta: as das bordas
+-- ficam longe do sitio para onde se esta a olhar.
 local ownTrack = Instance.new("Frame")
 ownTrack.AnchorPoint = Vector2.new(0.5, 1)
-ownTrack.Size = UDim2.fromOffset(200, 5)
-ownTrack.Position = UDim2.new(0.5, 0, 1, -44)
+ownTrack.Size = UDim2.fromOffset(240, 6)
+ownTrack.Position = UDim2.new(0.5, 0, 1, -48)
 ownTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
 ownTrack.BackgroundTransparency = 0.3
 ownTrack.BorderSizePixel = 0
@@ -205,109 +174,23 @@ ownTrack.Parent = gui
 
 local ownFill = Instance.new("Frame")
 ownFill.Size = UDim2.fromScale(0, 1)
-ownFill.BackgroundColor3 = TEXT
+ownFill.BackgroundColor3 = BRASS
 ownFill.BorderSizePixel = 0
 ownFill.Parent = ownTrack
-
--- O que ainda ha na mochila, ao lado do compasso.
-local gearLabel = label(gui, "", 13, BRASS)
-gearLabel.Size = UDim2.new(1, 0, 0, 18)
-gearLabel.Position = UDim2.new(0.5, 0, 1, -76)
-gearLabel.AnchorPoint = Vector2.new(0.5, 0)
-
-local hint = label(gui, "E  cantar      F  tocha      G  fumo      T  tambor      espaco  saltar", 12, MUTED)
-hint.Font = Enum.Font.Gotham
-hint.Size = UDim2.new(1, 0, 0, 16)
-hint.Position = UDim2.new(0, 0, 1, -26)
-
-local feedback = label(gui, "", 24, TEXT)
-feedback.Size = UDim2.new(1, 0, 0, 30)
-feedback.Position = UDim2.new(0.5, 0, 1, -104)
-feedback.AnchorPoint = Vector2.new(0.5, 0)
-feedback.TextTransparency = 1
-
-local comboLabel = label(gui, "", 14, BRASS)
-comboLabel.Size = UDim2.new(1, 0, 0, 18)
-comboLabel.Position = UDim2.new(0.5, 0, 1, -80)
-comboLabel.AnchorPoint = Vector2.new(0.5, 0)
-comboLabel.TextTransparency = 1
-
---------------------------------------------------------------------------------
--- Cantar
---------------------------------------------------------------------------------
-
-local combo = 0
-local feedbackToken = 0
-
-local function showFeedback(text: string, colour: Color3)
-	feedbackToken += 1
-	local token = feedbackToken
-
-	feedback.Text = text
-	feedback.TextColor3 = colour
-	feedback.TextTransparency = 0
-
-	comboLabel.Text = combo >= 2 and (combo .. " seguidos") or ""
-	comboLabel.TextTransparency = combo >= 2 and 0 or 1
-
-	task.delay(0.55, function()
-		if feedbackToken == token then
-			feedback.TextTransparency = 1
-			comboLabel.TextTransparency = 1
-		end
-	end)
-end
-
--- O cliente julga o proprio acerto pelo mesmo relogio que o servidor usa. Ir e
--- voltar ao servidor so para mostrar "PERFEITO" fazia o ritmo sentir-se pastoso,
--- que e precisamente o que este jogo nao pode ser. A barra continua a ser
--- decidida pelo servidor: isto muda o que se ve, nao o que conta.
-local function beatOffset(): number
-	local now = workspace:GetServerTimeNow()
-	local index = math.floor(now / Config.Beat.interval + 0.5)
-	return math.abs(now - index * Config.Beat.interval)
-end
-
-local function chant()
-	if not myTeam then
-		return
-	end
-
-	Remotes.Chant:FireServer()
-
-	local offset = beatOffset()
-	if offset <= Config.Beat.perfectWindow then
-		combo += 1
-		showFeedback("PERFEITO", BRASS)
-		play(SOUNDS.perfect, 0.6)
-	elseif offset <= Config.Beat.window then
-		combo = 0
-		showFeedback("BOA", GOOD)
-		play(SOUNDS.hit, 0.5)
-	else
-		combo = 0
-		showFeedback("FORA DE TEMPO", BAD)
-		play(SOUNDS.miss, 0.4)
-	end
-end
-
---[[
-	E para cantar, e nada mais. O terceiro argumento pede um botao tactil, que
-	o Roblox so cria em telemovel — no computador o ecra fica limpo, e a barra
-	de espaco continua a fazer o que toda a gente espera: saltar.
-]]
-ContextActionService:BindAction("Cantar", function(_, inputState)
-	if inputState == Enum.UserInputState.Begin then
-		chant()
-	end
-	return Enum.ContextActionResult.Pass
-end, true, Enum.KeyCode.E)
-
-ContextActionService:SetTitle("Cantar", "CANTA")
 
 --------------------------------------------------------------------------------
 -- Material
 --------------------------------------------------------------------------------
+
+local gearLabel = label(gui, "", 13, BRASS)
+gearLabel.Size = UDim2.new(1, 0, 0, 18)
+gearLabel.Position = UDim2.new(0.5, 0, 1, -78)
+gearLabel.AnchorPoint = Vector2.new(0.5, 0)
+
+local hint = label(gui, "F  tocha      G  fumo      T  tambor      espaco  saltar", 12, MUTED)
+hint.Font = Enum.Font.Gotham
+hint.Size = UDim2.new(1, 0, 0, 16)
+hint.Position = UDim2.new(0, 0, 1, -26)
 
 local stock = {
 	tocha = Config.Gear.tocha.perMatch,
@@ -347,7 +230,8 @@ end)
 
 --[[
 	As teclas so pedem o material; ele vai para a mochila. Usa-se depois, ao
-	pegar nele e clicar — o gesto de o levantar e metade da coisa.
+	pegar nele e clicar — o gesto de o levantar e metade da coisa, e no tambor e
+	cada clique que e uma pancada.
 ]]
 for kind, key in { tocha = Enum.KeyCode.F, fumo = Enum.KeyCode.G, tambor = Enum.KeyCode.T } do
 	local action = "Pedir_" .. kind
@@ -403,28 +287,4 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 			end
 		end)
 	end
-end)
-
---------------------------------------------------------------------------------
--- O compasso a correr
---------------------------------------------------------------------------------
-
-local lastDrumBeat = -1
-
-RunService.RenderStepped:Connect(function()
-	local now = workspace:GetServerTimeNow()
-	local interval = Config.Beat.interval
-
-	local beat = math.floor(now / interval + 0.5)
-	local offset = now - beat * interval
-
-	if beat ~= lastDrumBeat and math.abs(offset) < 0.05 then
-		lastDrumBeat = beat
-		play(SOUNDS.drum, 0.35)
-	end
-
-	-- Cheia na batida, vazia entre batidas: o pico e o momento de carregar.
-	local closeness = math.clamp(1 - math.abs(offset) / (interval / 2), 0, 1)
-	beatFill.Size = UDim2.fromScale(closeness, 1)
-	beatFill.BackgroundTransparency = 0.55 - closeness * 0.55
 end)

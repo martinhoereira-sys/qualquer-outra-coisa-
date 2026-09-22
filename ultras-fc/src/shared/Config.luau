@@ -31,24 +31,39 @@ Config.Teams = {
 Config.TeamOrder = { "home", "away" }
 
 --[[
-	O compasso dos canticos.
+	A claque.
 
-	O servidor nao envia cada batida pela rede: servidor e clientes leem o mesmo
-	relogio (workspace:GetServerTimeNow) e calculam a batida sozinhos. Menos
-	trafego e fica tudo sincronizado.
+	A bancada enche-se de gente. Nao e decoracao: e a massa que faz o ambiente, e
+	o ambiente e que faz o remate entrar. Uma bancada vazia nao apoia ninguem por
+	mais botoes que se carregue.
+
+	Saltam em sincronia. E isso que se ve de uma claque a serio de longe — nao
+	pessoas paradas, um bloco inteiro a mexer ao mesmo tempo.
 ]]
-Config.Beat = {
-	interval = 1.0, -- segundos entre batidas
-	window = 0.30, -- acerto conta se cair a menos disto da batida
-	perfectWindow = 0.12, -- dentro disto e perfeito
+Config.Crowd = {
+	perStand = 46,
+	bounceHeight = 1.6,
+	baseRate = 1.6, -- saltos por segundo em repouso
+	drumRate = 3.4, -- ao ritmo do tambor
+	flagEvery = 6, -- de quantos em quantos leva bandeira
+}
+
+--[[
+	O tambor. E ele que manda na bancada: bate-se, a claque salta mais forte e o
+	ambiente sobe. Para de se bater e cai.
+]]
+Config.Drum = {
+	hitGain = 7, -- quanto sobe o ambiente por pancada
+	intensityPerHit = 0.34, -- quanto acelera a claque
+	intensityDecay = 0.5, -- por segundo
+	minInterval = 0.22, -- entre pancadas que contam
 }
 
 -- A barra de ambiente de cada bancada, de 0 a max.
 Config.Atmosphere = {
 	max = 100,
-	gainPerHit = 3.2, -- quanto sobe por acerto bom
-	perfectMultiplier = 1.8, -- quanto vale um acerto perfeito
-	decayPerSecond = 4.5, -- quanto desce sozinha por segundo
+	decayPerSecond = 3.2, -- quanto desce sozinha por segundo
+	crowdFloor = 0.3, -- o ambiente nunca cai abaixo disto com a bancada cheia
 	minorityCap = 2.0, -- teto do bonus de quem esta em minoria
 }
 

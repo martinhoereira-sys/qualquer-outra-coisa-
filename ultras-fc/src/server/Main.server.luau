@@ -16,45 +16,19 @@ local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Gear = require(script.Parent:WaitForChild("Gear"))
 local Pitch = require(script.Parent:WaitForChild("Pitch"))
 local City = require(script.Parent:WaitForChild("City"))
+local Crowd = require(script.Parent:WaitForChild("Crowd"))
 local March = require(script.Parent:WaitForChild("March"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 
--- Uma so batida por jogador. Sem isto, martelar o botao valia mais do que
--- acertar no compasso, e o ritmo deixava de significar alguma coisa.
-local lastBeatUsed: { [Player]: number } = {}
-
-local function currentBeat(now: number): (number, number)
-	local index = math.floor(now / Config.Beat.interval + 0.5)
-	local offset = math.abs(now - index * Config.Beat.interval)
-	return index, offset
-end
-
 --[[
-	Poe o jogador a porta da sede da sua claque, na cidade.
+	A forca do tambor de cada bancada, de 0 a 1.
 
-	Nao na bancada: nao se entra num estadio por magia. Sai-se da sede, anda-se
-	pela avenida e chega-se la — e no caminho que o corteo ha-de acontecer, e um
-	jogo que te punha ja sentado perdia a melhor parte.
-
-	Espera pelo corpo em vez de desistir se ele ainda nao existir: escolher
-	equipa antes do personagem carregar e o caso normal, nao a excepcao.
+	Sobe a cada pancada e desce sozinha. E ela que manda na claque: com o tambor
+	parado a bancada mexe-se devagar, a bater salta a serio.
 ]]
-local function sendToStand(player: Player, teamId: string)
-	local point = City.spawnPoint(teamId) or Stadium.spawnPoint(teamId)
-	if not point then
-		return
-	end
-
-	local character = player.Character or player.CharacterAdded:Wait()
-	local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
-	if not root then
-		return
-	end
-
-	-- Virado para o relvado, que e para onde se olha.
-	root.CFrame = CFrame.lookAt(point, Vector3.new(0, point.Y - 8, 0))
-end
+local intensity: { [string]: number } = {}
+local lastHit: { [Player]: number } = {}
 
 Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	if type(teamId) ~= "string" or not Teams.isValid(teamId) then
@@ -82,66 +56,28 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	end
 end)
 
---[[
-	Um cantico. Vem da tecla E ou de uma pancada no tambor — o caminho e o mesmo,
-	so muda quanto vale.
-]]
-local function registerChant(player: Player, multiplier: number)
+Gear.onDrumHit(function(player)
 	local teamId = Teams.get(player)
 	if not teamId then
 		return
 	end
 
-	--[[
-		O offset e medido a chegada, por isso a latencia do jogador empurra-o
-		para cima: quem joga com ping alto acerta "tarde" aos olhos do servidor.
-		A janela e larga o suficiente para absorver o normal. Se der problemas,
-		sobe Config.Beat.window antes de complicar com compensacao.
-	]]
-	local index, offset = currentBeat(workspace:GetServerTimeNow())
-	if offset > Config.Beat.window then
+	-- Uma pancada de cada vez: martelar o botao nao vale mais do que bater.
+	local now = os.clock()
+	if (lastHit[player] or 0) + Config.Drum.minInterval > now then
 		return
 	end
-	if lastBeatUsed[player] == index then
-		return
-	end
+	lastHit[player] = now
 
-	lastBeatUsed[player] = index
-	Atmosphere.registerChant(teamId, offset, multiplier)
-end
-
-Remotes.Chant.OnServerEvent:Connect(function(player)
-	registerChant(player, Gear.drumMultiplier(player))
-end)
-
-Gear.onDrumHit(function(player)
-	registerChant(player, Config.Gear.tambor.chantMultiplier)
-end)
-
-Gear.onCountChanged(function(player, counts)
-	Remotes.GearCount:FireClient(player, counts)
-end)
-
-local function sendGearCount(player: Player)
-	Remotes.GearCount:FireClient(player, {
-		tocha = Gear.remaining(player, "tocha"),
-		fumo = Gear.remaining(player, "fumo"),
-		tambor = Gear.remaining(player, "tambor"),
-	})
-end
-
--- O cliente pede material; ele aparece na mochila e usa-se com a mao.
-Remotes.Gear.OnServerEvent:Connect(function(player, kind)
-	if type(kind) == "string" then
-		Gear.issue(player, kind)
-	end
+	intensity[teamId] = math.min((intensity[teamId] or 0) + Config.Drum.intensityPerHit, 1)
+	Atmosphere.registerDrum(teamId)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
 	Teams.forget(player)
 	Gear.forget(player)
 	March.forget(player)
-	lastBeatUsed[player] = nil
+	lastHit[player] = nil
 end)
 
 local playing = false
@@ -151,6 +87,11 @@ RunService.Heartbeat:Connect(function(dt)
 	Atmosphere.step(dt)
 	Pitch.step(dt, playing)
 	March.step(dt)
+
+	for teamId, value in intensity do
+		intensity[teamId] = math.max(value - Config.Drum.intensityDecay * dt, 0)
+	end
+	Crowd.step(os.clock(), intensity)
 end)
 
 -- Dez vezes por segundo chega para a barra parecer viva sem encher a rede.
@@ -215,6 +156,7 @@ end)
 
 Stadium.build()
 Pitch.build(workspace:WaitForChild("Stadium"))
+Crowd.build(workspace:WaitForChild("Stadium"))
 
 -- A bola entrar na baliza e que marca. O ambiente da bancada ja entrou na
 -- pontaria do remate, la no campo.
