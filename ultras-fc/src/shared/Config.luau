@@ -93,6 +93,17 @@ Config.Stadium = {
 	arder no meio dela. Por isso sao poucas e duram pouco — se cada um pudesse ter
 	sempre uma acesa, deixava de ser um momento e passava a ser o fundo do ecra.
 ]]
+--[[
+	Os jogadores em campo. Nao sao pessoas — sao NPCs, e sao de proposito: o
+	futebol so precisa de ser suficiente para a bancada ter algo a que reagir.
+]]
+Config.Pitch = {
+	perSide = 6,
+	speed = 18, -- studs por segundo
+	ballSpeed = 46,
+	kickRange = 5,
+}
+
 Config.Flares = {
 	perMatch = 3, -- quantas cada adepto recebe por jogo
 	duration = 14, -- segundos acesa

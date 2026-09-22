@@ -14,6 +14,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Flares = require(script.Parent:WaitForChild("Flares"))
+local Pitch = require(script.Parent:WaitForChild("Pitch"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 
@@ -117,9 +118,12 @@ Players.PlayerRemoving:Connect(function(player)
 	lastBeatUsed[player] = nil
 end)
 
+local playing = false
+
 -- A barra desce continuamente; e isso que obriga a manter o cantico.
 RunService.Heartbeat:Connect(function(dt)
 	Atmosphere.step(dt)
+	Pitch.step(dt, playing)
 end)
 
 -- Dez vezes por segundo chega para a barra parecer viva sem encher a rede.
@@ -131,18 +135,33 @@ task.spawn(function()
 end)
 
 local lastPhase = ""
+local lastGoalStamp = 0
 
 MatchLoop.onChange(function(snapshot)
 	Remotes.MatchState:FireAllClients(snapshot)
 
 	-- Jogo novo, tochas novas. Guardar as do jogo anterior nao faria sentido:
 	-- sao para o momento, nao para acumular.
+	playing = snapshot.phase == "first" or snapshot.phase == "second"
+
 	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
 		Flares.refill()
 		for _, player in Players:GetPlayers() do
 			sendFlareCount(player)
 		end
 	end
+
+	-- Bola ao centro em cada recomeco.
+	if snapshot.phase ~= lastPhase and playing then
+		Pitch.kickOff()
+	end
+
+	-- O golo ja foi decidido pelo MatchLoop; aqui a bola vai la mostra-lo.
+	if snapshot.lastGoal and snapshot.goalStamp > lastGoalStamp then
+		lastGoalStamp = snapshot.goalStamp
+		Pitch.driveToGoal(snapshot.lastGoal)
+	end
+
 	lastPhase = snapshot.phase
 end)
 
@@ -154,6 +173,7 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 Stadium.build()
+Pitch.build(workspace:WaitForChild("Stadium"))
 MatchLoop.start()
 
 print("[Ultras FC] Servidor a postos.")

@@ -51,8 +51,17 @@ function Flares.countFor(teamId: string): number
 	return total
 end
 
+--[[
+	A mao direita em R15 ou R6. Se nenhuma existir — avatares estranhos, corpo
+	ainda a montar — vale o tronco: uma tocha presa ao peito e esquisita, mas
+	carregar em F e nao acontecer nada e pior.
+]]
 local function findHand(character: Model): BasePart?
-	return (character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")) :: BasePart?
+	return (
+		character:FindFirstChild("RightHand")
+		or character:FindFirstChild("Right Arm")
+		or character:FindFirstChild("HumanoidRootPart")
+	) :: BasePart?
 end
 
 local function buildFlare(colour: Color3): Part

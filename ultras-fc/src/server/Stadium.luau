@@ -270,7 +270,7 @@ local function buildEndStand(xSign: number, parent: Instance)
 	folder.Name = "EndStand" .. (xSign > 0 and "East" or "West")
 	folder.Parent = parent
 
-	local rows = math.floor(S.standRows * 0.6)
+	local rows = math.floor(S.standRows * 0.85)
 	local firstX = (S.pitchLength / 2 + S.standGap) * xSign
 	local standDepth = S.standRows * S.rowDepth
 	local width = S.pitchWidth + standDepth * 2 + 14
@@ -321,14 +321,98 @@ local function buildGround(parent: Instance)
 
 	-- Muro exterior, para nao se ver o fim do mundo por cima das bancadas.
 	local wallHeight = 30
+	local gateWidth = 26
+	local sideRun = (length - gateWidth) / 2
+
 	for _, spec in {
-		{ Vector3.new(length, wallHeight, 3), CFrame.new(0, wallHeight / 2, width / 2) },
+		-- Lado da estrada: partido em dois, para a entrada ficar aberta.
+		{ Vector3.new(sideRun, wallHeight, 3), CFrame.new(-(gateWidth / 2 + sideRun / 2), wallHeight / 2, width / 2) },
+		{ Vector3.new(sideRun, wallHeight, 3), CFrame.new(gateWidth / 2 + sideRun / 2, wallHeight / 2, width / 2) },
 		{ Vector3.new(length, wallHeight, 3), CFrame.new(0, wallHeight / 2, -width / 2) },
 		{ Vector3.new(3, wallHeight, width), CFrame.new(length / 2, wallHeight / 2, 0) },
 		{ Vector3.new(3, wallHeight, width), CFrame.new(-length / 2, wallHeight / 2, 0) },
 	} do
 		part("OuterWall", spec[1] :: Vector3, spec[2] :: CFrame, STRUCTURE, parent)
 	end
+end
+
+--[[
+	A estrada de acesso.
+
+	E por aqui que o corteo ha-de subir ate ao estadio. Por agora e so o caminho
+	— mas o caminho tem de existir primeiro, e ja diz de que lado se entra.
+]]
+local function buildRoad(parent: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "Road"
+	folder.Parent = parent
+
+	local standDepth = S.standRows * S.rowDepth
+	local gateZ = S.pitchWidth / 2 + standDepth + 35 -- ja fora do muro
+	local length = 300
+	local width = 26
+
+	part(
+		"Surface",
+		Vector3.new(width, 2, length),
+		CFrame.new(0, -1.5, gateZ + length / 2),
+		Color3.fromRGB(24, 25, 29),
+		folder,
+		{ material = Enum.Material.Asphalt }
+	)
+
+	-- Tracejado do meio.
+	local dashes = 14
+	for i = 1, dashes do
+		part(
+			"Dash" .. i,
+			Vector3.new(0.9, 2.1, 9),
+			CFrame.new(0, -1.45, gateZ + (i - 0.5) * (length / dashes)),
+			Color3.fromRGB(196, 196, 186),
+			folder,
+			{ material = Enum.Material.Asphalt }
+		)
+	end
+
+	-- Passeios e candeeiros dos dois lados.
+	for _, sign in { 1, -1 } do
+		part(
+			"Kerb" .. sign,
+			Vector3.new(5, 2.6, length),
+			CFrame.new((width / 2 + 2.5) * sign, -1.2, gateZ + length / 2),
+			Color3.fromRGB(46, 48, 54),
+			folder
+		)
+
+		for i = 1, 7 do
+			local z = gateZ + (i - 0.5) * (length / 7)
+			local x = (width / 2 + 4) * sign
+
+			part("Pole", Vector3.new(0.8, 18, 0.8), CFrame.new(x, 9, z), STRUCTURE, folder, {
+				material = Enum.Material.Metal,
+			})
+
+			local lamp = part(
+				"Lamp",
+				Vector3.new(3, 0.6, 1.6),
+				CFrame.new(x - 1.6 * sign, 18, z),
+				Color3.fromRGB(255, 226, 170),
+				folder,
+				{ material = Enum.Material.Neon }
+			)
+			lamp.CastShadow = false
+
+			local light = Instance.new("PointLight")
+			light.Brightness = 2.2
+			light.Range = 40
+			light.Color = Color3.fromRGB(255, 214, 150)
+			light.Parent = lamp
+		end
+	end
+
+	-- A entrada, aberta no muro exterior.
+	part("GateLeft", Vector3.new(6, 26, 4), CFrame.new(-(width / 2 + 3), 13, gateZ), STRUCTURE, folder)
+	part("GateRight", Vector3.new(6, 26, 4), CFrame.new(width / 2 + 3, 13, gateZ), STRUCTURE, folder)
 end
 
 --------------------------------------------------------------------------------
@@ -431,6 +515,7 @@ function Stadium.build()
 	end
 	buildEndStand(1, root)
 	buildEndStand(-1, root)
+	buildRoad(root)
 	buildFloodlights(root)
 end
 
