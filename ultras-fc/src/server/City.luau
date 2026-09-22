@@ -80,6 +80,78 @@ end
 	fila de caixas: uma fachada toda igual le-se como cenario, uma com luzes
 	trocadas le-se como gente la dentro.
 ]]
+local SHOPS = {
+	{ name = "CAFE CENTRAL", tint = Color3.fromRGB(226, 148, 62) },
+	{ name = "TABACARIA", tint = Color3.fromRGB(86, 168, 214) },
+	{ name = "MERCEARIA", tint = Color3.fromRGB(104, 186, 116) },
+	{ name = "CERVEJARIA", tint = Color3.fromRGB(216, 84, 76) },
+	{ name = "TASCA DO TONI", tint = Color3.fromRGB(232, 196, 92) },
+	{ name = "BARBEARIA", tint = Color3.fromRGB(198, 108, 196) },
+}
+
+--[[
+	Uma loja no res-do-chao, virada a rua.
+
+	E o que separa um quarteirao de um cenario: montras acesas ao nivel dos
+	olhos, com nomes. Predios lisos ate ao chao lem-se como paredes, e ninguem
+	passeia ao lado de paredes.
+]]
+local function shopfront(centre: Vector3, width: number, facing: number, parent: Instance)
+	local shop = SHOPS[math.random(1, #SHOPS)]
+	local dir = Vector3.new(math.sin(facing), 0, math.cos(facing))
+	local at = Vector3.new(centre.X, 2.4, centre.Z) + dir * 0.4
+
+	local window = part(
+		"Shopfront",
+		Vector3.new(
+			math.abs(dir.Z) > 0.5 and width - 6 or 0.5,
+			4.4,
+			math.abs(dir.X) > 0.5 and width - 6 or 0.5
+		),
+		CFrame.new(at),
+		WINDOW_ON,
+		parent,
+		Enum.Material.Neon
+	)
+	window.CastShadow = false
+
+	local glow = Instance.new("PointLight")
+	glow.Brightness = 2
+	glow.Range = 26
+	glow.Color = shop.tint
+	glow.Parent = window
+
+	local board = part(
+		"Sign",
+		Vector3.new(
+			math.abs(dir.Z) > 0.5 and width - 8 or 0.4,
+			1.8,
+			math.abs(dir.X) > 0.5 and width - 8 or 0.4
+		),
+		CFrame.new(at + Vector3.new(0, 3.6, 0)),
+		shop.tint,
+		parent,
+		Enum.Material.Neon
+	)
+	board.CastShadow = false
+
+	local sign = Instance.new("SurfaceGui")
+	sign.Face = math.abs(dir.Z) > 0.5
+		and (dir.Z > 0 and Enum.NormalId.Front or Enum.NormalId.Back)
+		or (dir.X > 0 and Enum.NormalId.Right or Enum.NormalId.Left)
+	sign.CanvasSize = Vector2.new(700, 120)
+	sign.Parent = board
+
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(1, 1)
+	text.BackgroundTransparency = 1
+	text.Font = Enum.Font.GothamBold
+	text.Text = shop.name
+	text.TextScaled = true
+	text.TextColor3 = Color3.fromRGB(22, 22, 26)
+	text.Parent = sign
+end
+
 local function building(centre: Vector3, footprint: Vector2, floors: number, parent: Instance)
 	local floorHeight = 5
 	local height = floors * floorHeight
@@ -93,6 +165,14 @@ local function building(centre: Vector3, footprint: Vector2, floors: number, par
 		parent
 	)
 
+	-- Loja virada a avenida, no res-do-chao.
+	shopfront(
+		Vector3.new(centre.X, 0, centre.Z + (footprint.Y / 2) * (centre.Z > 0 and -1 or 1)),
+		footprint.X,
+		centre.Z > 0 and math.pi or 0,
+		parent
+	)
+
 	-- Cornija, para o topo nao ser um corte seco.
 	part(
 		"Cornice",
@@ -102,7 +182,7 @@ local function building(centre: Vector3, footprint: Vector2, floors: number, par
 		parent
 	)
 
-	for floor = 1, floors do
+	for floor = 2, floors do
 		local y = (floor - 0.5) * floorHeight
 		for _, spec in {
 			{ normal = Vector3.new(0, 0, 1), span = footprint.X, depth = footprint.Y / 2 },

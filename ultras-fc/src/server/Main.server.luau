@@ -13,7 +13,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
-local Flares = require(script.Parent:WaitForChild("Flares"))
+local Gear = require(script.Parent:WaitForChild("Gear"))
 local Pitch = require(script.Parent:WaitForChild("Pitch"))
 local City = require(script.Parent:WaitForChild("City"))
 local March = require(script.Parent:WaitForChild("March"))
@@ -82,7 +82,11 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	end
 end)
 
-Remotes.Chant.OnServerEvent:Connect(function(player)
+--[[
+	Um cantico. Vem da tecla E ou de uma pancada no tambor — o caminho e o mesmo,
+	so muda quanto vale.
+]]
+local function registerChant(player: Player, multiplier: number)
 	local teamId = Teams.get(player)
 	if not teamId then
 		return
@@ -103,25 +107,39 @@ Remotes.Chant.OnServerEvent:Connect(function(player)
 	end
 
 	lastBeatUsed[player] = index
-	Atmosphere.registerChant(teamId, offset)
-end)
-
-Flares.onCountChanged(function(player, count)
-	Remotes.FlareCount:FireClient(player, count)
-end)
-
-local function sendFlareCount(player: Player)
-	Remotes.FlareCount:FireClient(player, Flares.remaining(player))
+	Atmosphere.registerChant(teamId, offset, multiplier)
 end
 
--- O cliente pede uma tocha; ela aparece na mochila e acende-se ao usa-la.
-Remotes.Flare.OnServerEvent:Connect(function(player)
-	Flares.issue(player)
+Remotes.Chant.OnServerEvent:Connect(function(player)
+	registerChant(player, Gear.drumMultiplier(player))
+end)
+
+Gear.onDrumHit(function(player)
+	registerChant(player, Config.Gear.tambor.chantMultiplier)
+end)
+
+Gear.onCountChanged(function(player, counts)
+	Remotes.GearCount:FireClient(player, counts)
+end)
+
+local function sendGearCount(player: Player)
+	Remotes.GearCount:FireClient(player, {
+		tocha = Gear.remaining(player, "tocha"),
+		fumo = Gear.remaining(player, "fumo"),
+		tambor = Gear.remaining(player, "tambor"),
+	})
+end
+
+-- O cliente pede material; ele aparece na mochila e usa-se com a mao.
+Remotes.Gear.OnServerEvent:Connect(function(player, kind)
+	if type(kind) == "string" then
+		Gear.issue(player, kind)
+	end
 end)
 
 Players.PlayerRemoving:Connect(function(player)
 	Teams.forget(player)
-	Flares.forget(player)
+	Gear.forget(player)
 	March.forget(player)
 	lastBeatUsed[player] = nil
 end)
@@ -174,9 +192,9 @@ MatchLoop.onChange(function(snapshot)
 	-- Jogo novo, tochas novas. Guardar as do jogo anterior nao faria sentido:
 	-- sao para o momento, nao para acumular.
 	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
-		Flares.refill()
+		Gear.refill()
 		for _, player in Players:GetPlayers() do
-			sendFlareCount(player)
+			sendGearCount(player)
 		end
 	end
 
@@ -192,7 +210,7 @@ end)
 -- proxima mudanca de fase.
 Players.PlayerAdded:Connect(function(player)
 	Remotes.MatchState:FireClient(player, MatchLoop.snapshot())
-	sendFlareCount(player)
+	sendGearCount(player)
 end)
 
 Stadium.build()
@@ -204,7 +222,7 @@ Pitch.onGoal(function(teamId)
 	MatchLoop.scoreGoal(teamId)
 end)
 
-Flares.start()
+Gear.start()
 MatchLoop.start()
 
 print("[Ultras FC] Servidor a postos.")

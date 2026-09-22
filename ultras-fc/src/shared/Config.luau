@@ -77,13 +77,17 @@ Config.Stadium = {
 	pitchLength = 110, -- ao longo do eixo X
 	pitchWidth = 70, -- ao longo do eixo Z
 
-	standRows = 14,
-	rowHeight = 2.4,
-	rowDepth = 3.2,
+	-- 1.9 nao e por acaso: acima de 2 studs o Roblox deixa de deixar subir um
+	-- degrau a andar, e a bancada passava a ser uma parede. Como cada fila fica
+	-- mais baixa, sao precisas mais para a taca ter altura.
+	standRows = 18,
+	rowHeight = 1.9,
+	rowDepth = 3.0,
 	standGap = 9, -- distancia da linha lateral a primeira fila
 
 	cornerSegments = 7, -- quantos blocos fazem cada canto curvo
-	tunnelWidth = 14, -- vao das entradas por baixo da bancada
+	tunnelWidth = 16, -- vao das entradas por baixo da bancada
+	tunnelHeight = 11, -- altura livre da passagem
 }
 
 --[[
@@ -125,11 +129,35 @@ Config.March = {
 	atmosphereBonus = 55, -- ambiente de partida para uma claque que fez o caminho
 }
 
-Config.Flares = {
-	perMatch = 3, -- quantas cada adepto recebe por jogo
-	duration = 14, -- segundos acesa
-	cooldown = 6, -- espera entre tochas
-	gainPerSecond = 2.4, -- quanto acrescenta ao ambiente enquanto arde
+--[[
+	O material da claque.
+
+	Tudo o que aqui esta empurra o ambiente para cima enquanto dura, e e por isso
+	que quase tudo dura pouco: se pudesse estar sempre ligado, deixava de ser um
+	momento e passava a ser o fundo do ecra. O tambor e a excepcao — esse nao da
+	nada sozinho, so se acertar no compasso.
+]]
+Config.Gear = {
+	tocha = {
+		perMatch = 3,
+		duration = 14,
+		cooldown = 6,
+		gainPerSecond = 2.4,
+	},
+	fumo = {
+		perMatch = 2,
+		duration = 22, -- dura mais e ve-se melhor de longe, mas aquece menos
+		cooldown = 10,
+		gainPerSecond = 1.5,
+	},
+	tambor = {
+		perMatch = 1, -- so um, e fica para o jogo todo
+		duration = math.huge,
+		cooldown = 0,
+		gainPerSecond = 0, -- nao aquece sozinho: tem de se bater ao ritmo
+		chantMultiplier = 2.2, -- e ai vale por dois
+	},
 }
+
 
 return Config

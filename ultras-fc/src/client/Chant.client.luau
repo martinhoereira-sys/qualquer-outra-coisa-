@@ -209,13 +209,13 @@ ownFill.BackgroundColor3 = TEXT
 ownFill.BorderSizePixel = 0
 ownFill.Parent = ownTrack
 
--- Tochas restantes, ao lado do compasso.
-local flareLabel = label(gui, "", 13, BRASS)
-flareLabel.Size = UDim2.new(1, 0, 0, 18)
-flareLabel.Position = UDim2.new(0.5, 0, 1, -76)
-flareLabel.AnchorPoint = Vector2.new(0.5, 0)
+-- O que ainda ha na mochila, ao lado do compasso.
+local gearLabel = label(gui, "", 13, BRASS)
+gearLabel.Size = UDim2.new(1, 0, 0, 18)
+gearLabel.Position = UDim2.new(0.5, 0, 1, -76)
+gearLabel.AnchorPoint = Vector2.new(0.5, 0)
 
-local hint = label(gui, "E  cantar     F  pegar tocha  ·  clicar para acender     espaco  saltar", 12, MUTED)
+local hint = label(gui, "E  cantar      F  tocha      G  fumo      T  tambor      espaco  saltar", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
@@ -306,38 +306,60 @@ end, true, Enum.KeyCode.E)
 ContextActionService:SetTitle("Cantar", "CANTA")
 
 --------------------------------------------------------------------------------
--- Tochas
+-- Material
 --------------------------------------------------------------------------------
 
-local flaresLeft = Config.Flares.perMatch
+local stock = {
+	tocha = Config.Gear.tocha.perMatch,
+	fumo = Config.Gear.fumo.perMatch,
+	tambor = Config.Gear.tambor.perMatch,
+}
 
-local function updateFlareLabel()
-	if flaresLeft > 0 then
-		flareLabel.Text = string.format("%d tochas", flaresLeft)
-		flareLabel.TextColor3 = BRASS
+local function updateGearLabel()
+	local pieces = {}
+	if stock.tocha > 0 then
+		table.insert(pieces, stock.tocha .. " tochas")
+	end
+	if stock.fumo > 0 then
+		table.insert(pieces, stock.fumo .. " fumos")
+	end
+	if stock.tambor > 0 then
+		table.insert(pieces, "tambor")
+	end
+
+	if #pieces == 0 then
+		gearLabel.Text = "mochila vazia"
+		gearLabel.TextColor3 = MUTED
 	else
-		flareLabel.Text = "sem tochas"
-		flareLabel.TextColor3 = MUTED
+		gearLabel.Text = table.concat(pieces, "   ·   ")
+		gearLabel.TextColor3 = BRASS
 	end
 end
 
-updateFlareLabel()
+updateGearLabel()
 
-Remotes.FlareCount.OnClientEvent:Connect(function(count)
-	flaresLeft = count
-	updateFlareLabel()
+Remotes.GearCount.OnClientEvent:Connect(function(counts)
+	for kind, value in counts do
+		stock[kind] = value
+	end
+	updateGearLabel()
 end)
 
--- O F so pede a tocha; ela vai para a mochila. Acende-se depois, ao pegar nela
--- e clicar — o gesto de a levantar e metade da coisa.
-ContextActionService:BindAction("Tocha", function(_, inputState)
-	if inputState == Enum.UserInputState.Begin and myTeam then
-		Remotes.Flare:FireServer()
-	end
-	return Enum.ContextActionResult.Pass
-end, true, Enum.KeyCode.F)
+--[[
+	As teclas so pedem o material; ele vai para a mochila. Usa-se depois, ao
+	pegar nele e clicar — o gesto de o levantar e metade da coisa.
+]]
+for kind, key in { tocha = Enum.KeyCode.F, fumo = Enum.KeyCode.G, tambor = Enum.KeyCode.T } do
+	local action = "Pedir_" .. kind
+	ContextActionService:BindAction(action, function(_, inputState)
+		if inputState == Enum.UserInputState.Begin and myTeam then
+			Remotes.Gear:FireServer(kind)
+		end
+		return Enum.ContextActionResult.Pass
+	end, true, key)
 
-ContextActionService:SetTitle("Tocha", "TOCHA")
+	ContextActionService:SetTitle(action, string.upper(kind))
+end
 
 --------------------------------------------------------------------------------
 -- Ligacao ao servidor

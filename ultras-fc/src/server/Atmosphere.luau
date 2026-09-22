@@ -10,7 +10,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
-local Flares = require(script.Parent:WaitForChild("Flares"))
+local Gear = require(script.Parent:WaitForChild("Gear"))
 
 local Atmosphere = {}
 
@@ -53,7 +53,7 @@ end
 	`offset` e a distancia (em segundos) a batida mais proxima: quanto menor,
 	melhor o acerto.
 ]]
-function Atmosphere.registerChant(teamId: string, offset: number)
+function Atmosphere.registerChant(teamId: string, offset: number, multiplier: number?)
 	if levels[teamId] == nil then
 		return
 	end
@@ -63,6 +63,7 @@ function Atmosphere.registerChant(teamId: string, offset: number)
 		gain *= Config.Atmosphere.perfectMultiplier
 	end
 	gain *= Teams.minorityBonus(teamId)
+	gain *= multiplier or 1
 
 	levels[teamId] = math.min(levels[teamId] + gain, Config.Atmosphere.max)
 end
@@ -70,16 +71,16 @@ end
 --[[
 	Chamado todos os frames. A descida constante e o que obriga a manter o ritmo.
 
-	As tochas acesas empurram na direcao contraria enquanto ardem: acender uma
-	compra a bancada uns segundos de folga, o que e exactamente o que uma tocha
-	faz numa bancada a serio.
+	O material aceso empurra na direcao contraria enquanto dura: acender uma
+	tocha compra a bancada uns segundos de folga, o que e exactamente o que uma
+	tocha faz numa bancada a serio.
 ]]
 function Atmosphere.step(dt: number)
 	local drop = Config.Atmosphere.decayPerSecond * dt
 
 	for teamId, value in levels do
-		local fromFlares = Flares.countFor(teamId) * Config.Flares.gainPerSecond * dt
-		levels[teamId] = math.clamp(value - drop + fromFlares, 0, Config.Atmosphere.max)
+		local fromGear = Gear.heatFor(teamId) * dt
+		levels[teamId] = math.clamp(value - drop + fromGear, 0, Config.Atmosphere.max)
 	end
 end
 

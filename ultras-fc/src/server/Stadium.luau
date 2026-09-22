@@ -200,7 +200,38 @@ local function ringRow(row: number, parent: Instance)
 	-- Lados compridos, encostados aos cantos mas sem entrar neles.
 	for _, side in { 1, -1 } do
 		block("RowZ", Vector3.new(insetX * 2, topY, depth), CFrame.new(0, topY / 2, (insetZ + depth / 2) * side))
-		block("RowX", Vector3.new(depth, topY, insetZ * 2), CFrame.new((insetX + depth / 2) * side, topY / 2, 0))
+	end
+
+	--[[
+		Os topos, com o tunel aberto ao meio.
+
+		Antes isto era um bloco inteiro e o "vao" era uma peca invisivel por
+		cima — ou seja, decorativo: a bancada continuava macica e nao se entrava.
+		Um tunel a serio faz-se partindo a fila em tres: duas ancas ate ao chao e
+		uma ponte por cima do vao. Por baixo da ponte passa-se.
+	]]
+	local mouth = S.tunnelWidth / 2
+	local clear = math.min(S.tunnelHeight, topY)
+
+	for _, side in { 1, -1 } do
+		local x = (insetX + depth / 2) * side
+		local flank = (insetZ * 2 - S.tunnelWidth) / 2
+
+		for _, zSide in { 1, -1 } do
+			block(
+				"RowX",
+				Vector3.new(depth, topY, flank),
+				CFrame.new(x, topY / 2, (mouth + flank / 2) * zSide)
+			)
+		end
+
+		if topY > clear then
+			block(
+				"RowXBridge",
+				Vector3.new(depth, topY - clear, S.tunnelWidth),
+				CFrame.new(x, clear + (topY - clear) / 2, 0)
+			)
+		end
 	end
 
 	--[[
@@ -282,19 +313,34 @@ local function buildBowl(parent: Instance)
 		part("RoofX", Vector3.new(roofDepth, 1.2, outerZ * 2), CFrame.new((outerX - roofDepth / 2 + 4) * side, topY + 17, 0), STRUCTURE, folder, { material = Enum.Material.Metal })
 	end
 
-	-- Entradas: vaos abertos na base dos topos, por onde se entra e sai.
+	--[[
+		A boca do tunel: chao, tecto e luz. A passagem em si ja esta aberta nas
+		filas; isto e o que a faz parecer uma entrada e nao um buraco.
+	]]
 	for _, side in { 1, -1 } do
-		local mouth = part(
-			"Tunnel",
-			Vector3.new(S.standRows * S.rowDepth + 12, 9, S.tunnelWidth),
-			CFrame.new((outerX - (S.standRows * S.rowDepth) / 2) * side, 4.5, 0),
-			Color3.fromRGB(18, 19, 23),
-			folder,
-			{ material = Enum.Material.Concrete, transparency = 1 }
-		)
-		mouth.CanCollide = false
+		local depthRun = S.standRows * S.rowDepth + 14
+		local x = (outerX - depthRun / 2 + 6) * side
 
-		part("TunnelLintel", Vector3.new(6, 1.5, S.tunnelWidth + 6), CFrame.new((outerX + 1) * side, 9.5, 0), STRUCTURE, folder)
+		part("TunnelFloor", Vector3.new(depthRun, 1, S.tunnelWidth), CFrame.new(x, -0.5, 0), Color3.fromRGB(34, 36, 42), folder)
+		part("TunnelLintel", Vector3.new(depthRun, 1.2, S.tunnelWidth + 8), CFrame.new(x, S.tunnelHeight + 0.6, 0), STRUCTURE, folder)
+
+		for i = 1, 5 do
+			local lamp = part(
+				"TunnelLamp",
+				Vector3.new(4, 0.4, 2.4),
+				CFrame.new(x - depthRun / 2 + i * (depthRun / 6), S.tunnelHeight - 0.4, 0),
+				Color3.fromRGB(255, 236, 200),
+				folder,
+				{ material = Enum.Material.Neon }
+			)
+			lamp.CastShadow = false
+
+			local light = Instance.new("PointLight")
+			light.Brightness = 3
+			light.Range = 34
+			light.Color = Color3.fromRGB(255, 226, 180)
+			light.Parent = lamp
+		end
 	end
 
 	--[[
@@ -521,6 +567,58 @@ local function buildStandLights(parent: Instance)
 
 	local standDepth = S.standRows * S.rowDepth
 	local topY = S.standRows * S.rowHeight
+
+	--[[
+		Coroa de luz por cima da cobertura e balizadores a volta do recinto.
+
+		Um estadio a noite ve-se antes de se la chegar: e o halo por cima dele
+		que diz onde e, e e ele que faz a caminhada ter destino.
+	]]
+	local outerX = S.pitchLength / 2 + S.standGap + standDepth
+	local outerZ = S.pitchWidth / 2 + S.standGap + standDepth
+
+	for i = 0, 35 do
+		local angle = (i / 36) * math.pi * 2
+		local x = math.cos(angle) * (outerX + 6)
+		local z = math.sin(angle) * (outerZ + 6)
+
+		local beacon = part(
+			"Crown",
+			Vector3.new(3, 1.6, 3),
+			CFrame.new(x, topY + 19, z),
+			Color3.fromRGB(198, 216, 255),
+			folder,
+			{ material = Enum.Material.Neon }
+		)
+		beacon.CastShadow = false
+
+		local glow = Instance.new("PointLight")
+		glow.Brightness = 2
+		glow.Range = 45
+		glow.Color = Color3.fromRGB(190, 212, 255)
+		glow.Parent = beacon
+	end
+
+	for i = 0, 23 do
+		local angle = (i / 24) * math.pi * 2
+		local x = math.cos(angle) * (outerX + 26)
+		local z = math.sin(angle) * (outerZ + 26)
+
+		part("GroundPole", Vector3.new(0.7, 14, 0.7), CFrame.new(x, 7, z), STRUCTURE, folder, {
+			material = Enum.Material.Metal,
+		})
+
+		local head = part("GroundLamp", Vector3.new(2.4, 0.5, 2.4), CFrame.new(x, 14, z), Color3.fromRGB(255, 228, 176), folder, {
+			material = Enum.Material.Neon,
+		})
+		head.CastShadow = false
+
+		local light = Instance.new("PointLight")
+		light.Brightness = 2.4
+		light.Range = 50
+		light.Color = Color3.fromRGB(255, 216, 164)
+		light.Parent = head
+	end
 
 	for _, teamId in Config.TeamOrder do
 		local side = Config.Teams[teamId].side
