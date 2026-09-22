@@ -99,7 +99,7 @@ local function refreshRole()
 		roleLabel.TextColor3 = Config.Teams[role].color
 	else
 		myTeam = nil
-		roleLabel.Text = "vai a uma das sedes e entra na claque"
+		roleLabel.Text = "segue um dos feixes de luz ate a sede de uma claque"
 		roleLabel.TextColor3 = MUTED
 	end
 end

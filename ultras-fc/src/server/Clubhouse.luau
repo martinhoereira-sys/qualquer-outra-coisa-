@@ -40,6 +40,47 @@ local function fixture(name: string, size: Vector3, cf: CFrame, colour: Color3, 
 	return p
 end
 
+--[[
+	Um letreiro flutuante, visivel atraves de tudo e de qualquer distancia.
+
+	Sem isto, tirar o painel de escolha deixou as pessoas no meio da rua sem
+	saberem para onde ir. Um mundo so funciona como menu se os sitios se virem
+	de longe.
+]]
+local function marker(host: BasePart, text: string, colour: Color3, height: number)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "Marker"
+	gui.Size = UDim2.fromOffset(340, 80)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, height, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 1200
+	gui.Parent = host
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBlack
+	label.Text = text
+	label.TextScaled = true
+	label.TextColor3 = colour
+	label.TextStrokeTransparency = 0.2
+	label.TextStrokeColor3 = Color3.fromRGB(10, 12, 16)
+	label.Parent = gui
+
+	-- Um feixe a subir, para se localizar mesmo com predios pelo meio.
+	local beam = Instance.new("Part")
+	beam.Name = "Beacon"
+	beam.Size = Vector3.new(2, 200, 2)
+	beam.CFrame = host.CFrame * CFrame.new(0, 100, 0)
+	beam.Color = colour
+	beam.Material = Enum.Material.Neon
+	beam.Transparency = 0.82
+	beam.Anchored = true
+	beam.CanCollide = false
+	beam.CastShadow = false
+	beam.Parent = host
+end
+
 local function prompt(host: BasePart, action: string, object: string, distance: number): ProximityPrompt
 	local p = Instance.new("ProximityPrompt")
 	p.ActionText = action
@@ -76,6 +117,8 @@ function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
 	-- Balcao: e aqui que se entra na claque.
 	local desk = fixture("Desk", Vector3.new(10, 3.5, 2.5), CFrame.new(centre.X - 12, 1.75, centre.Z - 6), team.color, parent)
 	local join = prompt(desk, "Entrar", "Claque do " .. team.name, 12)
+
+	-- O letreiro vai no portao, que e o que se ve da rua.
 
 	join.Triggered:Connect(function(player)
 		if Teams.get(player) == teamId then
@@ -117,6 +160,7 @@ function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
 	-- A porta. So o lider a abre, e so com gente suficiente atras dele.
 	local door = fixture("Gate", Vector3.new(12, 6, 1.5), CFrame.new(centre.X, 3, centre.Z + 17), team.color, parent)
 	local start = prompt(door, "Sair em corteo", "So o lider", 14)
+	marker(door, "SEDE  ·  " .. string.upper(team.name), team.color, 22)
 
 	start.Triggered:Connect(function(player)
 		if not Teams.isLeader(player) or Teams.get(player) ~= teamId then
@@ -189,6 +233,8 @@ function Clubhouse.refereePost(centre: Vector3, parent: Instance)
 	text.TextScaled = true
 	text.TextColor3 = Color3.fromRGB(236, 200, 96)
 	text.Parent = sign
+
+	marker(booth, "ARBITRAGEM", Color3.fromRGB(236, 200, 96), 14)
 
 	local take = prompt(booth, "Pegar no apito", "Arbitrar o jogo", 12)
 	take.Triggered:Connect(function(player)
