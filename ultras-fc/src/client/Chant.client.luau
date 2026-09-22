@@ -356,7 +356,7 @@ Remotes.Atmosphere.OnClientEvent:Connect(function(levels)
 end)
 
 local PHASE_TEXT = {
-	warmup = "AQUECIMENTO",
+	warmup = "CORTEO  —  segue a faixa ate ao estadio",
 	first = "1a PARTE",
 	halftime = "INTERVALO",
 	second = "2a PARTE",

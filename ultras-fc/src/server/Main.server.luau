@@ -16,6 +16,7 @@ local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Flares = require(script.Parent:WaitForChild("Flares"))
 local Pitch = require(script.Parent:WaitForChild("Pitch"))
 local City = require(script.Parent:WaitForChild("City"))
+local March = require(script.Parent:WaitForChild("March"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 
@@ -121,6 +122,7 @@ end)
 Players.PlayerRemoving:Connect(function(player)
 	Teams.forget(player)
 	Flares.forget(player)
+	March.forget(player)
 	lastBeatUsed[player] = nil
 end)
 
@@ -130,6 +132,7 @@ local playing = false
 RunService.Heartbeat:Connect(function(dt)
 	Atmosphere.step(dt)
 	Pitch.step(dt, playing)
+	March.step(dt)
 end)
 
 -- Dez vezes por segundo chega para a barra parecer viva sem encher a rede.
@@ -146,10 +149,30 @@ local lastGoalStamp = 0
 MatchLoop.onChange(function(snapshot)
 	Remotes.MatchState:FireAllClients(snapshot)
 
-	-- Jogo novo, tochas novas. Guardar as do jogo anterior nao faria sentido:
-	-- sao para o momento, nao para acumular.
+	local wasPlaying = playing
 	playing = snapshot.phase == "first" or snapshot.phase == "second"
 
+	-- O corteo sai no aquecimento e acaba ao apito.
+	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
+		March.start(workspace:WaitForChild("Stadium"))
+	end
+
+	if playing and not wasPlaying then
+		-- Soma o que cada claque trouxe da rua e poe a bancada a arrancar dai.
+		local bonus: { [string]: number } = {}
+		for _, player in Players:GetPlayers() do
+			local teamId = Teams.get(player)
+			if teamId then
+				bonus[teamId] = (bonus[teamId] or 0)
+					+ March.creditFor(player) * Config.March.atmosphereBonus
+			end
+		end
+		Atmosphere.kickOff(bonus)
+		March.stop()
+	end
+
+	-- Jogo novo, tochas novas. Guardar as do jogo anterior nao faria sentido:
+	-- sao para o momento, nao para acumular.
 	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
 		Flares.refill()
 		for _, player in Players:GetPlayers() do

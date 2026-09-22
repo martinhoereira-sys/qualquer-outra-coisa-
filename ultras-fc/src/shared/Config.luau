@@ -58,7 +58,7 @@ Config.Atmosphere = {
 	reagir.
 ]]
 Config.Match = {
-	warmupLength = 25, -- antes do apito inicial
+	warmupLength = 90, -- da tempo ao corteo de chegar
 	halfLength = 120, -- cada parte, em segundos reais
 	halfTimeLength = 20,
 	fullTimeLength = 25, -- rescaldo antes de recomecar
@@ -112,6 +112,17 @@ Config.Pitch = {
 	-- certeiro. E a ligacao entre cantar e marcar, e e o coracao do jogo.
 	shotSpreadCold = 16, -- desvio com a bancada calada
 	shotSpreadHot = 3, -- desvio com a bancada ao rubro
+}
+
+--[[
+	O corteo. Sai no aquecimento e tem de chegar antes do apito — por isso o
+	aquecimento e mais longo do que seria preciso: e o tempo da caminhada.
+]]
+Config.March = {
+	speed = 17, -- passo da faixa, em studs por segundo
+	radius = 45, -- a que distancia da faixa ainda se conta como ir no corteo
+	legSeconds = 20, -- tempo de referencia por perna do percurso
+	atmosphereBonus = 55, -- ambiente de partida para uma claque que fez o caminho
 }
 
 Config.Flares = {

@@ -19,6 +19,17 @@ for teamId in Config.Teams do
 	levels[teamId] = 0
 end
 
+--[[
+	Arranque de uma parte. O corteo entra aqui: uma claque que fez o caminho
+	comeca com a bancada ja quente, uma que apareceu no fim comeca do zero.
+	E o que paga a caminhada.
+]]
+function Atmosphere.kickOff(bonusByTeam: { [string]: number })
+	for teamId in levels do
+		levels[teamId] = math.clamp(bonusByTeam[teamId] or 0, 0, Config.Atmosphere.max)
+	end
+end
+
 function Atmosphere.get(teamId: string): number
 	return levels[teamId] or 0
 end

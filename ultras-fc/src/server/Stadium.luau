@@ -25,6 +25,9 @@ local S = Config.Stadium
 local PITCH_DARK = Color3.fromRGB(38, 86, 46)
 local PITCH_LIGHT = Color3.fromRGB(54, 112, 63)
 local CONCOURSE = Color3.fromRGB(28, 30, 35)
+local SEAT_A = Color3.fromRGB(78, 84, 96)
+local SEAT_B = Color3.fromRGB(64, 70, 82)
+local BOARD = Color3.fromRGB(30, 33, 40)
 local LINE = Color3.fromRGB(222, 228, 224)
 local TERRACE = Color3.fromRGB(46, 49, 56)
 local TERRACE_EDGE = Color3.fromRGB(32, 35, 41)
@@ -225,19 +228,31 @@ local function ringRow(row: number, parent: Instance)
 	end
 
 	--[[
-		Os assentos, por cima do degrau e so nos lados compridos.
+		Os assentos, por cima do degrau.
 
-		Pintar a fila inteira dava um bloco de cor do chao ate ao topo, e como as
-		filas sobem em degrau aquilo lia-se como tetris. O que se ve numa bancada
-		e a cor dos assentos: uma tampa fina em cima de cada degrau.
+		Cinzentos, nao das cores dos clubes. Um estadio a serio tem bancada
+		neutra — a cor vem das pessoas, das faixas e das tochas, e e isso que faz
+		uma bancada cheia valer alguma coisa. Pintada de fabrica, parece cheia
+		mesmo quando nao esta ninguem.
+
+		Duas tonalidades alternadas por fila: e o que se ve de longe num estadio
+		vazio, e e o que impede isto de ser uma rampa lisa.
 	]]
-	for _, teamId in Config.TeamOrder do
-		local team = Config.Teams[teamId]
+	local seatColour = (row % 2 == 0) and SEAT_A or SEAT_B
+	for _, side in { 1, -1 } do
 		part(
-			"Seats",
-			Vector3.new(S.pitchLength, 0.4, depth - 0.6),
-			CFrame.new(0, topY + 0.2, (insetZ + depth / 2) * team.side),
-			team.color,
+			"SeatsZ",
+			Vector3.new(insetX * 2 - 4, 0.45, depth - 0.7),
+			CFrame.new(0, topY + 0.22, (insetZ + depth / 2) * side),
+			seatColour,
+			parent,
+			{ material = Enum.Material.SmoothPlastic }
+		)
+		part(
+			"SeatsX",
+			Vector3.new(depth - 0.7, 0.45, insetZ * 2 - 4),
+			CFrame.new((insetX + depth / 2) * side, topY + 0.22, 0),
+			seatColour,
 			parent,
 			{ material = Enum.Material.SmoothPlastic }
 		)
@@ -280,6 +295,33 @@ local function buildBowl(parent: Instance)
 		mouth.CanCollide = false
 
 		part("TunnelLintel", Vector3.new(6, 1.5, S.tunnelWidth + 6), CFrame.new((outerX + 1) * side, 9.5, 0), STRUCTURE, folder)
+	end
+
+	--[[
+		Publicidade a volta do relvado e bancos suplentes.
+
+		Sao os dois detalhes que faltam a um estadio de blocos: sem a barreira de
+		placards o relvado encosta directamente a bancada, o que nao acontece em
+		lado nenhum, e sao os bancos que dizem que ali se joga futebol e nao
+		outra coisa qualquer.
+	]]
+	local boardX = S.pitchLength / 2 + 3
+	local boardZ = S.pitchWidth / 2 + 3
+
+	for _, side in { 1, -1 } do
+		part("BoardZ", Vector3.new(boardX * 2, 3.2, 0.6), CFrame.new(0, 1.6, boardZ * side), BOARD, folder, {
+			material = Enum.Material.SmoothPlastic,
+		})
+		part("BoardX", Vector3.new(0.6, 3.2, boardZ * 2), CFrame.new(boardX * side, 1.6, 0), BOARD, folder, {
+			material = Enum.Material.SmoothPlastic,
+		})
+
+		local dugoutZ = (boardZ + 5) * side
+		part("DugoutRoof", Vector3.new(26, 0.5, 7), CFrame.new(side * 20, 5, dugoutZ), STRUCTURE, folder, {
+			material = Enum.Material.Metal,
+		})
+		part("DugoutBench", Vector3.new(24, 1, 2), CFrame.new(side * 20, 1.8, dugoutZ), Color3.fromRGB(40, 43, 50), folder)
+		part("DugoutBack", Vector3.new(26, 5, 0.6), CFrame.new(side * 20, 2.5, dugoutZ + 3.2 * side), STRUCTURE, folder)
 	end
 
 	local spawnRow = math.ceil(S.standRows * 0.45)
