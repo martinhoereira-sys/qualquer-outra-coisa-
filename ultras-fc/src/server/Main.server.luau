@@ -17,6 +17,7 @@ local Gear = require(script.Parent:WaitForChild("Gear"))
 local Pitch = require(script.Parent:WaitForChild("Pitch"))
 local City = require(script.Parent:WaitForChild("City"))
 local Crowd = require(script.Parent:WaitForChild("Crowd"))
+local Referee = require(script.Parent:WaitForChild("Referee"))
 local March = require(script.Parent:WaitForChild("March"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
@@ -31,7 +32,17 @@ local intensity: { [string]: number } = {}
 local lastHit: { [Player]: number } = {}
 
 Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
-	if type(teamId) ~= "string" or not Teams.isValid(teamId) then
+	if type(teamId) ~= "string" then
+		return
+	end
+
+	-- O apito e um papel como os outros, escolhido a entrada.
+	if teamId == "arbitro" then
+		Referee.take(player)
+		return
+	end
+
+	if not Teams.isValid(teamId) then
 		return
 	end
 
@@ -77,6 +88,7 @@ Players.PlayerRemoving:Connect(function(player)
 	Teams.forget(player)
 	Gear.forget(player)
 	March.forget(player)
+	Referee.release(player)
 	lastHit[player] = nil
 end)
 
@@ -87,6 +99,7 @@ RunService.Heartbeat:Connect(function(dt)
 	Atmosphere.step(dt)
 	Pitch.step(dt, playing)
 	March.step(dt)
+	Referee.step(dt)
 
 	for teamId, value in intensity do
 		intensity[teamId] = math.max(value - Config.Drum.intensityDecay * dt, 0)
@@ -139,6 +152,10 @@ MatchLoop.onChange(function(snapshot)
 		end
 	end
 
+	if snapshot.phase == "fulltime" and lastPhase ~= "fulltime" then
+		Referee.endMatch()
+	end
+
 	-- Bola ao centro em cada recomeco.
 	if snapshot.phase ~= lastPhase and playing then
 		Pitch.kickOff()
@@ -160,8 +177,65 @@ Crowd.build(workspace:WaitForChild("Stadium"))
 
 -- A bola entrar na baliza e que marca. O ambiente da bancada ja entrou na
 -- pontaria do remate, la no campo.
+--[[
+	Um golo. Parte deles fica por confirmar: e o arbitro que decide se conta.
+
+	Sem arbitro em campo, `raise` devolve falso e o golo sobe direto — um jogo
+	nao pode parar a espera de uma pessoa que nao esta la.
+]]
 Pitch.onGoal(function(teamId)
+	if math.random() < Config.Referee.contestedGoalChance and Referee.raise("golo", teamId) then
+		return
+	end
 	MatchLoop.scoreGoal(teamId)
+end)
+
+Referee.onResolved(function(incident, choice, caught)
+	if incident.kind == "golo" and choice == "validar" then
+		MatchLoop.scoreGoal(incident.teamId)
+	elseif incident.kind == "penalti" and choice == "marcar" then
+		MatchLoop.scoreGoal(incident.teamId)
+	end
+
+	Remotes.RefState:FireAllClients({
+		state = Referee.state(),
+		resolved = { kind = incident.kind, team = incident.teamId, choice = choice, caught = caught },
+	})
+end)
+
+Referee.onState(function()
+	Remotes.RefState:FireAllClients({
+		state = Referee.state(),
+		pending = Referee.pending(),
+		pressure = Referee.pressureSnapshot(),
+	})
+
+	local ref = Referee.current()
+	if ref then
+		Remotes.Incident:FireClient(ref, Referee.pending(), Referee.pressureSnapshot())
+	end
+end)
+
+Remotes.Decide.OnServerEvent:Connect(function(player, choice)
+	if type(choice) == "string" then
+		Referee.decide(player, choice)
+	end
+end)
+
+Remotes.Pressure.OnServerEvent:Connect(function(player)
+	Referee.addPressure(player)
+end)
+
+-- Um lance na area de vez em quando, para o arbitro ter o que decidir mesmo
+-- quando nao ha golos.
+task.spawn(function()
+	while true do
+		task.wait(Config.Referee.shoutInterval)
+		if playing then
+			local teamId = Config.TeamOrder[math.random(1, #Config.TeamOrder)]
+			Referee.raise("penalti", teamId)
+		end
+	end
 end)
 
 Gear.start()

@@ -164,6 +164,28 @@ Config.March = {
 	momento e passava a ser o fundo do ecra. O tambor e a excepcao — esse nao da
 	nada sozinho, so se acertar no compasso.
 ]]
+--[[
+	O arbitro.
+
+	E o motor do drama, e por isso corromper-se tem de ser ARRISCADO e nunca
+	comprado. Um arbitro que se comprasse com Robux fazia quem paga ganhar
+	sempre — toda a gente percebia em dois dias e o jogo morria. Assim vira jogo
+	do gato e do rato, e esse dura.
+
+	Cada decisao a favor de quem mais pressionou enche a barra de suspeicao.
+	Cheia, e apanhado: a ultima decisao e revertida e fica suspenso.
+]]
+Config.Referee = {
+	decisionSeconds = 12, -- tempo para decidir antes de sair sozinha
+	contestedGoalChance = 0.4, -- golos que ficam por confirmar
+	shoutInterval = 50, -- de quantos em quantos segundos ha um lance na area
+	suspicionPerCall = 26, -- quanto sobe ao ceder a quem pressiona
+	suspicionDecay = 1.4, -- por segundo, quando se porta bem
+	caughtAt = 100,
+	banMatches = 2,
+	pressureWindow = 20, -- segundos que um pedido da bancada continua a contar
+}
+
 Config.Gear = {
 	tocha = {
 		perMatch = 3,

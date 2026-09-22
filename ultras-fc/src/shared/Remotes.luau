@@ -15,6 +15,10 @@ local NAMES = {
 	"MatchState", -- servidor -> clientes: fase, relogio, resultado
 	"Gear", -- cliente -> servidor: pedir material (tocha, fumo, tambor)
 	"GearCount", -- servidor -> cliente: quanto lhe resta de cada
+	"Incident", -- servidor -> arbitro: ha um lance para decidir
+	"Decide", -- arbitro -> servidor: a decisao
+	"Pressure", -- adepto -> servidor: pedir ao arbitro
+	"RefState", -- servidor -> todos: quem apita, suspeicao, ultima decisao
 }
 
 local folder: Folder

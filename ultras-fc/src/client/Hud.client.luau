@@ -110,6 +110,30 @@ for index, teamId in Config.TeamOrder do
 	end)
 end
 
+-- O apito e um papel como os outros, e e o unico que decide jogos.
+local refButton = Instance.new("TextButton")
+refButton.Size = UDim2.new(0, 452, 0, 46)
+refButton.Position = UDim2.new(0.5, -226, 0.5, 46)
+refButton.BackgroundColor3 = Color3.fromRGB(38, 42, 50)
+refButton.BorderSizePixel = 0
+refButton.Font = Enum.Font.GothamBold
+refButton.Text = "Apitar o jogo"
+refButton.TextSize = 16
+refButton.TextColor3 = MUTED
+refButton.Parent = picker
+
+local refCorner = Instance.new("UICorner")
+refCorner.CornerRadius = UDim.new(0, 10)
+refCorner.Parent = refButton
+
+local amReferee = false
+
+refButton.Activated:Connect(function()
+	amReferee = true
+	Remotes.PickTeam:FireServer("arbitro")
+	picker.Visible = false
+end)
+
 --------------------------------------------------------------------------------
 -- Marcador
 --------------------------------------------------------------------------------
@@ -187,7 +211,7 @@ gearLabel.Size = UDim2.new(1, 0, 0, 18)
 gearLabel.Position = UDim2.new(0.5, 0, 1, -78)
 gearLabel.AnchorPoint = Vector2.new(0.5, 0)
 
-local hint = label(gui, "F  tocha      G  fumo      T  tambor      espaco  saltar", 12, MUTED)
+local hint = label(gui, "F  tocha    G  fumo    T  tambor    B  pedir ao arbitro    espaco  saltar", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
@@ -244,6 +268,145 @@ for kind, key in { tocha = Enum.KeyCode.F, fumo = Enum.KeyCode.G, tambor = Enum.
 
 	ContextActionService:SetTitle(action, string.upper(kind))
 end
+
+--------------------------------------------------------------------------------
+-- O arbitro
+--------------------------------------------------------------------------------
+
+-- Visivel a toda a gente: quem apita e o quanto ja cheira mal. Sem a barra a
+-- vista, ceder nao teria custo nenhum.
+local refBadge = label(gui, "", 13, MUTED)
+refBadge.Font = Enum.Font.Gotham
+refBadge.Size = UDim2.new(0, 300, 0, 18)
+refBadge.Position = UDim2.new(0.5, -150, 0, 116)
+
+local suspTrack = Instance.new("Frame")
+suspTrack.Size = UDim2.fromOffset(180, 5)
+suspTrack.Position = UDim2.new(0.5, -90, 0, 136)
+suspTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
+suspTrack.BackgroundTransparency = 0.3
+suspTrack.BorderSizePixel = 0
+suspTrack.Visible = false
+suspTrack.Parent = gui
+
+local suspFill = Instance.new("Frame")
+suspFill.Size = UDim2.fromScale(0, 1)
+suspFill.BackgroundColor3 = Color3.fromRGB(224, 84, 78)
+suspFill.BorderSizePixel = 0
+suspFill.Parent = suspTrack
+
+-- O painel de decisao, so para quem apita.
+local panel = Instance.new("Frame")
+panel.Size = UDim2.fromOffset(420, 132)
+panel.Position = UDim2.new(0.5, -210, 0.5, -66)
+panel.BackgroundColor3 = INK
+panel.BackgroundTransparency = 0.1
+panel.BorderSizePixel = 0
+panel.Visible = false
+panel.Parent = gui
+
+local panelCorner = Instance.new("UICorner")
+panelCorner.CornerRadius = UDim.new(0, 12)
+panelCorner.Parent = panel
+
+local panelTitle = label(panel, "", 20, TEXT)
+panelTitle.Size = UDim2.new(1, -24, 0, 26)
+panelTitle.Position = UDim2.new(0, 12, 0, 14)
+
+local panelPressure = label(panel, "", 13, BRASS)
+panelPressure.Font = Enum.Font.Gotham
+panelPressure.Size = UDim2.new(1, -24, 0, 18)
+panelPressure.Position = UDim2.new(0, 12, 0, 42)
+
+local choiceButtons: { TextButton } = {}
+for i = 1, 2 do
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0, 186, 0, 42)
+	b.Position = UDim2.new(0, i == 1 and 12 or 222, 1, -54)
+	b.BackgroundColor3 = i == 1 and Color3.fromRGB(79, 180, 119) or Color3.fromRGB(224, 84, 78)
+	b.BorderSizePixel = 0
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 15
+	b.TextColor3 = TEXT
+	b.Text = ""
+	b.Parent = panel
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = b
+
+	table.insert(choiceButtons, b)
+end
+
+Remotes.Incident.OnClientEvent:Connect(function(incident, pressureByTeam)
+	if not incident then
+		panel.Visible = false
+		return
+	end
+
+	local team = Config.Teams[incident.teamId]
+	panelTitle.Text = incident.kind == "golo"
+		and ("Golo do " .. team.name .. " — conta?")
+		or ("Penalti para o " .. team.name .. "?")
+
+	local parts = {}
+	for teamId, count in pressureByTeam do
+		if count > 0 then
+			table.insert(parts, Config.Teams[teamId].short .. ": " .. count)
+		end
+	end
+	panelPressure.Text = #parts > 0 and ("a bancada pede  —  " .. table.concat(parts, "   ")) or ""
+
+	for i, b in choiceButtons do
+		b.Text = string.upper(incident.options[i])
+		b.Activated:Once(function()
+			Remotes.Decide:FireServer(incident.options[i])
+			panel.Visible = false
+		end)
+	end
+
+	panel.Visible = true
+end)
+
+Remotes.RefState.OnClientEvent:Connect(function(payload)
+	local state = payload.state
+	if state and state.name then
+		refBadge.Text = "arbitro: " .. state.name
+		suspTrack.Visible = true
+		suspFill.Size = UDim2.fromScale(math.clamp(state.suspicion / state.max, 0, 1), 1)
+	else
+		refBadge.Text = "sem arbitro"
+		suspTrack.Visible = false
+	end
+
+	local resolved = payload.resolved
+	if resolved then
+		local team = Config.Teams[resolved.team]
+		if resolved.caught then
+			goalLabel.Text = "ARBITRO APANHADO"
+			goalLabel.TextColor3 = Color3.fromRGB(224, 84, 78)
+		elseif resolved.kind == "golo" and resolved.choice == "anular" then
+			goalLabel.Text = "GOLO ANULADO  " .. team.short
+			goalLabel.TextColor3 = Color3.fromRGB(224, 84, 78)
+		end
+		task.delay(4, function()
+			if goalLabel.Text ~= "" then
+				goalLabel.Text = ""
+			end
+		end)
+	end
+end)
+
+-- B: pedir ao arbitro. Nao e dinheiro, e a bancada a gritar — vale pelo numero
+-- de vozes e por serem recentes.
+ContextActionService:BindAction("Pedir", function(_, inputState)
+	if inputState == Enum.UserInputState.Begin and myTeam then
+		Remotes.Pressure:FireServer()
+	end
+	return Enum.ContextActionResult.Pass
+end, true, Enum.KeyCode.B)
+
+ContextActionService:SetTitle("Pedir", "PEDIR")
 
 --------------------------------------------------------------------------------
 -- Ligacao ao servidor
