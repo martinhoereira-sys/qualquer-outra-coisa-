@@ -19,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Budget = require(script.Parent:WaitForChild("Budget"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local TifoDesigns = require(Shared:WaitForChild("TifoDesigns"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
@@ -109,6 +110,7 @@ local function makeCard(a: Active, cell: Cell)
 		return
 	end
 
+	Budget.take("Tifo")
 	local card = Instance.new("Part")
 	card.Name = "Card"
 	card.Size = Vector3.new(columnWidth() - 0.12, 0.15, RAKE - 0.12)
@@ -225,18 +227,21 @@ local function raise(a: Active)
 	end
 
 	-- A bancada levanta as suas; as dos jogadores so sobem quando eles quiserem.
-	for r = 1, T.rows do
-		for c = 1, T.columns do
-			if not held[c .. "," .. r] then
-				makeCard(a, { col = c, row = r })
+	-- Com travao: passando do maximo de cartolinas, para e avisa no Output.
+	Budget.run("Tifo", function()
+		for r = 1, T.rows do
+			for c = 1, T.columns do
+				if not held[c .. "," .. r] then
+					makeCard(a, { col = c, row = r })
+				end
 			end
 		end
-	end
-	for player, cell in a.holders do
-		if a.lifted[player] then
-			makeCard(a, cell)
+		for player, cell in a.holders do
+			if a.lifted[player] then
+				makeCard(a, cell)
+			end
 		end
-	end
+	end)
 
 	Crowd.setTifo(a.teamId, true)
 end
@@ -246,6 +251,7 @@ local function lower(a: Active)
 		return
 	end
 	if a.folder then
+		Budget.give("Tifo", #a.folder:GetChildren())
 		a.folder:Destroy()
 	end
 	Crowd.setTifo(a.teamId, false)
@@ -329,7 +335,7 @@ function Tifo.lift(player: Player)
 
 	a.lifted[player] = true
 	if a.folder then
-		makeCard(a, cell)
+		Budget.run("Tifo", makeCard, a, cell)
 	end
 end
 

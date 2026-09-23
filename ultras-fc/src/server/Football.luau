@@ -15,6 +15,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Budget = require(script.Parent:WaitForChild("Budget"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
 
 type Footballer = Squad.Footballer
@@ -61,6 +62,9 @@ local state = {
 	flightUntil = 0, -- acabada de chutar, ainda ninguem lhe pode tocar
 	curve = 0, -- desvio lateral do efeito, em studs/s2 (positivo: para a direita de quem chutou)
 	curveUntil = 0,
+	halted = false, -- apito: tudo parado a espera do arbitro
+	haltedAt = 0,
+	haltedFoul = nil :: Foul?,
 	piece = nil :: SetPiece?, -- a reposicao a espera de ser batida
 	liveTime = 0, -- segundos de bola viva e parada nas partes, para medir o ritmo
 	deadTime = 0,
@@ -72,11 +76,32 @@ function Football.onGoal(fn: (string) -> ())
 	onGoal = fn
 end
 
+--[[
+	Uma falta, como o servidor a viu. O que o arbitro faz com ela e do Whistle:
+	aqui so se sabe o que aconteceu.
+]]
+export type Foul = {
+	fouled: Footballer, -- quem tinha a bola
+	fouler: Footballer, -- quem entrou
+	at: Vector3,
+	fromBehind: boolean,
+	inBox: boolean, -- na area que a equipa de quem sofreu ataca
+	nearLine: boolean, -- tao perto da linha da area que fica em duvida
+	card: string, -- "nada" | "amarelo" | "vermelho": o que o arbitro automatico mostra
+}
+
+local onFoul: ((Foul) -> ())? = nil
+
+function Football.onFoul(fn: (Foul) -> ())
+	onFoul = fn
+end
+
 --------------------------------------------------------------------------------
 -- Construcao
 --------------------------------------------------------------------------------
 
 local function wall(name: string, size: Vector3, at: Vector3, parent: Instance)
+	Budget.take("Jogo")
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Size = size
@@ -104,6 +129,7 @@ function Football.build(parent: Instance)
 	end
 	wall("BallCeiling", Vector3.new(endX * 2 + 4, 2, sideZ * 2 + 4), Vector3.new(0, 70, 0), folder)
 
+	Budget.take("Jogo")
 	local b = Instance.new("Part")
 	b.Name = "Ball"
 	b.Shape = Enum.PartType.Ball
@@ -324,6 +350,9 @@ function Football.setPhase(phase: string)
 	if not state.botsPlay and wasPlaying then
 		state.carrier = nil
 		state.piece = nil
+		state.halted = false
+		Squad.setFrozen(false)
+		workspace:SetAttribute("Halted", nil)
 		state.waitUntil = 0
 		state.afterWait = nil
 		workspace:SetAttribute("Restart", nil)
@@ -374,7 +403,7 @@ end
 	jogar — e o que faz isto ser rapido. Se houver uma pessoa da equipa mais
 	perto, ninguem e mexido: a bola e dela, e ela que la va.
 ]]
-function Football.startSetPiece(kind: string, team: string, spot: Vector3, aim: Vector3, seconds: number)
+function Football.startSetPiece(kind: string, team: string, spot: Vector3, aim: Vector3, seconds: number, preferred: Footballer?)
 	state.carrier = nil
 	placeBall(spot)
 	local piece: SetPiece = {
@@ -406,11 +435,22 @@ function Football.startSetPiece(kind: string, team: string, spot: Vector3, aim: 
 			end
 		end
 	end
-	if bestBot and botDistance <= humanDistance then
-		Squad.place(bestBot, piece.spot - piece.aim * F.dribbleDistance, piece.aim)
-		piece.taker = bestBot
+	-- Quem sofreu a falta bate o penalti: se for um boneco, vai ele; se for
+	-- uma pessoa, a bola espera por ela.
+	local chosen: Footballer? = nil
+	if preferred and preferred.root and not preferred.sentOff then
+		if preferred.player then
+			return
+		end
+		chosen = preferred
+	elseif bestBot and botDistance <= humanDistance then
+		chosen = bestBot
+	end
+	if chosen then
+		Squad.place(chosen, piece.spot - piece.aim * F.dribbleDistance, piece.aim)
+		piece.taker = chosen
 		piece.takenAt = now
-		state.carrier = bestBot
+		state.carrier = chosen
 		state.lastTouch = team
 	end
 end
@@ -427,6 +467,7 @@ end
 	  canto para quem ataca; se foi de quem ataca, pontape de baliza.
 ]]
 local SMALL_BOX_DEPTH = S.pitchLength * 5.5 / 105
+local PENALTY_MARK = S.pitchLength * 11 / 105
 
 local function checkOut(p: Vector3): boolean
 	local last = state.lastTouch
@@ -528,6 +569,131 @@ local function claim(b: BasePart, now: number)
 	end
 end
 
+local RULES = Config.Rules
+
+-- Na area que esta equipa ataca, e se esta tao perto da linha que fica em duvida.
+local function boxCheck(teamId: string, at: Vector3): (boolean, boolean)
+	local side = Squad.attackSign(teamId)
+	local depthInside = at.X * side - (HALF - BOX_DEPTH) -- positivo: para dentro da linha da area
+	local widthInside = BOX_WIDTH / 2 - math.abs(at.Z)
+	local inside = depthInside > 0 and widthInside > 0
+	local toLine
+	if inside then
+		toLine = math.min(depthInside, widthInside)
+	elseif depthInside > 0 then
+		toLine = -widthInside
+	elseif widthInside > 0 then
+		toLine = -depthInside
+	else
+		toLine = math.huge
+	end
+	return inside, toLine <= RULES.boxLineMargin
+end
+
+--[[
+	Foi falta? Decide-se no momento do roubo. Por tras e muito mais provavel do
+	que de frente: e o que um arbitro ve de longe. Sendo, o jogo para ja — tudo
+	quieto, bola no sitio — e quem decide o resto e o arbitro.
+]]
+local function checkFoul(fouled: Footballer, fouler: Footballer, at: Vector3, look: Vector3, from: Vector3)
+	local toTackler = Vector3.new(from.X - at.X, 0, from.Z - at.Z)
+	local facing = Vector3.new(look.X, 0, look.Z)
+	local behind = toTackler.Magnitude > 0.1 and facing.Magnitude > 0.1
+		and toTackler.Unit:Dot(facing.Unit) < RULES.behindDot
+	local chance = if behind then RULES.foulBehind else RULES.foulFront
+	if math.random() >= chance then
+		return
+	end
+
+	local card = "nada"
+	local roll = math.random()
+	if behind then
+		if roll < RULES.redBehind then
+			card = "vermelho"
+		elseif roll < RULES.redBehind + RULES.yellowBehind then
+			card = "amarelo"
+		end
+	elseif roll < RULES.yellowFront then
+		card = "amarelo"
+	end
+
+	local inBox, nearLine = boxCheck(fouled.teamId, at)
+	local foul: Foul = {
+		fouled = fouled,
+		fouler = fouler,
+		at = Vector3.new(at.X, 0, at.Z),
+		fromBehind = behind,
+		inBox = inBox,
+		nearLine = nearLine,
+		card = card,
+	}
+	state.halted = true
+	state.haltedAt = os.clock()
+	state.haltedFoul = foul
+	Squad.setFrozen(true)
+	workspace:SetAttribute("Halted", true)
+	if onFoul then
+		onFoul(foul)
+	end
+end
+
+--[[
+	O arbitro decidiu. `action` e "segue", "livre" ou "penalti".
+
+	Segue: o jogo continua como estava, com a bola em quem a roubou. Livre: no
+	sitio da falta, para quem a sofreu. Penalti: na marca, e bate quem sofreu.
+]]
+function Football.resume(action: string, foul: Foul)
+	if not state.halted then
+		return
+	end
+	state.halted = false
+	state.haltedFoul = nil
+	Squad.setFrozen(false)
+	workspace:SetAttribute("Halted", nil)
+	if action == "segue" then
+		return
+	end
+
+	local team = foul.fouled.teamId
+	local goal = Football.goalFor(team)
+	if action == "penalti" then
+		local side = Squad.attackSign(team)
+		local mark = Vector3.new(side * (HALF - PENALTY_MARK), 0, 0)
+		Football.startSetPiece("penalti", team, mark, goal - mark, RULES.penaltyTime, foul.fouled)
+	else
+		-- Um livre na duvida da linha da area fica fora dela.
+		local at = foul.at
+		local inside, _ = boxCheck(team, at)
+		if inside then
+			local side = Squad.attackSign(team)
+			at = Vector3.new(side * (HALF - BOX_DEPTH - 1.5), 0, at.Z)
+		end
+		Football.startSetPiece("livre", team, at, goal - at, RULES.restartTime)
+	end
+end
+
+--[[
+	O penalti que ninguem bateu a tempo sai sozinho: meia forca, para um canto
+	ao calhas. Tambem pode falhar.
+]]
+local function autoPenalty(piece: SetPiece)
+	local b = ball
+	if not b then
+		return
+	end
+	local goal = Football.goalFor(piece.team)
+	local target = goal + Vector3.new(0, 0, (math.random() * 2 - 1) * (F.goalHalfWidth + 3))
+	local dir = flat(target - piece.spot)
+	local speed = F.kickSpeedMin + (F.kickSpeedMax - F.kickSpeedMin) * (0.5 + math.random() * 0.3)
+	state.carrier = nil
+	state.lastTouch = piece.team
+	state.flightUntil = os.clock() + F.kickFlight
+	state.curve = 0
+	b.CFrame = CFrame.new(piece.spot.X, R + 0.1, piece.spot.Z)
+	b.AssemblyLinearVelocity = dir * speed + Vector3.new(0, speed * F.liftNeutral, 0)
+end
+
 --[[
 	Roubar: encostar a quem tem a bola chega. Quem a perdeu cai; quem a ganhou
 	fica um segundo imune, senao a bola andava de pe em pe sem ninguem a jogar.
@@ -539,12 +705,16 @@ local function tackle(carrier: Footballer, now: number): Footballer
 	local root = carrier.root :: BasePart
 	for _, f in Squad.active() do
 		if f.teamId ~= carrier.teamId and canPlay(f, now) then
-			if horizontal((f.root :: BasePart).Position, root.Position) <= F.tackleRange then
+			local other = (f.root :: BasePart).Position
+			if horizontal(other, root.Position) <= F.tackleRange then
 				Squad.fall(carrier, now)
 				state.noClaim[carrier] = now + F.fallTime
 				f.immuneUntil = now + F.tackleImmunity
 				state.carrier = f
 				state.lastTouch = f.teamId
+				if state.live then
+					checkFoul(carrier, f, root.Position, root.CFrame.LookVector, other)
+				end
 				return f
 			end
 		end
@@ -591,6 +761,19 @@ function Football.step(dt: number)
 	local now = os.clock()
 	measure(dt)
 
+	-- Apito: tudo parado, a bola onde estava, ate o arbitro decidir. Se a
+	-- decisao nunca chegar (um erro algures), o jogo segue sozinho: parado
+	-- para sempre e o pior que pode acontecer.
+	if state.halted then
+		b.AssemblyLinearVelocity = Vector3.zero
+		local foul = state.haltedFoul
+		if foul and now - state.haltedAt > Config.Referee.decisionSeconds + 2 then
+			warn("[Football] o arbitro nao decidiu a falta; o jogo segue")
+			Football.resume("segue", foul)
+		end
+		return
+	end
+
 	-- A espera do pontape de saida.
 	if state.releaseAt > 0 then
 		if now < state.releaseAt then
@@ -628,10 +811,12 @@ function Football.step(dt: number)
 	if piece and now >= piece.deadline then
 		local team = piece.team
 		clearPiece()
-		piece = nil
-		if not state.carrier then
+		if piece.kind == "penalti" then
+			autoPenalty(piece)
+		elseif not state.carrier then
 			giveTo(team, Config.Rules.restartEdge)
 		end
+		piece = nil
 	end
 
 	local carrier = state.carrier

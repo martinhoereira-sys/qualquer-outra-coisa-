@@ -14,6 +14,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Budget = require(script.Parent:WaitForChild("Budget"))
 local Clubhouse = require(script.Parent:WaitForChild("Clubhouse"))
 
 local City = {}
@@ -43,6 +44,7 @@ local function part(
 	parent: Instance,
 	material: Enum.Material?
 ): Part
+	Budget.take("Cidade")
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Size = size

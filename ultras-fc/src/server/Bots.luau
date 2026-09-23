@@ -168,10 +168,18 @@ local GAP: { [string]: number } = {
 	as pessoas ficam onde quiserem.
 ]]
 local function keepOut(f: Footballer, target: Vector3, piece: Football.SetPiece): Vector3
+	local spot = piece.spot
+	if piece.kind == "penalti" then
+		-- Toda a gente, das duas equipas, fora da area e atras da bola.
+		local side = math.sign(spot.X)
+		if target.X * side > HALF - BOX_DEPTH - 2 then
+			return Vector3.new(side * (HALF - BOX_DEPTH - 4), 0, math.clamp(target.Z, -BOX_WIDTH / 2, BOX_WIDTH / 2))
+		end
+		return target
+	end
 	if f.teamId == piece.team then
 		return target
 	end
-	local spot = piece.spot
 	local gap = GAP[piece.kind]
 	if gap then
 		local away = Vector3.new(target.X - spot.X, 0, target.Z - spot.Z)
@@ -210,6 +218,12 @@ local function takePiece(f: Footballer, piece: Football.SetPiece, now: number)
 		local target = goal + Vector3.new(0, 0, (if math.random() < 0.5 then -1 else 1) * (F.goalHalfWidth - 2))
 		Football.kick(f, 0.6 + math.random() * 0.3, 0, -0.3, target - here)
 	else
+		local goal = Football.goalFor(f.teamId)
+		if kind == "livre" and (goal - here).Magnitude <= F.botShootRange then
+			local target = goal + Vector3.new(0, 0, (math.random() * 2 - 1) * (F.goalHalfWidth - 1.5))
+			Football.kick(f, 0.7, (math.random() * 2 - 1) * 0.6, 0.1, target - here)
+			return
+		end
 		local mate = bestMate(f)
 		if mate then
 			Football.passTo(f, mate)

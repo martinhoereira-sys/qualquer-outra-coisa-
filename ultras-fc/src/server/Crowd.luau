@@ -16,6 +16,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Budget = require(script.Parent:WaitForChild("Budget"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
 
 local Crowd = {}
@@ -43,6 +44,7 @@ local SKIN = {
 }
 
 local function makePart(name: string, size: Vector3, colour: Color3, parent: Instance): Part
+	Budget.take("Adeptos")
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Size = size

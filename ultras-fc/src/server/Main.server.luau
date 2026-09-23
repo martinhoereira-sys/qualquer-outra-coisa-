@@ -17,6 +17,7 @@ local Gear = require(script.Parent:WaitForChild("Gear"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
 local Football = require(script.Parent:WaitForChild("Football"))
 local Bots = require(script.Parent:WaitForChild("Bots"))
+local Whistle = require(script.Parent:WaitForChild("Whistle"))
 local City = require(script.Parent:WaitForChild("City"))
 local Crowd = require(script.Parent:WaitForChild("Crowd"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
@@ -25,6 +26,7 @@ local March = require(script.Parent:WaitForChild("March"))
 local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 local Tifo = require(script.Parent:WaitForChild("Tifo"))
+local Budget = require(script.Parent:WaitForChild("Budget"))
 
 --[[
 	A forca do tambor de cada bancada, de 0 a 1.
@@ -62,6 +64,26 @@ local function sendToSquare(player: Player)
 	end
 end
 
+--[[
+	Quem apita fica no relvado, junto ao meio-campo: tem de ver o jogo para o
+	decidir. A bola e os jogadores passam por ele — um arbitro que desviasse a
+	bola era mais um jogador.
+]]
+local function sendToPitch(player: Player)
+	local character = player.Character or player.CharacterAdded:Wait()
+	local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+	if not root then
+		return
+	end
+	local at = Vector3.new(0, 3.2, -Config.Stadium.pitchWidth / 2 + 6)
+	root.CFrame = CFrame.lookAt(at, Vector3.new(0, at.Y, 0))
+	for _, d in character:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CollisionGroup = "Footballers"
+		end
+	end
+end
+
 local function sendToStand(player: Player, teamId: string)
 	local point = City.spawnPoint(teamId) or Stadium.spawnPoint(teamId)
 	if point then
@@ -78,7 +100,7 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	if teamId == "arbitro" then
 		if Referee.take(player) then
 			Squad.leave(player)
-			task.spawn(sendToSquare, player)
+			task.spawn(sendToPitch, player)
 		end
 		return
 	end
@@ -242,6 +264,7 @@ MatchLoop.onChange(function(snapshot)
 		Football.setPhase(snapshot.phase)
 		if snapshot.phase == "warmup" then
 			Football.resetClock()
+			Squad.resetMatch()
 		end
 		if snapshot.phase == "first" then
 			Football.kickOff(Config.TeamOrder[1])
@@ -263,7 +286,9 @@ Players.PlayerAdded:Connect(function(player)
 	task.spawn(sendToSquare, player)
 	player.CharacterAdded:Connect(function()
 		task.wait(0.3)
-		if not Teams.get(player) and not Squad.byPlayer(player) then
+		if Referee.current() == player then
+			sendToPitch(player)
+		elseif not Teams.get(player) and not Squad.byPlayer(player) then
 			sendToSquare(player)
 		end
 	end)
@@ -275,8 +300,8 @@ end)
 
 Stadium.build()
 Squad.build(workspace:WaitForChild("Stadium"))
-Football.build(workspace:WaitForChild("Stadium"))
-Crowd.build(workspace:WaitForChild("Stadium"))
+Budget.run("Jogo", Football.build, workspace:WaitForChild("Stadium"))
+Budget.run("Adeptos", Crowd.build, workspace:WaitForChild("Stadium"))
 Tifo.build(workspace:WaitForChild("Stadium"))
 
 -- O lider dispara o tifo; cada um levanta a sua cartolina.
@@ -289,41 +314,43 @@ Remotes.Tifo.OnServerEvent:Connect(function(player, action, designId)
 end)
 
 --[[
-	Um golo. Parte deles fica por confirmar: e o arbitro que decide se conta.
-
-	Sem arbitro em campo, `raise` devolve falso e o golo sobe direto — um jogo
-	nao pode parar a espera de uma pessoa que nao esta la.
+	Um golo. Entra no marcador; o fora de jogo, quando houver, e o arbitro que
+	o ve.
 ]]
 Football.onGoal(function(teamId)
-	if math.random() < Config.Referee.contestedGoalChance and Referee.raise("golo", teamId) then
-		return
-	end
 	MatchLoop.scoreGoal(teamId)
 end)
 
+-- Uma falta: o jogo ja parou, e o arbitro (pessoa ou automatico) decide.
+Football.onFoul(function(foul)
+	Whistle.foul(foul)
+end)
+
 Referee.onResolved(function(incident, choice, caught)
-	if incident.kind == "golo" and choice == "validar" then
-		MatchLoop.scoreGoal(incident.teamId)
-	elseif incident.kind == "penalti" and choice == "marcar" then
-		MatchLoop.scoreGoal(incident.teamId)
-	end
+	local text = Whistle.resolved(incident, choice)
 
 	Remotes.RefState:FireAllClients({
 		state = Referee.state(),
-		resolved = { kind = incident.kind, team = incident.teamId, choice = choice, caught = caught },
+		resolved = { kind = incident.kind, choice = choice, caught = caught, text = text },
 	})
 end)
 
+-- Expulso: sai do relvado e volta a praca, como quem acabou de chegar.
+Squad.onSentOff(function(player)
+	task.spawn(sendToSquare, player)
+end)
+
 Referee.onState(function()
+	local pending = Referee.pendingForClient()
 	Remotes.RefState:FireAllClients({
 		state = Referee.state(),
-		pending = Referee.pending(),
+		pending = pending,
 		pressure = Referee.pressureSnapshot(),
 	})
 
 	local ref = Referee.current()
 	if ref then
-		Remotes.Incident:FireClient(ref, Referee.pending(), Referee.pressureSnapshot())
+		Remotes.Incident:FireClient(ref, pending, Referee.pressureSnapshot())
 	end
 end)
 
@@ -357,3 +384,6 @@ Gear.start()
 MatchLoop.start()
 
 print("[Ultras FC] Servidor a postos.")
+
+-- Quantas pecas criou cada parte. Os bonecos nascem aos poucos, dai a espera.
+task.delay(5, Budget.report)

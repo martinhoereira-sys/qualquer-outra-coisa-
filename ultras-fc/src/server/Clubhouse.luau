@@ -15,6 +15,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Budget = require(script.Parent:WaitForChild("Budget"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Gear = require(script.Parent:WaitForChild("Gear"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
@@ -29,6 +30,7 @@ function Clubhouse.onStartMarch(fn: (string) -> ())
 end
 
 local function fixture(name: string, size: Vector3, cf: CFrame, colour: Color3, parent: Instance): Part
+	Budget.take("Cidade")
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Size = size

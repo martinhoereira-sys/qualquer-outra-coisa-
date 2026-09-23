@@ -284,6 +284,23 @@ Config.Rules = {
 	throwInGap = 9, -- lancamento: adversarios a 3 m
 	cornerGap = 15, -- canto: a 5 m
 	freeKickGap = 15, -- livre: a 5 m
+	penaltyTime = 4, -- o penalti espera mais: apontar leva tempo
+
+	--[[
+		As faltas. Nem todo o roubo e falta, senao o jogo nunca andava: decide-se
+		no momento do roubo, e por tras e muito mais provavel do que de frente.
+		O arbitro automatico marca o que aqui sai; uma pessoa com o apito pode
+		marcar outra coisa.
+	]]
+	foulBehind = 0.35, -- roubos por tras que sao falta
+	foulFront = 0.05, -- roubos de frente que sao falta
+	behindDot = -0.2, -- abaixo disto (olhar de quem leva a bola vs. de onde vem quem rouba) e por tras
+	boxLineMargin = 3, -- a esta distancia da linha da area, fica em duvida: penalti ou livre
+
+	-- Cartoes que o arbitro automatico mostra, por falta
+	yellowBehind = 0.2,
+	redBehind = 0.03,
+	yellowFront = 0.05,
 }
 
 --[[
@@ -298,13 +315,42 @@ Config.Rules = {
 	Cheia, e apanhado: a ultima decisao e revertida e fica suspenso.
 ]]
 Config.Referee = {
-	decisionSeconds = 12, -- tempo para decidir antes de sair sozinha
-	contestedGoalChance = 0.4, -- golos que ficam por confirmar
+	decisionSeconds = 4, -- tempo para decidir; depois sai a decisao natural (segue, golo valido, sem cartao)
 	suspicionPerCall = 26, -- quanto sobe ao ceder a quem pressiona
 	suspicionDecay = 1.4, -- por segundo, quando se porta bem
 	caughtAt = 100,
 	banMatches = 2,
 	pressureWindow = 20, -- segundos que um pedido da bancada continua a contar
+}
+
+--[[
+	Maquinas fracas.
+
+	A maior parte de quem joga isto esta no telemovel. Estes tetos sao o que
+	impede o jogo de pesar mais do que um telemovel aguenta.
+]]
+Config.Performance = {
+	--[[
+		Tochas e fumos acesos com luz propria, no estadio inteiro. Cada luz custa
+		em todos os ecras; a partir daqui, as que se acendem dao chama e fumo na
+		mesma, mas sem luz.
+	]]
+	maxLights = 6,
+
+	--[[
+		O maximo de pecas de cada parte. Passar daqui e engano num ciclo, nao
+		crescimento normal: a construcao para e escreve no Output. Estao um pouco
+		acima do que cada parte cria hoje.
+	]]
+	maxParts = {
+		Estadio = 1400,
+		Cidade = 2500,
+		Adeptos = 600,
+		Jogadores = 400, -- vivos ao mesmo tempo; os bonecos saem e entram
+		Tifo = 300, -- cartolinas no ar, as duas claques
+		Jogo = 20, -- a bola e as paredes que so ela sente
+		default = 200,
+	},
 }
 
 Config.Gear = {

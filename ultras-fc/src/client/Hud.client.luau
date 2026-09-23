@@ -359,10 +359,13 @@ suspFill.BackgroundColor3 = Color3.fromRGB(224, 84, 78)
 suspFill.BorderSizePixel = 0
 suspFill.Parent = suspTrack
 
--- O painel de decisao, so para quem apita.
+--[[
+	O painel de decisao, so para quem apita: o que aconteceu, quem, onde, e as
+	opcoes. Poucos segundos — se nao decidir, sai a decisao natural.
+]]
 local panel = Instance.new("Frame")
-panel.Size = UDim2.fromOffset(420, 132)
-panel.Position = UDim2.new(0.5, -210, 0.5, -66)
+panel.Size = UDim2.fromOffset(560, 150)
+panel.Position = UDim2.new(0.5, -280, 0.5, -75)
 panel.BackgroundColor3 = INK
 panel.BackgroundTransparency = 0.1
 panel.BorderSizePixel = 0
@@ -373,45 +376,79 @@ local panelCorner = Instance.new("UICorner")
 panelCorner.CornerRadius = UDim.new(0, 12)
 panelCorner.Parent = panel
 
-local panelTitle = label(panel, "", 20, TEXT)
-panelTitle.Size = UDim2.new(1, -24, 0, 26)
-panelTitle.Position = UDim2.new(0, 12, 0, 14)
+local panelTitle = label(panel, "", 19, TEXT)
+panelTitle.Size = UDim2.new(1, -24, 0, 24)
+panelTitle.Position = UDim2.new(0, 12, 0, 12)
+
+local panelDetail = label(panel, "", 13, MUTED)
+panelDetail.Font = Enum.Font.Gotham
+panelDetail.Size = UDim2.new(1, -24, 0, 18)
+panelDetail.Position = UDim2.new(0, 12, 0, 38)
 
 local panelPressure = label(panel, "", 13, BRASS)
 panelPressure.Font = Enum.Font.Gotham
 panelPressure.Size = UDim2.new(1, -24, 0, 18)
-panelPressure.Position = UDim2.new(0, 12, 0, 42)
+panelPressure.Position = UDim2.new(0, 12, 0, 58)
+
+local panelClock = label(panel, "", 13, MUTED)
+panelClock.Font = Enum.Font.GothamBold
+panelClock.Size = UDim2.new(0, 40, 0, 18)
+panelClock.Position = UDim2.new(1, -52, 0, 14)
+
+local function optionColour(id: string): Color3
+	if id == "segue" or id == "valido" then
+		return Color3.fromRGB(70, 76, 88)
+	elseif string.find(id, "vermelho") then
+		return Color3.fromRGB(196, 52, 48)
+	elseif string.find(id, "amarelo") then
+		return Color3.fromRGB(214, 170, 40)
+	end
+	return Color3.fromRGB(58, 132, 92)
+end
+
+local current: { id: number, options: { { id: string, label: string } } }? = nil
+local closesAt = 0
 
 local choiceButtons: { TextButton } = {}
-for i = 1, 2 do
+for i = 1, 4 do
 	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0, 186, 0, 42)
-	b.Position = UDim2.new(0, i == 1 and 12 or 222, 1, -54)
-	b.BackgroundColor3 = i == 1 and Color3.fromRGB(79, 180, 119) or Color3.fromRGB(224, 84, 78)
 	b.BorderSizePixel = 0
 	b.Font = Enum.Font.GothamBold
-	b.TextSize = 15
+	b.TextSize = 14
 	b.TextColor3 = TEXT
+	b.TextWrapped = true
 	b.Text = ""
+	b.Visible = false
 	b.Parent = panel
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 8)
 	corner.Parent = b
 
+	b.Activated:Connect(function()
+		local incident = current
+		if not incident then
+			return
+		end
+		local option = incident.options[i]
+		if option then
+			Remotes.Decide:FireServer(option.id)
+			current = nil
+			panel.Visible = false
+		end
+	end)
 	table.insert(choiceButtons, b)
 end
 
 Remotes.Incident.OnClientEvent:Connect(function(incident, pressureByTeam)
 	if not incident then
+		current = nil
 		panel.Visible = false
 		return
 	end
 
-	local team = Config.Teams[incident.teamId]
-	panelTitle.Text = incident.kind == "golo"
-		and ("Golo do " .. team.name .. " — conta?")
-		or ("Penalti para o " .. team.name .. "?")
+	panelTitle.Text = incident.title
+	panelDetail.Text = incident.detail
 
 	local parts = {}
 	for teamId, count in pressureByTeam do
@@ -421,15 +458,34 @@ Remotes.Incident.OnClientEvent:Connect(function(incident, pressureByTeam)
 	end
 	panelPressure.Text = #parts > 0 and ("a bancada pede  —  " .. table.concat(parts, "   ")) or ""
 
-	for i, b in choiceButtons do
-		b.Text = string.upper(incident.options[i])
-		b.Activated:Once(function()
-			Remotes.Decide:FireServer(incident.options[i])
-			panel.Visible = false
-		end)
+	-- O mesmo lance chega outra vez a cada grito das bancadas: nao se mexe nos
+	-- botoes nem no relogio, so na pressao.
+	if current and current.id == incident.id then
+		return
 	end
+	current = incident
+	closesAt = os.clock() + incident.seconds
 
+	local count = #incident.options
+	local gap = 8
+	local width = (536 - gap * (count - 1)) / count
+	for i, b in choiceButtons do
+		local option = incident.options[i]
+		b.Visible = option ~= nil
+		if option then
+			b.Text = string.upper(option.label)
+			b.BackgroundColor3 = optionColour(option.id)
+			b.Size = UDim2.new(0, width, 0, 46)
+			b.Position = UDim2.new(0, 12 + (i - 1) * (width + gap), 1, -58)
+		end
+	end
 	panel.Visible = true
+end)
+
+RunService.RenderStepped:Connect(function()
+	if panel.Visible then
+		panelClock.Text = string.format("%.0fs", math.max(closesAt - os.clock(), 0))
+	end
 end)
 
 Remotes.RefState.OnClientEvent:Connect(function(payload)
@@ -443,21 +499,33 @@ Remotes.RefState.OnClientEvent:Connect(function(payload)
 		suspTrack.Visible = false
 	end
 
+	-- Sem lance aberto, o painel fecha (decidido, ou o tempo acabou).
+	if not payload.pending and not payload.resolved and panel.Visible then
+		current = nil
+		panel.Visible = false
+	end
+
+	-- A decisao, para toda a gente.
 	local resolved = payload.resolved
 	if resolved then
-		local team = Config.Teams[resolved.team]
-		if resolved.caught then
-			goalLabel.Text = "ARBITRO APANHADO"
-			goalLabel.TextColor3 = Color3.fromRGB(224, 84, 78)
-		elseif resolved.kind == "golo" and resolved.choice == "anular" then
-			goalLabel.Text = "GOLO ANULADO  " .. team.short
-			goalLabel.TextColor3 = Color3.fromRGB(224, 84, 78)
+		if current then
+			current = nil
+			panel.Visible = false
 		end
-		task.delay(4, function()
-			if goalLabel.Text ~= "" then
-				goalLabel.Text = ""
-			end
-		end)
+		local text = resolved.text
+		if resolved.caught then
+			text = "ARBITRO APANHADO" .. (if text then "   ·   " .. text else "")
+		end
+		if text then
+			goalLabel.Text = text
+			goalLabel.TextColor3 = if resolved.caught then Color3.fromRGB(224, 84, 78) else TEXT
+			local shown = text
+			task.delay(3, function()
+				if goalLabel.Text == shown then
+					goalLabel.Text = ""
+				end
+			end)
+		end
 	end
 end)
 

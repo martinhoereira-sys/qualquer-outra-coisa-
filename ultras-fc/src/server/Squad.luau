@@ -20,6 +20,7 @@ local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Budget = require(script.Parent:WaitForChild("Budget"))
 
 local Squad = {}
 
@@ -43,6 +44,8 @@ export type Footballer = {
 	immuneUntil: number,
 	run: AnimationTrack?,
 	idle: AnimationTrack?,
+	yellows: number,
+	sentOff: boolean, -- expulso: o lugar fica vazio ate ao fim do jogo, sem boneco
 }
 
 local slots: { [string]: { Footballer } } = {}
@@ -221,6 +224,9 @@ end
 --------------------------------------------------------------------------------
 
 local function spawnBot(f: Footballer)
+	if f.sentOff then
+		return
+	end
 	local team = Config.Teams[f.teamId]
 	local skin = SKIN[math.random(1, #SKIN)]
 
@@ -246,6 +252,11 @@ local function spawnBot(f: Footballer)
 	end
 
 	local model = result :: Model
+	-- Com travao: bonecos a mais nao entram, e fica o aviso no Output.
+	if not Budget.try("Jogadores", Budget.partsIn(model)) then
+		model:Destroy()
+		return
+	end
 	model.Name = team.short .. " " .. f.number
 
 	local humanoid = model:FindFirstChildOfClass("Humanoid") :: Humanoid
@@ -294,6 +305,7 @@ local function removeBot(f: Footballer)
 		return
 	end
 	if f.model then
+		Budget.give("Jogadores", Budget.partsIn(f.model))
 		f.model:Destroy()
 	end
 	f.model = nil
@@ -358,7 +370,7 @@ function Squad.join(player: Player, teamId: string): boolean
 
 	local free: Footballer? = nil
 	for _, f in list do
-		if not f.player then
+		if not f.player and not f.sentOff then
 			free = f
 			break
 		end
@@ -417,6 +429,86 @@ function Squad.leave(player: Player)
 	f.humanoid = nil
 	f.root = nil
 	task.spawn(spawnBot, f)
+end
+
+--------------------------------------------------------------------------------
+-- Cartoes
+--------------------------------------------------------------------------------
+
+local onSentOff: ((Player) -> ())? = nil
+
+-- Quem faz alguma coisa a pessoa expulsa (o Main manda-a para a praca).
+function Squad.onSentOff(fn: (Player) -> ())
+	onSentOff = fn
+end
+
+local function sendOff(f: Footballer)
+	f.sentOff = true
+	local player = f.player
+	if player then
+		if connections[player] then
+			connections[player]:Disconnect()
+			connections[player] = nil
+		end
+		local humanoid = f.humanoid
+		if humanoid and humanoid.Parent then
+			humanoid.WalkSpeed = 16
+			humanoid.PlatformStand = false
+		end
+		player.DevEnableMouseLock = true
+		player:SetAttribute("PitchTeam", nil)
+		player:SetAttribute("Number", nil)
+		player:SetAttribute("Stamina", nil)
+		player:SetAttribute("Team", nil)
+		f.player = nil
+		f.model = nil
+		f.humanoid = nil
+		f.root = nil
+		if onSentOff then
+			onSentOff(player)
+		end
+	else
+		removeBot(f)
+	end
+end
+
+--[[
+	Um cartao. Dois amarelos sao um vermelho; com o vermelho o jogador sai e a
+	equipa joga com menos um ate ao fim. Devolve se foi expulso.
+]]
+function Squad.book(f: Footballer, card: string): boolean
+	if f.sentOff then
+		return false
+	end
+	if card == "amarelo" then
+		f.yellows += 1
+		if f.yellows < 2 then
+			return false
+		end
+	elseif card ~= "vermelho" then
+		return false
+	end
+	sendOff(f)
+	return true
+end
+
+-- Jogo novo: cartoes limpos, e os lugares dos expulsos voltam, com boneco.
+function Squad.resetMatch()
+	for _, list in slots do
+		for _, f in list do
+			f.yellows = 0
+			if f.sentOff then
+				f.sentOff = false
+				if not f.player and not f.model then
+					task.spawn(spawnBot, f)
+				end
+			end
+		end
+	end
+end
+
+function Squad.label(f: Footballer): string
+	return Config.Teams[f.teamId].short .. " " .. f.number
 end
 
 function Squad.byPlayer(player: Player): Footballer?
@@ -601,6 +693,8 @@ function Squad.build(parent: Instance)
 				immuneUntil = 0,
 				run = nil,
 				idle = nil,
+				yellows = 0,
+				sentOff = false,
 			} :: Footballer)
 		end
 		slots[teamId] = list

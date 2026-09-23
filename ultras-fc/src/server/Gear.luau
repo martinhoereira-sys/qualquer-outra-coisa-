@@ -147,6 +147,22 @@ local function buildTool(kind: string, colour: Color3): Tool
 	return tool
 end
 
+-- As luzes das tochas e fumos acesos. Uma que ja saiu do jogo (a tocha
+-- acabou, o dono saiu) deixa de contar.
+local lights: { [PointLight]: boolean } = {}
+
+local function litCount(): number
+	local n = 0
+	for light in lights do
+		if light.Parent then
+			n += 1
+		else
+			lights[light] = nil
+		end
+	end
+	return n
+end
+
 local function ignite(tool: Tool, kind: string, colour: Color3)
 	local tip = tool:FindFirstChild("Tip") :: BasePart?
 	if not tip then
@@ -176,12 +192,24 @@ local function ignite(tool: Tool, kind: string, colour: Color3)
 		fire.Parent = tip
 	end
 
+	--[[
+		Luz propria so ate ao teto. Uma bancada inteira de tochas acesas, cada
+		uma com a sua luz, deitava abaixo um telemovel; a partir dai a chama e o
+		fumo chegam para se ver a tocha.
+	]]
+	if litCount() >= Config.Performance.maxLights then
+		return
+	end
+
 	local light = Instance.new("PointLight")
 	light.Brightness = kind == "tocha" and 7 or 3.5
 	light.Range = kind == "tocha" and 38 or 26
 	light.Color = colour
-	light.Shadows = true
+	-- Sombras de uma luz pequena sao das coisas mais caras que ha, e com
+	-- ShadowMap nem se veem.
+	light.Shadows = false
 	light.Parent = tip
+	lights[light] = true
 end
 
 --------------------------------------------------------------------------------

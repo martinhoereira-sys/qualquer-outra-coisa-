@@ -23,11 +23,21 @@ local Referee = {}
 
 local R = Config.Referee
 
+-- Uma escolha do painel, e a equipa a quem ela aproveita.
+export type Option = {
+	id: string,
+	label: string,
+	favours: string,
+}
+
 export type Incident = {
 	id: number,
-	kind: string, -- "golo" | "penalti"
-	teamId: string, -- a equipa a quem o lance aproveita
-	options: { string },
+	kind: string, -- "falta" | "golo"
+	title: string, -- o que aconteceu
+	detail: string, -- quem, e onde
+	options: { Option },
+	fair: string, -- o que o arbitro automatico decidiria
+	default: string, -- o que sai se ninguem decidir
 	expires: number,
 }
 
@@ -41,6 +51,9 @@ local nextId = 0
 local pressure: { [string]: { number } } = {}
 
 local onResolved: ((Incident, string, boolean) -> ())? = nil
+
+-- Definido mais abaixo, com os lances; o `release` ja precisa dele.
+local resolve: (choice: string, byReferee: boolean) -> ()
 local onState: (() -> ())? = nil
 
 function Referee.onResolved(fn: (Incident, string, boolean) -> ())
@@ -96,7 +109,12 @@ end
 function Referee.release(player: Player)
 	if whistle == player then
 		whistle = nil
-		pending = nil
+		-- Um lance aberto nao pode ficar a espera de quem saiu: o jogo esta
+		-- parado a espera dele.
+		local incident = pending
+		if incident then
+			resolve(incident.default, false)
+		end
 		announce()
 	end
 	bans[player] = nil
@@ -151,68 +169,77 @@ function Referee.pending(): Incident?
 	return pending
 end
 
---[[
-	Abre um lance para decisao. Sem arbitro em campo resolve-se sozinho e a favor
-	de ninguem: um jogo nao pode parar a espera de uma pessoa que nao esta.
-]]
-function Referee.raise(kind: string, teamId: string): boolean
-	if pending then
-		return false
+-- O que o painel de quem apita precisa, sem a resposta justa la dentro.
+function Referee.pendingForClient()
+	local incident = pending
+	if not incident then
+		return nil
 	end
-	if not (whistle and whistle.Parent) then
-		return false
+	local options = {}
+	for _, option in incident.options do
+		table.insert(options, { id = option.id, label = option.label })
 	end
-
-	nextId += 1
-	pending = {
-		id = nextId,
-		kind = kind,
-		teamId = teamId,
-		options = kind == "golo" and { "validar", "anular" } or { "marcar", "nada" },
-		expires = os.clock() + R.decisionSeconds,
+	return {
+		id = incident.id,
+		kind = incident.kind,
+		title = incident.title,
+		detail = incident.detail,
+		options = options,
+		seconds = math.max(incident.expires - os.clock(), 0),
 	}
-	pressure = {}
-	announce()
-	return true
+end
+
+local function optionById(incident: Incident, id: string): Option?
+	for _, option in incident.options do
+		if option.id == id then
+			return option
+		end
+	end
+	return nil
 end
 
 --[[
-	A decisao sai. `favoured` diz se ela beneficiou a equipa do lance.
+	A decisao sai.
 
 	Ceder a quem mais grita e o que levanta suspeitas — nao decidir mal, decidir
-	sempre para o mesmo lado de quem pressiona. E por isso que a barra so sobe
-	quando houve mesmo pressao.
+	sempre para o lado de quem pressiona. E por isso que a barra so sobe quando
+	houve mesmo pressao, e so quando a escolha aproveita a quem gritou mais.
+
+	Apanhado, a decisao dele e trocada pela do arbitro automatico — a justa — e
+	nao simplesmente virada: com quatro botoes, "ao contrario" nao quer dizer
+	nada.
 ]]
-local function resolve(choice: string, byReferee: boolean)
+resolve = function(choice: string, byReferee: boolean)
 	local incident = pending
 	if not incident then
 		return
 	end
 	pending = nil
 
-	local favoured = choice == incident.options[1]
 	local caught = false
+	local option = optionById(incident, choice)
 
-	if byReferee then
-		local mine = pressureFor(incident.teamId)
+	if byReferee and option then
+		local favoured = option.favours
+		local mine = pressureFor(favoured)
 		local rivals = 0
 		for _, teamId in Config.TeamOrder do
-			if teamId ~= incident.teamId then
+			if teamId ~= favoured then
 				rivals += pressureFor(teamId)
 			end
 		end
 
-		local leaned = (favoured and mine > rivals) or (not favoured and rivals > mine)
-		if leaned and math.max(mine, rivals) >= 2 then
+		if mine > rivals and mine >= 2 then
 			suspicion += R.suspicionPerCall
 		end
 
 		if suspicion >= R.caughtAt then
 			caught = true
-			favoured = not favoured -- a decisao e revertida
+			choice = incident.fair
 			local ref = whistle
 			if ref then
 				bans[ref] = R.banMatches
+				ref:SetAttribute("Team", nil)
 			end
 			whistle = nil
 			suspicion = 0
@@ -221,25 +248,74 @@ local function resolve(choice: string, byReferee: boolean)
 
 	pressure = {}
 	if onResolved then
-		onResolved(incident, favoured and incident.options[1] or incident.options[2], caught)
+		onResolved(incident, choice, caught)
 	end
 	announce()
 end
 
+--[[
+	Abre um lance. Com uma pessoa com o apito, fica a espera dela uns segundos;
+	sem ninguem, decide o arbitro automatico, logo e sempre com justica — a
+	corrupcao so existe quando ha alguem para ser corrompido.
+
+	Devolve o id do lance.
+]]
+function Referee.raise(spec: {
+	kind: string,
+	title: string,
+	detail: string,
+	options: { Option },
+	fair: string,
+	default: string,
+}): number
+	-- Um lance novo com outro por decidir: o antigo sai com a decisao natural.
+	if pending then
+		resolve(pending.default, false)
+	end
+
+	nextId += 1
+	local incident: Incident = {
+		id = nextId,
+		kind = spec.kind,
+		title = spec.title,
+		detail = spec.detail,
+		options = spec.options,
+		fair = spec.fair,
+		default = spec.default,
+		expires = os.clock() + R.decisionSeconds,
+	}
+	pending = incident
+	pressure = {}
+
+	if not (whistle and whistle.Parent) then
+		task.defer(function()
+			if pending == incident then
+				resolve(incident.fair, false)
+			end
+		end)
+		return incident.id
+	end
+
+	announce()
+	return incident.id
+end
+
 function Referee.decide(player: Player, choice: string)
-	if player ~= whistle or not pending then
+	local incident = pending
+	if player ~= whistle or not incident then
 		return
 	end
-	if choice ~= pending.options[1] and choice ~= pending.options[2] then
+	if not optionById(incident, choice) then
 		return
 	end
 	resolve(choice, true)
 end
 
 function Referee.step(dt: number)
-	if pending and os.clock() >= pending.expires then
-		-- Nao decidir e decidir: sai a favor do lance, sem suspeitas.
-		resolve(pending.options[1], false)
+	local incident = pending
+	if incident and os.clock() >= incident.expires then
+		-- Nao decidir e decidir: sai a decisao natural, sem suspeitas.
+		resolve(incident.default, false)
 		return
 	end
 

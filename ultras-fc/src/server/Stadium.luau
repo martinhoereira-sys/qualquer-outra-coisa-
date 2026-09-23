@@ -27,6 +27,7 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Budget = require(script.Parent:WaitForChild("Budget"))
 local City = require(script.Parent:WaitForChild("City"))
 
 local Stadium = {}
@@ -55,6 +56,7 @@ local ASPHALT = Color3.fromRGB(88, 90, 96)
 type Opts = { material: Enum.Material?, transparency: number? }
 
 local function part(name: string, size: Vector3, cf: CFrame, colour: Color3, parent: Instance, opts: Opts?): Part
+	Budget.take("Estadio")
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Size = size
@@ -670,24 +672,27 @@ function Stadium.build()
 	root.Name = "Stadium"
 	root.Parent = workspace
 
-	buildSurround(root)
-	buildPitch(root)
+	-- Com travao: se passar do maximo de pecas, fica a meio e avisa no Output.
+	Budget.run("Estadio", function()
+		buildSurround(root)
+		buildPitch(root)
 
-	-- Laterais (o publico) e topos (as claques). Cantos abertos, como num
-	-- recinto pequeno.
-	doorNumber = 0
-	for _, side in { 1, -1 } do
-		local claque: string? = nil
-		for _, teamId in Config.TeamOrder do
-			if Config.Teams[teamId].side == side then
-				claque = teamId
+		-- Laterais (o publico) e topos (as claques). Cantos abertos, como num
+		-- recinto pequeno.
+		doorNumber = 0
+		for _, side in { 1, -1 } do
+			local claque: string? = nil
+			for _, teamId in Config.TeamOrder do
+				if Config.Teams[teamId].side == side then
+					claque = teamId
+				end
 			end
+			buildStand(false, side, S.blocksLong, root)
+			buildStand(true, side, S.blocksEnd, root, claque)
 		end
-		buildStand(false, side, S.blocksLong, root)
-		buildStand(true, side, S.blocksEnd, root, claque)
-	end
 
-	buildClaqueFront(root)
+		buildClaqueFront(root)
+	end)
 
 	-- A meio do topo da propria claque, com a baliza a frente.
 	local spawnRow = math.ceil(S.rows * 0.5)
@@ -696,7 +701,7 @@ function Stadium.build()
 		spawnPoints[teamId] = Vector3.new((INNER_X + (spawnRow - 0.5) * S.rowDepth) * side, spawnRow * S.rowHeight + 3, 0)
 	end
 
-	City.build(root)
+	Budget.run("Cidade", City.build, root)
 end
 
 return Stadium
