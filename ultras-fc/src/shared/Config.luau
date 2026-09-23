@@ -52,6 +52,8 @@ Config.Crowd = {
 	baseRate = 1.6, -- saltos por segundo em repouso
 	drumRate = 3.4, -- ao ritmo do tambor
 	flagEvery = 6, -- de quantos em quantos leva bandeira
+	partyHeight = 1.8, -- no golo, quantas vezes mais alto do que o salto normal
+	sitDrop = 1.1, -- quanto descem os que se sentam, calados
 }
 
 --[[
@@ -74,15 +76,56 @@ Config.Atmosphere = {
 }
 
 --[[
-	O relogio do jogo: aquecimento, duas partes, intervalo e rescaldo.
+	O dia de jogo, em ciclo, sem nunca parar:
+
+		sede -> corteo -> 1a parte -> intervalo -> 2a parte -> fim -> sede
+
+	Em segundos reais. Ao intervalo ninguem troca de campo: cada equipa ataca
+	sempre a baliza a frente da sua claque.
 ]]
 Config.Match = {
-	warmupLength = 90, -- da tempo ao corteo de chegar
-	halfLength = 120, -- cada parte, em segundos reais
-	halfTimeLength = 20,
-	fullTimeLength = 25, -- rescaldo antes de recomecar
-
+	clubhouseLength = 180, -- na sede: material, lider, e esperar pelos outros
+	corteoLength = 120, -- a caminhada ate ao estadio
+	halfLength = 450, -- cada parte: 7 min e meio
+	halfTimeLength = 30,
+	fullTimeLength = 120, -- no relvado ou na bancada, antes de voltar a sede
+	celebrationLength = 15, -- do golo ao pontape de saida
 }
+
+--[[
+	Quem pode saltar de fase, pelo numero da conta Roblox. E o servidor que
+	confirma: o botao so aparece a estes, mas quem decide e a lista.
+]]
+Config.Admins = {
+	10733750829,
+}
+
+--[[
+	Os sons. O codigo chama-os pelo nome, nunca pelo numero: para trocar um som,
+	muda-se o numero aqui e mais nada.
+
+	`volume` e o volume de base. A multidao de fundo sobe e desce com o ambiente
+	entre `volume` e `volumeMax`, e fica sempre abaixo dos outros para nao os
+	abafar.
+
+	Todos da biblioteca de sons que o Roblox deixa usar em qualquer jogo
+	(ProSoundEffects e APM). Audio privado de outra conta nao toca e nao da
+	erro: fica mudo.
+]]
+export type SoundSpec = { id: number, volume: number, volumeMax: number?, looped: boolean? }
+
+Config.Sounds = {
+	multidao = { id = 9119562234, volume = 0.15, volumeMax = 0.4, looped = true },
+	golo = { id = 9120975204, volume = 0.9 },
+	lamento = { id = 9120974911, volume = 0.6 },
+	tambor = { id = 9113343286, volume = 0.8 },
+	apito_inicio = { id = 9118113825, volume = 0.8 },
+	apito_falta = { id = 9117261163, volume = 0.8 },
+	apito_fim = { id = 9117259635, volume = 0.9 },
+	pontape = { id = 9119326824, volume = 0.6 },
+	corteo = { id = 9112779476, volume = 0.45, looped = true },
+	festa_fim = { id = 1839963987, volume = 0.6 },
+} :: { [string]: SoundSpec }
 
 --[[
 	O estadio. E propositadamente simples: partes soltas, sem modelos nem texturas.
@@ -248,10 +291,11 @@ Config.Football = {
 	aquecimento e mais longo do que seria preciso: e o tempo da caminhada.
 ]]
 Config.March = {
-	readyNeeded = 3, -- quantos tem de estar na sede para o lider poder sair
+	readyNeeded = 3, -- quantos tem de estar na sede para o lider poder sair (ou todos, se forem menos)
+	autoStartAfter = 60, -- sem lider a dar a ordem, a faixa sai sozinha a meio da fase
+	bots = 16, -- bonecos que marcham atras de cada faixa
 	speed = 17, -- passo da faixa, em studs por segundo
 	radius = 45, -- a que distancia da faixa ainda se conta como ir no corteo
-	legSeconds = 20, -- tempo de referencia por perna do percurso
 	atmosphereBonus = 55, -- ambiente de partida para uma claque que fez o caminho
 }
 

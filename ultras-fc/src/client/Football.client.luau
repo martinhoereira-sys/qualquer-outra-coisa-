@@ -239,3 +239,54 @@ RunService.RenderStepped:Connect(function()
 		countdownNote.Text = ""
 	end
 end)
+
+--[[
+	Marcaste: o jogo leva-te a correr ate a tua claque, de bracos abertos (os
+	bracos poe-os o servidor). Mexer nos controlos devolve-te o boneco na hora;
+	senao vais ate la, ou ate a festa acabar.
+]]
+local MOVE_KEYS = {
+	[Enum.KeyCode.W] = true,
+	[Enum.KeyCode.A] = true,
+	[Enum.KeyCode.S] = true,
+	[Enum.KeyCode.D] = true,
+	[Enum.KeyCode.Up] = true,
+	[Enum.KeyCode.Down] = true,
+	[Enum.KeyCode.Left] = true,
+	[Enum.KeyCode.Right] = true,
+	[Enum.KeyCode.Thumbstick1] = true,
+}
+
+Remotes.Celebrate.OnClientEvent:Connect(function(spot)
+	if typeof(spot) ~= "Vector3" then
+		return
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not humanoid or not root then
+		return
+	end
+
+	local tookOver = false
+	local input = UserInputService.InputBegan:Connect(function(event, processed)
+		if processed then
+			return
+		end
+		if MOVE_KEYS[event.KeyCode] or event.UserInputType == Enum.UserInputType.Touch then
+			tookOver = true
+		end
+	end)
+
+	-- O MoveTo desiste sozinho ao fim de uns segundos: volta-se a pedir.
+	local deadline = os.clock() + Config.Match.celebrationLength - 3
+	while not tookOver and os.clock() < deadline and humanoid.Parent do
+		local flat = Vector3.new(root.Position.X - spot.X, 0, root.Position.Z - spot.Z)
+		if flat.Magnitude < 3 then
+			break
+		end
+		humanoid:MoveTo(spot)
+		task.wait(0.25)
+	end
+	input:Disconnect()
+end)

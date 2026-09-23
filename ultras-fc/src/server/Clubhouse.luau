@@ -110,6 +110,14 @@ local function readyCount(teamId: string, at: Vector3): number
 end
 
 --[[
+	Quantos tem de estar prontos para o lider poder sair: os do Config, ou a
+	claque inteira se for mais pequena. Uma claque de dois nunca juntava tres.
+]]
+local function readyNeeded(teamId: string): number
+	return math.max(math.min(Config.March.readyNeeded, Teams.count(teamId)), 1)
+end
+
+--[[
 	Monta uma sede: balcao de inscricao, caixa de material, o tambor no seu
 	suporte, e a porta por onde o corteo sai.
 ]]
@@ -168,7 +176,7 @@ function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
 		if not Teams.isLeader(player) or Teams.get(player) ~= teamId then
 			return
 		end
-		if readyCount(teamId, centre) < Config.March.readyNeeded then
+		if readyCount(teamId, centre) < readyNeeded(teamId) then
 			return
 		end
 		if onStartMarch then
@@ -192,21 +200,24 @@ function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
 	text.Font = Enum.Font.GothamBold
 	text.TextScaled = true
 	text.TextColor3 = Color3.fromRGB(240, 240, 240)
-	text.Text = "0 / " .. Config.March.readyNeeded
+	text.Text = "0 / " .. readyNeeded(teamId)
 	text.Parent = sign
 
 	task.spawn(function()
 		while board.Parent do
 			task.wait(1)
 			local ready = readyCount(teamId, centre)
+			local needed = readyNeeded(teamId)
 			local leader = Teams.leader(teamId)
+			-- O lider saiu do jogo: o tambor volta ao suporte para outro o pegar.
+			takeDrum.Enabled = leader == nil
 			text.Text = string.format(
 				"%d / %d prontos\n%s",
 				ready,
-				Config.March.readyNeeded,
+				needed,
 				leader and ("lider: " .. leader.DisplayName) or "sem lider"
 			)
-			text.TextColor3 = (ready >= Config.March.readyNeeded and leader)
+			text.TextColor3 = (ready >= needed and leader)
 					and Color3.fromRGB(120, 220, 150)
 				or Color3.fromRGB(240, 240, 240)
 		end

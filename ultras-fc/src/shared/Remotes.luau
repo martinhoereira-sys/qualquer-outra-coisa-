@@ -22,6 +22,9 @@ local NAMES = {
 	"Tifo", -- cliente -> servidor: o lider dispara um tifo, ou alguem levanta a cartolina
 	"TifoState", -- servidor -> clientes: tifo no ar, e a cartolina de cada um
 	"Football", -- jogador -> servidor: sprint, e o chuto (forca, efeito, altura)
+	"Sound", -- servidor -> clientes: toca este som (pelo nome do Config.Sounds), e onde
+	"Celebrate", -- servidor -> quem marcou: corre para a tua claque
+	"Admin", -- admin -> servidor: saltar de fase
 }
 
 local folder: Folder

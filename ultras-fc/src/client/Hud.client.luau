@@ -24,29 +24,6 @@ local TifoDesigns = require(Shared:WaitForChild("TifoDesigns"))
 local player = Players.LocalPlayer
 local myTeam: string? = nil
 
---[[
-	Sons. Poe aqui os ids dos teus audios (rbxassetid://NUMERO) e passa a haver
-	som sem mexer em mais nada. Vazios, o jogo funciona igual — so em silencio.
-
-	Comeca pelo `drum`: e o som que manda na bancada.
-]]
-local SOUNDS = {
-	drum = "",
-	goal = "",
-}
-
-local function play(id: string, volume: number?)
-	if id == "" then
-		return
-	end
-	local sound = Instance.new("Sound")
-	sound.SoundId = id
-	sound.Volume = volume or 0.5
-	sound.PlayOnRemove = true
-	sound.Parent = workspace
-	sound:Destroy()
-end
-
 local INK = Color3.fromRGB(14, 17, 22)
 local TEXT = Color3.fromRGB(232, 234, 237)
 local MUTED = Color3.fromRGB(141, 150, 163)
@@ -189,14 +166,64 @@ local scoreLabel = label(gui, "0 - 0", 40, TEXT)
 scoreLabel.Size = UDim2.new(1, 0, 0, 46)
 scoreLabel.Position = UDim2.new(0, 0, 0, 16)
 
-local phaseLabel = label(gui, "", 14, MUTED)
-phaseLabel.Font = Enum.Font.Gotham
-phaseLabel.Size = UDim2.new(1, 0, 0, 20)
-phaseLabel.Position = UDim2.new(0, 0, 0, 62)
+--[[
+	A fase do dia de jogo e o tempo que falta, num canto: e o relogio que diz
+	a toda a gente o que vem a seguir.
+]]
+local phaseBox = Instance.new("Frame")
+phaseBox.Size = UDim2.fromOffset(230, 52)
+phaseBox.Position = UDim2.fromOffset(16, 64)
+phaseBox.BackgroundColor3 = INK
+phaseBox.BackgroundTransparency = 0.25
+phaseBox.BorderSizePixel = 0
+phaseBox.Parent = gui
+
+local phaseBoxCorner = Instance.new("UICorner")
+phaseBoxCorner.CornerRadius = UDim.new(0, 8)
+phaseBoxCorner.Parent = phaseBox
+
+local phaseLabel = label(phaseBox, "", 14, TEXT)
+phaseLabel.TextXAlignment = Enum.TextXAlignment.Left
+phaseLabel.Size = UDim2.new(1, -24, 0, 20)
+phaseLabel.Position = UDim2.fromOffset(12, 7)
+
+local phaseNote = label(phaseBox, "", 12, MUTED)
+phaseNote.Font = Enum.Font.Gotham
+phaseNote.TextXAlignment = Enum.TextXAlignment.Left
+phaseNote.Size = UDim2.new(1, -70, 0, 16)
+phaseNote.Position = UDim2.fromOffset(12, 28)
+
+local phaseClock = label(phaseBox, "", 20, TEXT)
+phaseClock.TextXAlignment = Enum.TextXAlignment.Right
+phaseClock.Size = UDim2.fromOffset(70, 24)
+phaseClock.Position = UDim2.new(1, -82, 0, 20)
 
 local goalLabel = label(gui, "", 30, TEXT)
 goalLabel.Size = UDim2.new(1, 0, 0, 36)
 goalLabel.Position = UDim2.new(0, 0, 0, 88)
+
+--[[
+	O golo, e o resultado final, em grande no meio do ecra. Num golo fica uns
+	segundos e volta para o marcador la em cima; no fim fica durante o rescaldo.
+]]
+local bigTitle = label(gui, "", 64, TEXT)
+bigTitle.Font = Enum.Font.GothamBlack
+bigTitle.Size = UDim2.new(1, 0, 0, 72)
+bigTitle.Position = UDim2.new(0, 0, 0.3, 0)
+bigTitle.TextStrokeTransparency = 0.4
+bigTitle.Visible = false
+
+local bigScore = label(gui, "", 30, TEXT)
+bigScore.Size = UDim2.new(1, 0, 0, 36)
+bigScore.Position = UDim2.new(0, 0, 0.3, 76)
+bigScore.TextStrokeTransparency = 0.5
+bigScore.Visible = false
+
+local bigNote = label(gui, "", 20, BRASS)
+bigNote.Size = UDim2.new(1, 0, 0, 26)
+bigNote.Position = UDim2.new(0, 0, 0.3, 118)
+bigNote.TextStrokeTransparency = 0.5
+bigNote.Visible = false
 
 -- A reposicao em curso, para toda a gente: o que e e de quem.
 local RESTART_TEXT = {
@@ -557,32 +584,117 @@ Remotes.Atmosphere.OnClientEvent:Connect(function(levels)
 end)
 
 local PHASE_TEXT = {
-	warmup = "CORTEO  —  segue a faixa ate ao estadio",
-	first = "1a PARTE",
-	halftime = "INTERVALO",
-	second = "2a PARTE",
-	fulltime = "FINAL",
+	clubhouse = { "NA SEDE", "material, lider e a tua claque" },
+	corteo = { "CORTEO", "segue a faixa ate ao estadio" },
+	first = { "1a PARTE", "" },
+	halftime = { "INTERVALO", "" },
+	second = { "2a PARTE", "" },
+	fulltime = { "FIM DO JOGO", "a seguir, de volta a sede" },
 }
 
+local function scoreLine(score: { [string]: number }): string
+	local home, away = Config.Teams[Config.TeamOrder[1]], Config.Teams[Config.TeamOrder[2]]
+	return string.format("%s  %d - %d  %s", home.short, score[home.id], score[away.id], away.short)
+end
+
 local lastGoalStamp = 0
+local bigUntil = 0 -- o golo em grande some-se a esta hora (os.clock)
+local shownPhase = ""
+
+local function showBig(title: string, colour: Color3, score: string, note: string, seconds: number)
+	bigTitle.Text = title
+	bigTitle.TextColor3 = colour
+	bigScore.Text = score
+	bigNote.Text = note
+	bigTitle.Visible = true
+	bigScore.Visible = true
+	bigNote.Visible = note ~= ""
+	bigUntil = os.clock() + seconds
+end
 
 Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 	scoreLabel.Text = string.format("%d - %d", snapshot.score.home, snapshot.score.away)
-	phaseLabel.Text = string.format("%s  ·  %d", PHASE_TEXT[snapshot.phase] or "", snapshot.clock)
+
+	local text = PHASE_TEXT[snapshot.phase] or { "", "" }
+	phaseLabel.Text = text[1]
+	phaseNote.Text = text[2]
+	phaseClock.Text = string.format("%d:%02d", snapshot.clock // 60, snapshot.clock % 60)
 
 	if snapshot.lastGoal and snapshot.goalStamp > lastGoalStamp then
+		local fresh = lastGoalStamp > 0 or workspace:GetServerTimeNow() - snapshot.goalStamp < 3
 		lastGoalStamp = snapshot.goalStamp
-		local team = Config.Teams[snapshot.lastGoal]
-		goalLabel.Text = "GOLO  " .. team.short
-		goalLabel.TextColor3 = team.color
-		play(SOUNDS.goal, 0.7)
-		task.delay(4, function()
-			if lastGoalStamp == snapshot.goalStamp then
-				goalLabel.Text = ""
-			end
-		end)
+		if fresh then
+			local team = Config.Teams[snapshot.lastGoal]
+			-- A quem tem tocha ou fumo e e da claque que marcou: e agora.
+			local lightUp = myTeam == snapshot.lastGoal and (stock.tocha > 0 or stock.fumo > 0)
+			showBig("GOLO", team.color, team.name .. "    " .. scoreLine(snapshot.score), if lightUp then "ACENDE AS TOCHAS" else "", 6)
+		end
+	end
+
+	-- O apito final: o resultado em grande durante o rescaldo.
+	if snapshot.phase ~= shownPhase then
+		shownPhase = snapshot.phase
+		if snapshot.phase == "fulltime" then
+			local home, away = snapshot.score.home, snapshot.score.away
+			local winner = if home > away then Config.Teams.home elseif away > home then Config.Teams.away else nil
+			showBig(
+				"FIM DO JOGO",
+				if winner then winner.color else TEXT,
+				scoreLine(snapshot.score),
+				if winner then "vitoria do " .. winner.name else "empate",
+				snapshot.clock
+			)
+		elseif bigTitle.Text == "FIM DO JOGO" then
+			bigUntil = 0
+		end
 	end
 end)
+
+RunService.RenderStepped:Connect(function()
+	if bigTitle.Visible and os.clock() >= bigUntil then
+		bigTitle.Visible = false
+		bigScore.Visible = false
+		bigNote.Visible = false
+	end
+end)
+
+--------------------------------------------------------------------------------
+-- Saltar de fase (so admins)
+--------------------------------------------------------------------------------
+
+--[[
+	Para testar e para mostrar o jogo sem esperar. O botao so aparece a quem
+	esta em Config.Admins; quem decide se o salto conta e o servidor, pela mesma
+	lista — esconder o botao nao chega para impedir ninguem.
+]]
+if table.find(Config.Admins, player.UserId) then
+	local skip = Instance.new("TextButton")
+	skip.Size = UDim2.fromOffset(120, 28)
+	skip.Position = UDim2.fromOffset(16, 122)
+	skip.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
+	skip.BackgroundTransparency = 0.15
+	skip.BorderSizePixel = 0
+	skip.Font = Enum.Font.GothamBold
+	skip.TextSize = 12
+	skip.TextColor3 = TEXT
+	skip.Text = "]  SALTAR FASE"
+	skip.Parent = gui
+
+	local skipCorner = Instance.new("UICorner")
+	skipCorner.CornerRadius = UDim.new(0, 6)
+	skipCorner.Parent = skip
+
+	skip.Activated:Connect(function()
+		Remotes.Admin:FireServer("skip")
+	end)
+
+	ContextActionService:BindAction("SaltarFase", function(_, inputState)
+		if inputState == Enum.UserInputState.Begin then
+			Remotes.Admin:FireServer("skip")
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.RightBracket)
+end
 
 --------------------------------------------------------------------------------
 -- Tifos

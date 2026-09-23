@@ -56,6 +56,32 @@ local function moveTo(f: Footballer, at: Vector3, sprint: boolean)
 end
 
 --[[
+	A festa de um golo. Quem marcou corre para a frente da sua claque, os
+	colegas vao atras e juntam-se a ele num monte; os outros voltam devagar ao
+	seu lugar, de cabeca baixa.
+]]
+local function celebrate(party: Football.Celebration)
+	for _, teamId in Config.TeamOrder do
+		local sign = Squad.attackSign(teamId)
+		for _, f in Squad.team(teamId) do
+			if f.player or not f.root or not f.humanoid then
+				continue
+			end
+			if teamId ~= party.team then
+				moveTo(f, Squad.homeSpot(f), false)
+			elseif f == party.scorer then
+				moveTo(f, party.spot, true)
+			else
+				-- Um pouco atras dele, cada um no seu sitio, para nao se amontoarem
+				-- todos no mesmo ponto.
+				local offset = Vector3.new(-sign * (3 + (f.slot % 3) * 2.5), 0, (f.slot - 3) * 2.2)
+				moveTo(f, party.spot + offset, true)
+			end
+		end
+	end
+end
+
+--[[
 	O lugar de cada um sem bola: a posicao da formacao, puxada para o lado da
 	bola e empurrada para a frente quando a equipa ataca.
 ]]
@@ -244,6 +270,13 @@ function Bots.step(dt: number)
 	local ballAt = Football.ballPosition()
 	local carrier = Football.carrier()
 	local play = Football.botsPlay() and not Squad.isFrozen()
+
+	-- Golo: ninguem joga a bola, e festa ou luto.
+	local party = Football.celebration()
+	if party then
+		celebrate(party)
+		return
+	end
 
 	-- Quem acabou de receber olha antes de decidir, como toda a gente.
 	if carrier and carrier ~= lastCarrier then

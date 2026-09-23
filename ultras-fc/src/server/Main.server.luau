@@ -84,8 +84,52 @@ local function sendToPitch(player: Player)
 	end
 end
 
-local function sendToStand(player: Player, teamId: string)
-	local point = City.spawnPoint(teamId) or Stadium.spawnPoint(teamId)
+--[[
+	Onde fica um adepto da claque agora. Antes do jogo, a porta da sede: e de
+	la que sai o corteo. Com o jogo ja comecado, direto para a bancada da sua
+	claque — quem chega tarde nao fica de fora.
+]]
+local function sendToClaque(player: Player, teamId: string)
+	local phase = MatchLoop.phase()
+	local beforeMatch = phase == "clubhouse" or phase == "corteo"
+	local point = if beforeMatch then City.spawnPoint(teamId) or Stadium.spawnPoint(teamId) else Stadium.spawnPoint(teamId)
+	if point then
+		placeAt(player, point, Vector3.new(0, point.Y - 8, 0))
+	end
+end
+
+-- Um som para toda a gente, pelo nome do Config.Sounds; com posicao, ouve-se dali.
+local function sound(name: string, at: Vector3?)
+	Remotes.Sound:FireAllClients(name, at)
+end
+
+local function isAdmin(player: Player): boolean
+	return table.find(Config.Admins, player.UserId) ~= nil
+end
+
+-- Dentro da muralha do estadio: a bancada, a explanada e o relvado.
+local function insideGround(position: Vector3): boolean
+	local S = Config.Stadium
+	local depth = S.rows * S.rowDepth
+	local outX = S.pitchLength / 2 + S.standGap + depth + 26
+	local outZ = S.pitchWidth / 2 + S.standGap + depth + 26
+	return math.abs(position.X) <= outX and math.abs(position.Z) <= outZ
+end
+
+local function rootOf(player: Player): BasePart?
+	local character = player.Character
+	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
+--[[
+	Acabou o jogo: toda a gente volta a sede. Os adeptos e os jogadores a da
+	sua equipa; o arbitro, e quem nao e de ninguem, a praca.
+]]
+local function sendHome(player: Player)
+	local teamId = Teams.get(player)
+	local f = Squad.byPlayer(player)
+	local home = teamId or (f and f.teamId)
+	local point = if home and Referee.current() ~= player then City.spawnPoint(home) else City.arrivalPoint()
 	if point then
 		placeAt(player, point, Vector3.new(0, point.Y - 8, 0))
 	end
@@ -125,7 +169,7 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	Squad.leave(player)
 	Teams.assign(player, teamId)
 
-	task.spawn(sendToStand, player, teamId)
+	task.spawn(sendToClaque, player, teamId)
 
 	if first then
 		player.CharacterAdded:Connect(function(character)
@@ -136,7 +180,7 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 			-- Deixa o Roblox acabar de montar o personagem antes de o mover.
 			character:WaitForChild("HumanoidRootPart", 10)
 			task.wait(0.2)
-			sendToStand(player, current)
+			sendToClaque(player, current)
 		end)
 	end
 end)
@@ -156,6 +200,9 @@ Gear.onDrumHit(function(player)
 
 	intensity[teamId] = math.min((intensity[teamId] or 0) + Config.Drum.intensityPerHit, 1)
 	Atmosphere.registerDrum(teamId)
+
+	local root = rootOf(player)
+	sound("tambor", root and root.Position)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
@@ -212,7 +259,6 @@ local lastGoalStamp = 0
 MatchLoop.onChange(function(snapshot)
 	Remotes.MatchState:FireAllClients(snapshot)
 
-	local wasPlaying = playing
 	playing = snapshot.phase == "first" or snapshot.phase == "second"
 	Tifo.setPlaying(playing)
 
@@ -225,12 +271,33 @@ MatchLoop.onChange(function(snapshot)
 		Tifo.markGoal(snapshot.lastGoal)
 	end
 
-	-- O corteo sai no aquecimento e acaba ao apito.
-	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
+	local entered = snapshot.phase ~= lastPhase
+
+	-- A sede: dia de jogo novo. Tabela limpa, tochas novas, e toda a gente de
+	-- volta a sua sede. Guardar as tochas do jogo anterior nao faria sentido:
+	-- sao para o momento, nao para acumular.
+	if entered and snapshot.phase == "clubhouse" then
+		Gear.refill()
+		Tifo.refill()
+		Football.resetClock()
+		Squad.resetMatch()
+		for _, teamId in Config.TeamOrder do
+			Crowd.setMood(teamId, nil)
+		end
+		for _, player in Players:GetPlayers() do
+			sendGearCount(player)
+			if lastPhase ~= "" then
+				task.spawn(sendHome, player)
+			end
+		end
+	end
+
+	-- O corteo: as faixas aparecem a porta das sedes.
+	if entered and snapshot.phase == "corteo" then
 		March.arm(workspace:WaitForChild("Stadium"))
 	end
 
-	if playing and not wasPlaying then
+	if entered and snapshot.phase == "first" then
 		-- Soma o que cada claque trouxe da rua e poe a bancada a arrancar dai.
 		local bonus: { [string]: number } = {}
 		for _, player in Players:GetPlayers() do
@@ -242,30 +309,40 @@ MatchLoop.onChange(function(snapshot)
 		end
 		Atmosphere.kickOff(bonus)
 		March.stop()
-	end
 
-	-- Jogo novo, tochas novas. Guardar as do jogo anterior nao faria sentido:
-	-- sao para o momento, nao para acumular.
-	if snapshot.phase == "warmup" and lastPhase ~= "warmup" then
-		Gear.refill()
-		Tifo.refill()
+		-- Quem nao marchou entra na mesma, so sem o bonus: ninguem fica de fora
+		-- do jogo por ter chegado tarde.
 		for _, player in Players:GetPlayers() do
-			sendGearCount(player)
+			local teamId = Teams.get(player)
+			local root = rootOf(player)
+			if teamId and root and not insideGround(root.Position) then
+				task.spawn(sendToClaque, player, teamId)
+			end
 		end
 	end
 
-	if snapshot.phase == "fulltime" and lastPhase ~= "fulltime" then
+	-- Intervalo e fim: o apito comprido.
+	if entered and (snapshot.phase == "halftime" or snapshot.phase == "fulltime") then
+		sound("apito_fim")
+	end
+
+	--[[
+		Apito final: quem ganhou fica em festa na bancada, quem perdeu senta-se
+		calado. Empate, ninguem.
+	]]
+	if entered and snapshot.phase == "fulltime" then
 		Referee.endMatch()
+		local winner = MatchLoop.winner()
+		for _, teamId in Config.TeamOrder do
+			Crowd.setMood(teamId, if winner == nil then nil elseif teamId == winner then "festa" else "calada")
+		end
+		workspace:SetAttribute("LastWinner", winner or "")
 	end
 
 	-- Pontape de saida no inicio de cada parte: a primeira sai a casa, a
 	-- segunda os visitantes. Depois de cada golo sai quem o sofreu (Football).
-	if snapshot.phase ~= lastPhase then
+	if entered then
 		Football.setPhase(snapshot.phase)
-		if snapshot.phase == "warmup" then
-			Football.resetClock()
-			Squad.resetMatch()
-		end
 		if snapshot.phase == "first" then
 			Football.kickOff(Config.TeamOrder[1])
 		elseif snapshot.phase == "second" then
@@ -317,12 +394,42 @@ end)
 	Um golo. Entra no marcador; o fora de jogo, quando houver, e o arbitro que
 	o ve.
 ]]
-Football.onGoal(function(teamId)
+Football.onGoal(function(teamId, scorer)
 	MatchLoop.scoreGoal(teamId)
+
+	-- A bancada de quem marcou vai ao ar; a de quem sofreu senta-se e cala-se.
+	for _, id in Config.TeamOrder do
+		Crowd.setMood(id, if id == teamId then "festa" else "calada")
+	end
+
+	-- Uma pessoa que marca corre sozinha para a sua claque (Football.client).
+	local party = Football.celebration()
+	if scorer and scorer.player and party then
+		Remotes.Celebrate:FireClient(scorer.player, party.spot)
+	end
+end)
+
+-- Acabou a festa: a bancada volta ao tambor, e ha pontape de saida.
+Football.onCelebrationEnd(function()
+	for _, id in Config.TeamOrder do
+		Crowd.setMood(id, nil)
+	end
+end)
+
+-- Enquanto se festeja, a parte nao acaba: o intervalo espera pelo fim da festa.
+MatchLoop.holdWhile(Football.celebrating)
+
+Football.onKick(function(at)
+	sound("pontape", at)
+end)
+
+Football.onKickoffWhistle(function()
+	sound("apito_inicio")
 end)
 
 -- Uma falta: o jogo ja parou, e o arbitro (pessoa ou automatico) decide.
 Football.onFoul(function(foul)
+	sound("apito_falta", foul.at)
 	Whistle.foul(foul)
 end)
 
@@ -378,6 +485,26 @@ Remotes.Football.OnServerEvent:Connect(function(player, action, value)
 			Football.kick(f, power, curve, height)
 		end
 	end
+end)
+
+--[[
+	Saltar de fase, para testes e para mostrar o jogo sem esperar. Quem pode e
+	a lista Config.Admins, e e aqui, no servidor, que se confirma: o botao no
+	ecra so aparece aos admins, mas um cliente consegue mandar o pedido na
+	mesma, e por isso nao e o botao que decide.
+]]
+local lastSkip = 0
+Remotes.Admin.OnServerEvent:Connect(function(player, action)
+	if action ~= "skip" or not isAdmin(player) then
+		return
+	end
+	-- Um salto de cada vez: dois cliques seguidos nao saltam duas fases.
+	if os.clock() - lastSkip < 1 then
+		return
+	end
+	lastSkip = os.clock()
+	print(string.format("[Ultras FC] %s saltou a fase %s", player.Name, MatchLoop.phase()))
+	MatchLoop.skip()
 end)
 
 Gear.start()

@@ -297,8 +297,11 @@ local function clubhouse(teamId: string, centre: Vector3, parent: Instance)
 	light.Color = team.color:Lerp(Color3.fromRGB(255, 230, 190), 0.6)
 	light.Parent = glow
 
-	-- Sai-se de frente para a rua, virado para o estadio.
+	-- Balcao, caixa de tochas e fumos, tambor e a porta do corteo.
+	Clubhouse.equip(teamId, centre, folder)
 
+	-- A porta da sede, assente no chao: alto de mais e cai-se a entrar.
+	spawnPoints[teamId] = Vector3.new(centre.X, 3.5, centre.Z + depth / 2 + 9)
 end
 
 local neutral: Vector3? = nil

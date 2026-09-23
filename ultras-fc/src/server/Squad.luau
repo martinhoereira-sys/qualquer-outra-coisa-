@@ -568,6 +568,37 @@ function Squad.setFrozen(on: boolean)
 end
 
 --[[
+	Bracos abertos, para festejar um golo. Roda-se o ombro por cima da animacao:
+	o boneco pode correr a vontade, os bracos ficam no ar. Com R6 ou sem ombros
+	nao faz nada, e o festejo segue sem bracos.
+]]
+local restArms: { [Motor6D]: CFrame } = {}
+local SHOULDERS = {
+	{ arm = "RightUpperArm", joint = "RightShoulder", side = 1 },
+	{ arm = "LeftUpperArm", joint = "LeftShoulder", side = -1 },
+}
+
+function Squad.openArms(f: Footballer, open: boolean)
+	local model = f.model
+	if not model then
+		return
+	end
+	for _, spec in SHOULDERS do
+		local arm = model:FindFirstChild(spec.arm)
+		local motor = arm and arm:FindFirstChild(spec.joint)
+		if motor and motor:IsA("Motor6D") then
+			if open then
+				restArms[motor] = restArms[motor] or motor.C0
+				motor.C0 = restArms[motor] * CFrame.Angles(0, 0, math.rad(110) * spec.side)
+			elseif restArms[motor] then
+				motor.C0 = restArms[motor]
+				restArms[motor] = nil
+			end
+		end
+	end
+end
+
+--[[
 	Cair. Quem perde a bola num roubo vai ao chao e demora um segundo a
 	levantar-se: e o que faz roubar valer a pena, e o que se ve de longe.
 ]]

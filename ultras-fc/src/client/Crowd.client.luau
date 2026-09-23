@@ -104,6 +104,7 @@ RunService.RenderStepped:Connect(function()
 	-- O compasso de cada claque, agora, e quanto salta.
 	local beats: { [string]: number } = {}
 	local heights: { [string]: number } = {}
+	local drops: { [string]: number } = {}
 	for _, name in Config.TeamOrder do
 		local beat = crowd:GetAttribute("Beat_" .. name)
 		local rate = crowd:GetAttribute("Rate_" .. name)
@@ -112,6 +113,8 @@ RunService.RenderStepped:Connect(function()
 			beats[name] = beat + rate * elapsed
 			-- Tifo no ar: seguram a cartolina, nao saltam.
 			heights[name] = crowd:GetAttribute("Hold_" .. name) == true and 0 or height
+			-- Calados: sentam-se, que e o que se ve de uma bancada que sofreu.
+			drops[name] = crowd:GetAttribute("Sit_" .. name) == true and Config.Crowd.sitDrop or 0
 		end
 	end
 
@@ -121,7 +124,7 @@ RunService.RenderStepped:Connect(function()
 		local beat = beats[person.teamId]
 		if beat then
 			local lift = math.abs(math.sin((beat + person.phase) * math.pi)) * heights[person.teamId]
-			local at = person.base + Vector3.new(0, lift, 0)
+			local at = person.base + Vector3.new(0, lift - drops[person.teamId], 0)
 			for i, part in person.parts do
 				table.insert(moveParts, part)
 				table.insert(moveFrames, at * person.offsets[i])

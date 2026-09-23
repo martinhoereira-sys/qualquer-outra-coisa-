@@ -47,9 +47,22 @@ export type SetPiece = {
 	takenAt: number, -- quando quem bate chegou a bola
 }
 
+--[[
+	A festa de um golo: quem marcou corre para a sua claque, os colegas vao
+	atras, e so no fim ha pontape de saida.
+]]
+export type Celebration = {
+	team: string,
+	scorer: Footballer?,
+	spot: Vector3, -- onde quem marcou vai festejar, a frente da sua claque
+	endsAt: number,
+}
+
 local state = {
 	carrier = nil :: Footballer?,
 	lastTouch = nil :: string?, -- equipa do ultimo toque, para a bola fora
+	lastToucher = nil :: Footballer?, -- quem lhe tocou por ultimo, para saber quem marcou
+	celebration = nil :: Celebration?, -- os segundos de festa depois de um golo
 	noClaim = {} :: { [Footballer]: number },
 	priorityTeam = nil :: string?,
 	priorityUntil = 0,
@@ -70,10 +83,32 @@ local state = {
 	deadTime = 0,
 }
 
-local onGoal: ((string) -> ())? = nil
+local onGoal: ((string, Footballer?) -> ())? = nil
 
-function Football.onGoal(fn: (string) -> ())
+-- Um golo que conta: de que equipa, e quem o marcou (se se souber).
+function Football.onGoal(fn: (string, Footballer?) -> ())
 	onGoal = fn
+end
+
+local onCelebrationEnd: ((string) -> ())? = nil
+
+-- Acabou a festa do golo, e vai haver pontape de saida.
+function Football.onCelebrationEnd(fn: (string) -> ())
+	onCelebrationEnd = fn
+end
+
+local onKick: ((Vector3) -> ())? = nil
+
+-- Alguem chutou a bola (para o som do pontape).
+function Football.onKick(fn: (Vector3) -> ())
+	onKick = fn
+end
+
+local onKickoffWhistle: (() -> ())? = nil
+
+-- O apito do pontape de saida, no fim da espera.
+function Football.onKickoffWhistle(fn: () -> ())
+	onKickoffWhistle = fn
 end
 
 --[[
@@ -189,6 +224,7 @@ local function release(f: Footballer, direction: Vector3, speed: number, lift: n
 	local dir = flat(direction)
 	state.carrier = nil
 	state.lastTouch = f.teamId
+	state.lastToucher = f
 	state.noClaim[f] = os.clock() + F.kickLockout
 	-- Ninguem lhe toca no primeiro instante: sem isto, quem estava colado a
 	-- quem chutou ficava com a bola antes de ela sair dos pes.
@@ -204,6 +240,9 @@ local function release(f: Footballer, direction: Vector3, speed: number, lift: n
 	b.CFrame = CFrame.new(from.X + dir.X * F.dribbleDistance, R + 0.1, from.Z + dir.Z * F.dribbleDistance)
 	b.AssemblyAngularVelocity = Vector3.zero
 	b.AssemblyLinearVelocity = dir * speed + Vector3.new(0, lift, 0)
+	if onKick then
+		onKick(b.Position)
+	end
 end
 
 -- Um colega a frente, dentro do cone, para onde um chuto fraco se desvia.
@@ -293,6 +332,22 @@ end
 -- Recomecos
 --------------------------------------------------------------------------------
 
+-- Fim da festa do golo: bracos em baixo, e a bancada volta ao normal.
+local function endCelebration()
+	local party = state.celebration
+	if not party then
+		return
+	end
+	state.celebration = nil
+	workspace:SetAttribute("Celebration", nil)
+	for _, f in Squad.team(party.team) do
+		Squad.openArms(f, false)
+	end
+	if onCelebrationEnd then
+		onCelebrationEnd(party.team)
+	end
+end
+
 local function placeBall(at: Vector3)
 	local b = ball
 	if not b then
@@ -346,8 +401,9 @@ end
 function Football.setPhase(phase: string)
 	state.live = phase == "first" or phase == "second"
 	local wasPlaying = state.botsPlay
-	state.botsPlay = state.live or phase == "warmup"
+	state.botsPlay = state.live or phase == "clubhouse" or phase == "corteo"
 	if not state.botsPlay and wasPlaying then
+		endCelebration()
 		state.carrier = nil
 		state.piece = nil
 		state.halted = false
@@ -363,6 +419,38 @@ end
 local function hold(seconds: number, after: () -> ())
 	state.waitUntil = os.clock() + seconds
 	state.afterWait = after
+end
+
+function Football.celebration(): Celebration?
+	return state.celebration
+end
+
+-- Enquanto houver festa, a parte nao acaba (o MatchLoop espera por isto).
+function Football.celebrating(): boolean
+	return state.celebration ~= nil
+end
+
+--[[
+	Quem festeja: quem lhe tocou por ultimo, se for da equipa que marcou. Num
+	autogolo, o da equipa que marcou que estiver mais perto da bola.
+]]
+local function scorerFor(teamId: string, at: Vector3): Footballer?
+	local last = state.lastToucher
+	if last and last.teamId == teamId and last.root and not last.sentOff then
+		return last
+	end
+	local best: Footballer? = nil
+	local bestDistance = math.huge
+	for _, f in Squad.team(teamId) do
+		local root = f.root
+		if root then
+			local d = (root.Position - at).Magnitude
+			if d < bestDistance then
+				best, bestDistance = f, d
+			end
+		end
+	end
+	return best
 end
 
 --[[
@@ -383,16 +471,37 @@ local function checkGoal(p: Vector3): boolean
 	end
 
 	state.carrier = nil
-	local counted = state.live
-	hold(F.goalPause, function()
-		if counted then
-			Football.kickOff(otherTeam(scorer))
-		else
+	if not state.live then
+		-- Na sede e no corteo joga-se a brincar: a bola volta ao centro e pronto.
+		hold(F.goalPause, function()
 			placeBall(Vector3.zero)
-		end
+		end)
+		return true
+	end
+
+	--[[
+		Golo a serio: quinze segundos de festa antes do pontape de saida. Quem
+		marcou corre de bracos abertos para a sua claque, que fica atras da
+		baliza onde marcou; os colegas vao atras.
+	]]
+	local who = scorerFor(scorer, p)
+	local length = Config.Match.celebrationLength
+	state.celebration = {
+		team = scorer,
+		scorer = who,
+		spot = Vector3.new(side * (HALF - 4), 0, if p.Z >= 0 then 12 else -12),
+		endsAt = os.clock() + length,
+	}
+	workspace:SetAttribute("Celebration", scorer)
+	if who then
+		Squad.openArms(who, true)
+	end
+	hold(length, function()
+		endCelebration()
+		Football.kickOff(otherTeam(scorer))
 	end)
-	if counted and onGoal then
-		onGoal(scorer)
+	if onGoal then
+		onGoal(scorer, who)
 	end
 	return true
 end
@@ -561,6 +670,7 @@ local function claim(b: BasePart, now: number)
 		best.immuneUntil = math.max(best.immuneUntil, now + F.claimImmunity)
 		state.carrier = best
 		state.lastTouch = best.teamId
+		state.lastToucher = best
 		local piece = state.piece
 		if piece and piece.taker ~= best then
 			piece.taker = best
@@ -712,6 +822,7 @@ local function tackle(carrier: Footballer, now: number): Footballer
 				f.immuneUntil = now + F.tackleImmunity
 				state.carrier = f
 				state.lastTouch = f.teamId
+				state.lastToucher = f
 				if state.live then
 					checkFoul(carrier, f, root.Position, root.CFrame.LookVector, other)
 				end
@@ -782,6 +893,9 @@ function Football.step(dt: number)
 		state.releaseAt = 0
 		Squad.setFrozen(false)
 		giveTo(state.kickingTeam, F.restartPriority)
+		if onKickoffWhistle then
+			onKickoffWhistle()
+		end
 	end
 
 	-- A bola caiu do mundo: volta ao centro.

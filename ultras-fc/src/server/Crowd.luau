@@ -42,6 +42,7 @@ local root: Folder? = nil
 
 -- Onde vai o salto de cada claque, em saltos. So interessa a parte decimal.
 local beat: { [string]: number } = {}
+local moods: { [string]: string } = {}
 
 -- Quantas vezes por segundo o compasso vai para os ecras. Entre envios, cada
 -- ecra adianta-o sozinho.
@@ -166,9 +167,21 @@ function Crowd.step(dt: number, intensityByTeam: { [string]: number })
 	end
 
 	local rates: { [string]: number } = {}
+	local heights: { [string]: number } = {}
 	for _, teamId in Config.TeamOrder do
 		local intensity = intensityByTeam[teamId] or 0
-		rates[teamId] = C.baseRate + (C.drumRate - C.baseRate) * intensity
+		local mood = moods[teamId]
+		if mood == "festa" then
+			-- Golo nosso, ou jogo ganho: tudo no ar, com o tambor ou sem ele.
+			rates[teamId] = C.drumRate
+			heights[teamId] = C.bounceHeight * C.partyHeight
+		elseif mood == "calada" then
+			rates[teamId] = C.baseRate
+			heights[teamId] = 0
+		else
+			rates[teamId] = C.baseRate + (C.drumRate - C.baseRate) * intensity
+			heights[teamId] = C.bounceHeight * (0.45 + intensity * 0.55)
+		end
 		beat[teamId] = ((beat[teamId] or 0) + rates[teamId] * dt) % 1
 	end
 
@@ -180,11 +193,26 @@ function Crowd.step(dt: number, intensityByTeam: { [string]: number })
 
 	folder:SetAttribute("Stamp", workspace:GetServerTimeNow())
 	for _, teamId in Config.TeamOrder do
-		local intensity = intensityByTeam[teamId] or 0
 		folder:SetAttribute("Beat_" .. teamId, beat[teamId])
 		folder:SetAttribute("Rate_" .. teamId, rates[teamId])
-		folder:SetAttribute("Height_" .. teamId, C.bounceHeight * (0.45 + intensity * 0.55))
+		folder:SetAttribute("Height_" .. teamId, heights[teamId])
+		folder:SetAttribute("Sit_" .. teamId, moods[teamId] == "calada")
 	end
+end
+
+--[[
+	O estado de espirito de uma claque, por cima do tambor:
+
+		"festa"   golo nosso, ou jogo ganho — salta tudo, com forca
+		"calada"  golo deles, ou jogo perdido — senta-se e cala-se
+		nil       o normal: salta ao ritmo do tambor
+]]
+function Crowd.setMood(teamId: string, mood: string?)
+	moods[teamId] = mood
+end
+
+function Crowd.mood(teamId: string): string?
+	return moods[teamId]
 end
 
 --[[
