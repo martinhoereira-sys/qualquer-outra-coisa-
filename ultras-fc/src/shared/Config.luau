@@ -344,7 +344,7 @@ Config.Performance = {
 	]]
 	maxParts = {
 		Estadio = 1400,
-		Cidade = 2500,
+		Cidade = 800,
 		Adeptos = 600,
 		Jogadores = 400, -- vivos ao mesmo tempo; os bonecos saem e entram
 		Tifo = 300, -- cartolinas no ar, as duas claques

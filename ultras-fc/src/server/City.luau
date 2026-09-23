@@ -194,32 +194,50 @@ local function building(centre: Vector3, footprint: Vector2, floors: number, par
 			{ normal = Vector3.new(1, 0, 0), span = footprint.Y, depth = footprint.X / 2 },
 			{ normal = Vector3.new(-1, 0, 0), span = footprint.Y, depth = footprint.X / 2 },
 		} do
+			--[[
+				Uma faixa de vidro por andar e por fachada, em vez de uma peca por
+				janela: eram mais de mil pecas so em janelas apagadas, numa cidade
+				por onde so se passa antes do jogo.
+
+				Vidro, nao Neon. Neon brilha sempre — era por isso que os predios
+				ardiam a plena luz do dia. De tarde uma janela e um reflexo.
+			]]
+			local front = Vector3.new(centre.X, y, centre.Z) + spec.normal * (spec.depth + 0.15)
+			local band = part(
+				"Windows",
+				Vector3.new(
+					spec.normal.X ~= 0 and 0.4 or spec.span - 3,
+					2.4,
+					spec.normal.Z ~= 0 and 0.4 or spec.span - 3
+				),
+				CFrame.new(front),
+				WINDOW_OFF,
+				parent,
+				Enum.Material.Glass
+			)
+			band.Reflectance = 0.35
+			band.CastShadow = false
+
+			-- So uma aqui e ali esta mesmo acesa, a frente da faixa.
 			local count = math.max(2, math.floor(spec.span / 7))
 			for i = 1, count do
-				local offset = (i - (count + 1) / 2) * (spec.span / count)
-				local along = Vector3.new(spec.normal.Z, 0, spec.normal.X) * offset
-				local position = Vector3.new(centre.X, y, centre.Z) + along + spec.normal * (spec.depth + 0.15)
-
-				--[[
-					Vidro, nao Neon. Neon brilha sempre — era por isso que os
-					predios ardiam a plena luz do dia. De tarde uma janela e um
-					reflexo, e so uma aqui e ali esta mesmo acesa.
-				]]
-				local lit = math.random() < 0.08
-				local pane = part(
-					"Window",
-					Vector3.new(
-						spec.normal.X ~= 0 and 0.4 or 2.6,
-						2.4,
-						spec.normal.Z ~= 0 and 0.4 or 2.6
-					),
-					CFrame.new(position),
-					lit and WINDOW_ON or WINDOW_OFF,
-					parent,
-					lit and Enum.Material.Neon or Enum.Material.Glass
-				)
-				pane.Reflectance = lit and 0 or 0.35
-				pane.CastShadow = false
+				if math.random() < 0.08 then
+					local offset = (i - (count + 1) / 2) * (spec.span / count)
+					local along = Vector3.new(spec.normal.Z, 0, spec.normal.X) * offset
+					local pane = part(
+						"Window",
+						Vector3.new(
+							spec.normal.X ~= 0 and 0.4 or 2.6,
+							2.4,
+							spec.normal.Z ~= 0 and 0.4 or 2.6
+						),
+						CFrame.new(front + along + spec.normal * 0.15),
+						WINDOW_ON,
+						parent,
+						Enum.Material.Neon
+					)
+					pane.CastShadow = false
+				end
 			end
 		end
 	end
