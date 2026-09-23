@@ -304,6 +304,11 @@ MatchLoop.onChange(function(snapshot)
 
 	local entered = snapshot.phase ~= lastPhase
 
+	-- Fora das partes nao ha faltas a apitar.
+	if entered and snapshot.phase ~= "first" and snapshot.phase ~= "second" then
+		Whistle.cancel()
+	end
+
 	-- A sede: dia de jogo novo. Tabela limpa, tochas novas, e toda a gente de
 	-- volta a sua sede. Guardar as tochas do jogo anterior nao faria sentido:
 	-- sao para o momento, nao para acumular.
@@ -455,6 +460,8 @@ end)
 	o ve.
 ]]
 Football.onGoal(function(teamId, scorer)
+	-- Uma entrada ainda em aberto ja nao se apita: o golo conta.
+	Whistle.cancel()
 	MatchLoop.scoreGoal(teamId)
 
 	-- A bancada de quem marcou vai ao ar; a de quem sofreu senta-se e cala-se.
@@ -509,10 +516,23 @@ Football.onKickoffWhistle(function()
 	sound("apito_inicio")
 end)
 
--- Uma falta: o jogo ja parou, e o arbitro (pessoa ou automatico) decide.
+--[[
+	Uma entrada que pode ser falta: o jogo segue, e o arbitro (pessoa ou
+	automatico) tem dois segundos para apitar.
+]]
 Football.onFoul(function(foul)
-	sound("apito_falta", foul.at)
 	Whistle.foul(foul)
+end)
+
+-- Apitou: o jogo parou no sitio da entrada, e toda a gente ouve e ve porque.
+Whistle.onWhistled(function(foul, caught)
+	sound("apito_falta", foul.at)
+	-- Apanhado, o ecra junta "ARBITRO APANHADO" a frente.
+	local text = "APITO  ·  falta de " .. Squad.label(foul.fouler)
+	Remotes.RefState:FireAllClients({
+		state = Referee.state(),
+		resolved = { kind = "apito", choice = "apitar", caught = caught, text = text },
+	})
 end)
 
 Referee.onResolved(function(incident, choice, caught)
@@ -534,6 +554,7 @@ Referee.onState(function()
 	Remotes.RefState:FireAllClients({
 		state = Referee.state(),
 		pending = pending,
+		window = Referee.windowForClient(),
 		pressure = Referee.pressureSnapshot(),
 	})
 

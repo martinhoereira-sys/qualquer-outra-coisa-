@@ -423,7 +423,7 @@ panelClock.Size = UDim2.new(0, 40, 0, 18)
 panelClock.Position = UDim2.new(1, -52, 0, 14)
 
 local function optionColour(id: string): Color3
-	if id == "segue" or id == "valido" then
+	if id == "nada" then
 		return Color3.fromRGB(70, 76, 88)
 	elseif string.find(id, "vermelho") then
 		return Color3.fromRGB(196, 52, 48)
@@ -515,7 +515,121 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
+--[[
+	A janela de uma entrada: dois segundos em que o arbitro pode apitar, com o
+	jogo a correr. Toda a gente ve o aviso e a barra a esvaziar; quem apita ve o
+	botao APITAR (ou carrega em E); as claques podem pedir (B). Nao apitar e
+	deixar seguir — nao ha botao para isso.
+]]
+local entry = Instance.new("Frame")
+entry.AnchorPoint = Vector2.new(0.5, 0)
+entry.Size = UDim2.fromOffset(420, 64)
+entry.Position = UDim2.new(0.5, 0, 0, 180)
+entry.BackgroundColor3 = INK
+entry.BackgroundTransparency = 0.15
+entry.BorderSizePixel = 0
+entry.Visible = false
+entry.Parent = gui
+
+local entryCorner = Instance.new("UICorner")
+entryCorner.CornerRadius = UDim.new(0, 10)
+entryCorner.Parent = entry
+
+local entryTitle = label(entry, "", 16, TEXT)
+entryTitle.Size = UDim2.new(1, -24, 0, 20)
+entryTitle.Position = UDim2.fromOffset(12, 8)
+
+local entryDetail = label(entry, "", 12, MUTED)
+entryDetail.Font = Enum.Font.Gotham
+entryDetail.Size = UDim2.new(1, -24, 0, 16)
+entryDetail.Position = UDim2.fromOffset(12, 28)
+
+local entryTrack = Instance.new("Frame")
+entryTrack.Size = UDim2.new(1, -24, 0, 5)
+entryTrack.Position = UDim2.new(0, 12, 1, -12)
+entryTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
+entryTrack.BorderSizePixel = 0
+entryTrack.Parent = entry
+
+local entryFill = Instance.new("Frame")
+entryFill.Size = UDim2.fromScale(1, 1)
+entryFill.BackgroundColor3 = BRASS
+entryFill.BorderSizePixel = 0
+entryFill.Parent = entryTrack
+
+local whistleButton = Instance.new("TextButton")
+whistleButton.AnchorPoint = Vector2.new(0.5, 0)
+whistleButton.Size = UDim2.fromOffset(240, 58)
+whistleButton.Position = UDim2.new(0.5, 0, 0, 252)
+whistleButton.BackgroundColor3 = Color3.fromRGB(214, 170, 40)
+whistleButton.BorderSizePixel = 0
+whistleButton.Font = Enum.Font.GothamBlack
+whistleButton.TextSize = 24
+whistleButton.TextColor3 = INK
+whistleButton.Text = "E   APITAR"
+whistleButton.Visible = false
+whistleButton.Parent = gui
+
+local whistleCorner = Instance.new("UICorner")
+whistleCorner.CornerRadius = UDim.new(0, 10)
+whistleCorner.Parent = whistleButton
+
+local entryEndsAt = 0
+local entrySeconds = 2
+
+local function blowWhistle()
+	if entry.Visible and myRole() == "arbitro" then
+		Remotes.Decide:FireServer("apitar")
+		entry.Visible = false
+		whistleButton.Visible = false
+	end
+end
+
+whistleButton.Activated:Connect(blowWhistle)
+
+ContextActionService:BindAction("Apitar", function(_, inputState)
+	if inputState == Enum.UserInputState.Begin then
+		blowWhistle()
+	end
+	return Enum.ContextActionResult.Pass
+end, false, Enum.KeyCode.E)
+
+local function showEntry(w: any)
+	if not w then
+		entry.Visible = false
+		whistleButton.Visible = false
+		return
+	end
+	entryTitle.Text = string.upper(w.title)
+	local role = myRole()
+	if role == "arbitro" then
+		entryDetail.Text = w.detail .. "   ·   apitas?"
+	elseif myTeam then
+		entryDetail.Text = w.detail .. "   ·   B  pede falta"
+	else
+		entryDetail.Text = w.detail .. "   ·   o arbitro apita?"
+	end
+	entryEndsAt = w.endsAt
+	entrySeconds = w.seconds
+	entry.Visible = true
+	whistleButton.Visible = role == "arbitro"
+end
+
+RunService.RenderStepped:Connect(function()
+	if not entry.Visible then
+		return
+	end
+	local left = entryEndsAt - workspace:GetServerTimeNow()
+	if left <= 0 then
+		entry.Visible = false
+		whistleButton.Visible = false
+		return
+	end
+	entryFill.Size = UDim2.fromScale(math.clamp(left / entrySeconds, 0, 1), 1)
+end)
+
 Remotes.RefState.OnClientEvent:Connect(function(payload)
+	showEntry(payload.window)
 	local state = payload.state
 	if state and state.name then
 		refBadge.Text = "arbitro: " .. state.name

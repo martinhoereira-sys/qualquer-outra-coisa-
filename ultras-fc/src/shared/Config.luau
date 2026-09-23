@@ -377,7 +377,8 @@ Config.Rules = {
 	Cheia, e apanhado: a ultima decisao e revertida e fica suspenso.
 ]]
 Config.Referee = {
-	decisionSeconds = 4, -- tempo para decidir; depois sai a decisao natural (segue, golo valido, sem cartao)
+	whistleWindow = 2, -- segundos para apitar uma entrada; sem apito, o jogo seguiu
+	cardSeconds = 10, -- com a bola parada, para escolher o cartao; sem escolha, nao ha cartao
 	suspicionPerCall = 26, -- quanto sobe ao ceder a quem pressiona
 	suspicionDecay = 1.4, -- por segundo, quando se porta bem
 	caughtAt = 100,

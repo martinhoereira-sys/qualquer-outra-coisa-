@@ -112,8 +112,9 @@ function Football.onKickoffWhistle(fn: () -> ())
 end
 
 --[[
-	Uma falta, como o servidor a viu. O que o arbitro faz com ela e do Whistle:
-	aqui so se sabe o que aconteceu.
+	Uma entrada que pode ser falta, como o servidor a viu. O jogo nao para: o
+	arbitro apita ou nao apita (Whistle e Referee). Aqui so se sabe o que
+	aconteceu, e onde.
 ]]
 export type Foul = {
 	fouled: Footballer, -- quem tinha a bola
@@ -737,21 +738,40 @@ local function checkFoul(fouled: Footballer, fouler: Footballer, at: Vector3, lo
 		nearLine = nearLine,
 		card = card,
 	}
-	state.halted = true
-	state.haltedAt = os.clock()
-	state.haltedFoul = foul
-	Squad.setFrozen(true)
-	workspace:SetAttribute("Halted", true)
+	-- O jogo segue. Quem decide se houve falta e o apito, nos proximos segundos.
 	if onFoul then
 		onFoul(foul)
 	end
 end
 
 --[[
-	O arbitro decidiu. `action` e "segue", "livre" ou "penalti".
+	Apito: o jogo para aqui, e a bola volta ao sitio da entrada, que e onde a
+	falta se marca. Fica tudo parado ate o arbitro escolher o cartao.
+]]
+function Football.whistleFoul(foul: Foul): boolean
+	-- Sem jogo a contar, ou com um golo a festejar, ja nao ha falta a marcar.
+	if not state.live or state.celebration then
+		return false
+	end
+	state.carrier = nil
+	state.piece = nil
+	workspace:SetAttribute("Restart", nil)
+	state.waitUntil = 0
+	state.afterWait = nil
+	state.halted = true
+	state.haltedAt = os.clock()
+	state.haltedFoul = foul
+	Squad.setFrozen(true)
+	workspace:SetAttribute("Halted", true)
+	placeBall(foul.at)
+	return true
+end
 
-	Segue: o jogo continua como estava, com a bola em quem a roubou. Livre: no
-	sitio da falta, para quem a sofreu. Penalti: na marca, e bate quem sofreu.
+--[[
+	Depois do apito, com o cartao escolhido: `action` e "livre" ou "penalti".
+
+	Livre: no sitio da falta, para quem a sofreu. Penalti: na marca, e bate
+	quem sofreu.
 ]]
 function Football.resume(action: string, foul: Foul)
 	if not state.halted then
@@ -761,9 +781,6 @@ function Football.resume(action: string, foul: Foul)
 	state.haltedFoul = nil
 	Squad.setFrozen(false)
 	workspace:SetAttribute("Halted", nil)
-	if action == "segue" then
-		return
-	end
 
 	local team = foul.fouled.teamId
 	local goal = Football.goalFor(team)
@@ -878,9 +895,10 @@ function Football.step(dt: number)
 	if state.halted then
 		b.AssemblyLinearVelocity = Vector3.zero
 		local foul = state.haltedFoul
-		if foul and now - state.haltedAt > Config.Referee.decisionSeconds + 2 then
-			warn("[Football] o arbitro nao decidiu a falta; o jogo segue")
-			Football.resume("segue", foul)
+		-- Na duvida da linha ha duas escolhas seguidas: o sitio e o cartao.
+		if foul and now - state.haltedAt > Config.Referee.cardSeconds * 2 + 4 then
+			warn("[Football] o arbitro nao decidiu a falta; marca-se o livre")
+			Football.resume(if foul.inBox then "penalti" else "livre", foul)
 		end
 		return
 	end

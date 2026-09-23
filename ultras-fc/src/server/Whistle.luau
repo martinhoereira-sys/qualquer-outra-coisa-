@@ -2,10 +2,12 @@
 --[[
 	A ponte entre o relvado e o arbitro.
 
-	O Football ve o que aconteceu (uma falta, onde, como); o Referee decide, com
-	uma pessoa ou sozinho. Aqui transforma-se uma coisa na outra: que botoes o
-	painel mostra, a quem aproveita cada um, qual seria a decisao justa — e,
-	decidido, o que isso faz ao jogo (livre, penalti, cartao, expulsao).
+	O Football ve o que aconteceu (uma entrada, onde, como); o Referee decide,
+	com uma pessoa ou sozinho. Aqui transforma-se uma coisa na outra.
+
+	Primeiro a janela: dois segundos para apitar, com o jogo a correr. Sem
+	apito nao acontece nada. Com apito o jogo para ali, e so entao, com a bola
+	parada, se escolhe — onde foi, se foi em cima da linha da area, e o cartao.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,76 +21,128 @@ type Foul = Football.Foul
 
 local Whistle = {}
 
+-- Entradas com a janela aberta, pelo id da janela.
+local candidates: { [number]: Foul } = {}
+-- Faltas apitadas a espera de escolha, pelo id da escolha; e o sitio escolhido.
 local fouls: { [number]: Foul } = {}
+local places: { [number]: string } = {}
 
-local CARD_LABEL = { amarelo = "amarelo", vermelho = "vermelho" }
+local onWhistled: ((Foul, boolean) -> ())? = nil
 
---[[
-	Uma falta. Os cartoes vao dentro do botao da falta — um clique, nao dois
-	paineis seguidos, que paravam o jogo o dobro. Na duvida da linha da area, o
-	painel e so onde foi: penalti ou livre fora da area.
-]]
-function Whistle.foul(foul: Foul)
-	local fouledTeam = foul.fouled.teamId
-	local foulerTeam = foul.fouler.teamId
-	local options: { Referee.Option } = {
-		{ id = "segue", label = "Segue", favours = foulerTeam },
-	}
-	local fair: string
+-- Houve apito (e se foi por o arbitro ter sido apanhado a nao apitar).
+function Whistle.onWhistled(fn: (Foul, boolean) -> ())
+	onWhistled = fn
+end
 
-	if foul.nearLine then
-		table.insert(options, { id = "livre", label = "Livre fora da area", favours = fouledTeam })
-		table.insert(options, { id = "penalti", label = "Penalti", favours = fouledTeam })
-		fair = if foul.inBox then "penalti" else "livre"
-	else
-		local base = if foul.inBox then "penalti" else "livre"
-		local name = if foul.inBox then "Penalti" else "Livre"
-		table.insert(options, { id = base, label = name, favours = fouledTeam })
-		table.insert(options, { id = base .. "+amarelo", label = name .. " + amarelo", favours = fouledTeam })
-		table.insert(options, { id = base .. "+vermelho", label = name .. " + vermelho", favours = fouledTeam })
-		fair = if foul.card == "nada" then base else base .. "+" .. foul.card
-	end
+local function whereText(foul: Foul): string
+	return if foul.inBox then "dentro da area" elseif foul.nearLine then "em cima da linha da area" else "no meio-campo"
+end
 
-	local where = if foul.inBox then "dentro da area" elseif foul.nearLine then "em cima da linha da area" else "no meio-campo"
-	local id = Referee.raise({
-		kind = "falta",
-		title = "Falta de " .. Squad.label(foul.fouler) .. " sobre " .. Squad.label(foul.fouled),
-		detail = where .. (if foul.fromBehind then "  ·  por tras" else "  ·  de frente"),
-		options = options,
-		fair = fair,
-		default = "segue",
-	})
-	fouls[id] = foul
+-- Se foi dentro da area e penalti; na duvida da linha, conta onde foi mesmo.
+local function fairPlace(foul: Foul): string
+	return if foul.inBox then "penalti" else "livre"
 end
 
 --[[
-	O arbitro decidiu. Aplica-se ao jogo e devolve o texto que toda a gente ve.
+	Uma entrada que pode ser falta. O jogo segue; abre-se a janela do apito. O
+	arbitro automatico, se for ele, apita no fim — a nao ser que a equipa que
+	sofreu tenha ficado com a bola, que e a vantagem.
+]]
+function Whistle.foul(foul: Foul)
+	local fouledTeam = foul.fouled.teamId
+	local id = Referee.openWindow({
+		title = "Entrada de " .. Squad.label(foul.fouler) .. " sobre " .. Squad.label(foul.fouled),
+		detail = whereText(foul) .. (if foul.fromBehind then "  ·  por tras" else "  ·  de frente"),
+		favours = fouledTeam,
+		against = foul.fouler.teamId,
+		fair = function()
+			local carrier = Football.carrier()
+			return not (carrier and carrier.teamId == fouledTeam)
+		end,
+	})
+	candidates[id] = foul
+end
+
+-- O cartao, com a bola ja parada. Sem pressa.
+local function askCard(foul: Foul, place: string)
+	local fouledTeam = foul.fouled.teamId
+	local foulerTeam = foul.fouler.teamId
+	local id = Referee.raise({
+		kind = "cartao",
+		title = "Cartao para " .. Squad.label(foul.fouler) .. "?",
+		detail = (if place == "penalti" then "penalti" else "livre") .. "  ·  " .. whereText(foul),
+		options = {
+			{ id = "nada", label = "Nada", favours = foulerTeam },
+			{ id = "amarelo", label = "Amarelo", favours = fouledTeam },
+			{ id = "vermelho", label = "Vermelho", favours = fouledTeam },
+		},
+		fair = foul.card,
+		default = "nada",
+	})
+	fouls[id] = foul
+	places[id] = place
+end
+
+Referee.onWindowClosed(function(window, whistled, caught)
+	local foul = candidates[window.id]
+	candidates[window.id] = nil
+	if not foul or not whistled then
+		return
+	end
+
+	if not Football.whistleFoul(foul) then
+		return
+	end
+	if onWhistled then
+		onWhistled(foul, caught)
+	end
+
+	-- Em cima da linha da area, primeiro decide-se onde foi.
+	if foul.nearLine then
+		local id = Referee.raise({
+			kind = "lugar",
+			title = "Onde foi a falta de " .. Squad.label(foul.fouler) .. "?",
+			detail = "em cima da linha da area",
+			options = {
+				{ id = "livre", label = "Livre fora da area", favours = foul.fouler.teamId },
+				{ id = "penalti", label = "Penalti", favours = foul.fouled.teamId },
+			},
+			fair = fairPlace(foul),
+			default = fairPlace(foul),
+		})
+		fouls[id] = foul
+	else
+		askCard(foul, fairPlace(foul))
+	end
+end)
+
+--[[
+	Uma escolha com a bola parada. Aplica-se ao jogo e devolve o texto que
+	toda a gente ve (nada, enquanto ainda falta escolher o cartao).
 ]]
 function Whistle.resolved(incident: Referee.Incident, choice: string): string?
-	if incident.kind ~= "falta" then
-		return nil
-	end
 	local foul = fouls[incident.id]
 	fouls[incident.id] = nil
+	local place = places[incident.id]
+	places[incident.id] = nil
 	if not foul then
 		return nil
 	end
 
-	local action, card = string.match(choice, "^(%a+)%+?(%a*)$")
-	action = action or "segue"
-
-	local lines = {}
-	if action == "segue" then
-		table.insert(lines, "SEGUE")
-	else
-		local team = Config.Teams[foul.fouled.teamId].short
-		table.insert(lines, (if action == "penalti" then "PENALTI" else "LIVRE") .. "  " .. team)
+	if incident.kind == "lugar" then
+		askCard(foul, if choice == "penalti" then "penalti" else "livre")
+		return nil
 	end
 
-	if card and CARD_LABEL[card] then
+	local action = place or fairPlace(foul)
+	local lines = {
+		(if action == "penalti" then "PENALTI" else "LIVRE") .. "  " .. Config.Teams[foul.fouled.teamId].short,
+	}
+
+	if choice == "amarelo" or choice == "vermelho" then
 		local who = Squad.label(foul.fouler)
-		local out = Squad.book(foul.fouler, card)
-		if card == "vermelho" then
+		local out = Squad.book(foul.fouler, choice)
+		if choice == "vermelho" then
 			table.insert(lines, "VERMELHO  " .. who)
 		elseif out then
 			table.insert(lines, "2.º AMARELO  " .. who .. "  ·  EXPULSO")
@@ -99,6 +153,12 @@ function Whistle.resolved(incident: Referee.Incident, choice: string): string?
 
 	Football.resume(action, foul)
 	return table.concat(lines, "   ·   ")
+end
+
+-- A janela aberta ja nao conta: houve golo, ou a parte acabou.
+function Whistle.cancel()
+	table.clear(candidates)
+	Referee.cancelWindow()
 end
 
 return Whistle
