@@ -316,10 +316,17 @@ hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
 
--- Em campo as teclas sao outras, e quem as mostra e o Football.client.
+--[[
+	Cada um ve so o que e seu. O material, as teclas da bancada e a barra da
+	propria bancada sao de quem e de claque; em campo as teclas sao outras, e
+	quem as mostra e o Football.client; quem apita tem o seu aviso e o botao.
+]]
 local function refreshHint()
-	hint.Visible = myRole() ~= "jogador"
-	gearLabel.Visible = hint.Visible
+	local role = myRole()
+	local claque = role ~= nil and Config.Teams[role] ~= nil
+	hint.Visible = claque
+	gearLabel.Visible = claque
+	ownTrack.Visible = claque
 end
 player:GetAttributeChangedSignal("Team"):Connect(refreshHint)
 refreshHint()
