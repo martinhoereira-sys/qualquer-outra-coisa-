@@ -197,6 +197,9 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	-- ligacoes a atirarem-na para a bancada a cada respawn.
 	local first = Teams.get(player) == nil
 	Squad.leave(player)
+	-- Quem vai para a bancada larga o apito: senao o jogo continuava a
+	-- esperar pelas decisoes de quem ja nao esta a apitar.
+	Referee.release(player)
 	Teams.assign(player, teamId)
 
 	task.spawn(sendToClaque, player, teamId)
@@ -240,7 +243,7 @@ Players.PlayerRemoving:Connect(function(player)
 	Gear.forget(player)
 	March.forget(player)
 	Tifo.forget(player)
-	Referee.release(player)
+	Referee.forget(player)
 	Squad.leave(player)
 	lastHit[player] = nil
 end)

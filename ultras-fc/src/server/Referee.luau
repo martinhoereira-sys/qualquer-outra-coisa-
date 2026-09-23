@@ -155,6 +155,11 @@ function Referee.release(player: Player)
 		end
 		announce()
 	end
+end
+
+-- Saiu do jogo: a suspensao vai com ele. Largar o apito nao a apaga.
+function Referee.forget(player: Player)
+	Referee.release(player)
 	bans[player] = nil
 end
 
