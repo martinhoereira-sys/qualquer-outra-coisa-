@@ -2,7 +2,10 @@
 --[[
 	O relogio do dia de jogo. Anda sempre em ciclo, sem nunca parar:
 
-		sede -> corteo -> 1a parte -> intervalo -> 2a parte -> fim -> sede
+		sede -> corteo -> espera -> entrada -> 1a parte -> intervalo
+		-> 2a parte -> fim -> sede
+
+	A espera pelas bancadas acaba mais cedo quando a gente ja la esta.
 
 	Quem entra a meio entra na fase que esta a decorrer: nada aqui espera por
 	ninguem. Um servidor que ficasse parado a espera de uma pessoa ficava parado
@@ -14,7 +17,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 
 local MatchLoop = {}
 
-export type Phase = "clubhouse" | "corteo" | "first" | "halftime" | "second" | "fulltime"
+export type Phase = "clubhouse" | "corteo" | "espera" | "entrada" | "first" | "halftime" | "second" | "fulltime"
 
 local M = Config.Match
 
@@ -64,6 +67,8 @@ end
 local PHASE_LENGTH: { [string]: number } = {
 	clubhouse = M.clubhouseLength,
 	corteo = M.corteoLength,
+	espera = M.waitLength,
+	entrada = M.entranceLength,
 	first = M.halfLength,
 	halftime = M.halfTimeLength,
 	second = M.halfLength,
@@ -72,7 +77,9 @@ local PHASE_LENGTH: { [string]: number } = {
 
 local NEXT_PHASE: { [string]: Phase } = {
 	clubhouse = "corteo",
-	corteo = "first",
+	corteo = "espera",
+	espera = "entrada",
+	entrada = "first",
 	first = "halftime",
 	halftime = "second",
 	second = "fulltime",
@@ -102,6 +109,16 @@ local holdWhile: (() -> boolean)? = nil
 
 function MatchLoop.holdWhile(fn: () -> boolean)
 	holdWhile = fn
+end
+
+--[[
+	A espera pelas bancadas acaba quando isto for verdade — com toda a gente
+	de claque ja no seu lugar, ou sem ninguem de claque a quem esperar.
+]]
+local readyWhen: (() -> boolean)? = nil
+
+function MatchLoop.readyWhen(fn: () -> boolean)
+	readyWhen = fn
 end
 
 --[[
@@ -147,7 +164,8 @@ function MatchLoop.start()
 
 			local halfEnding = state.phase == "first" or state.phase == "second"
 			local held = halfEnding and holdWhile ~= nil and holdWhile()
-			if state.clock <= 0 and not held then
+			local ready = state.phase == "espera" and readyWhen ~= nil and readyWhen()
+			if (state.clock <= 0 and not held) or ready then
 				enterPhase(NEXT_PHASE[state.phase])
 			end
 		end

@@ -586,6 +586,8 @@ end)
 local PHASE_TEXT = {
 	clubhouse = { "NA SEDE", "material, lider e a tua claque" },
 	corteo = { "CORTEO", "segue a faixa ate ao estadio" },
+	espera = { "A ESPERA DAS BANCADAS", "" },
+	entrada = { "ENTRADA EM CAMPO", "" },
 	first = { "1a PARTE", "" },
 	halftime = { "INTERVALO", "" },
 	second = { "2a PARTE", "" },
@@ -618,6 +620,12 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 	local text = PHASE_TEXT[snapshot.phase] or { "", "" }
 	phaseLabel.Text = text[1]
 	phaseNote.Text = text[2]
+	if snapshot.phase == "espera" then
+		local ready, total = workspace:GetAttribute("StandsReady"), workspace:GetAttribute("StandsTotal")
+		if type(ready) == "number" and type(total) == "number" and total > 0 then
+			phaseNote.Text = string.format("%d/%d na bancada", ready, total)
+		end
+	end
 	phaseClock.Text = string.format("%d:%02d", snapshot.clock // 60, snapshot.clock % 60)
 
 	if snapshot.lastGoal and snapshot.goalStamp > lastGoalStamp then
@@ -651,12 +659,28 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 end)
 
 RunService.RenderStepped:Connect(function()
-	if bigTitle.Visible and os.clock() >= bigUntil then
+	if (bigTitle.Visible or bigNote.Visible) and os.clock() >= bigUntil then
 		bigTitle.Visible = false
 		bigScore.Visible = false
 		bigNote.Visible = false
 	end
 end)
+
+--[[
+	A fila parada a frente da bancada principal: e o momento das tochas. A quem
+	e de claque e ainda tem material, diz-se-lhe que e agora.
+]]
+local function refreshLineHint()
+	local line = workspace:GetAttribute("EntranceLine") == true
+	if line and myTeam and (stock.tocha > 0 or stock.fumo > 0) then
+		showBig("", TEXT, "", "ACENDE AS TOCHAS", Config.Entrance.lineSeconds)
+		bigTitle.Visible = false
+		bigScore.Visible = false
+	elseif not line and bigNote.Text == "ACENDE AS TOCHAS" and bigTitle.Text == "" then
+		bigUntil = 0
+	end
+end
+workspace:GetAttributeChangedSignal("EntranceLine"):Connect(refreshLineHint)
 
 --------------------------------------------------------------------------------
 -- Saltar de fase (so admins)

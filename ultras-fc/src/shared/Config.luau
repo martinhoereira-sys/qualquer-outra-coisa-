@@ -78,7 +78,8 @@ Config.Atmosphere = {
 --[[
 	O dia de jogo, em ciclo, sem nunca parar:
 
-		sede -> corteo -> 1a parte -> intervalo -> 2a parte -> fim -> sede
+		sede -> corteo -> espera -> entrada -> 1a parte -> intervalo
+		-> 2a parte -> fim -> sede
 
 	Em segundos reais. Ao intervalo ninguem troca de campo: cada equipa ataca
 	sempre a baliza a frente da sua claque.
@@ -86,6 +87,8 @@ Config.Atmosphere = {
 Config.Match = {
 	clubhouseLength = 180, -- na sede: material, lider, e esperar pelos outros
 	corteoLength = 120, -- a caminhada ate ao estadio
+	waitLength = 60, -- no maximo, a espera de que as bancadas estejam nos seus lugares
+	entranceLength = 40, -- do tunel ao apito: saida, fila e cada um ao seu lugar
 	halfLength = 450, -- cada parte: 7 min e meio
 	halfTimeLength = 30,
 	fullTimeLength = 120, -- no relvado ou na bancada, antes de voltar a sede
@@ -292,11 +295,26 @@ Config.Football = {
 ]]
 Config.March = {
 	readyNeeded = 3, -- quantos tem de estar na sede para o lider poder sair (ou todos, se forem menos)
-	autoStartAfter = 60, -- sem lider a dar a ordem, a faixa sai sozinha a meio da fase
+	autoStartAfter = 40, -- sem lider a dar a ordem, a faixa sai sozinha, com folga para chegar
 	bots = 16, -- bonecos que marcham atras de cada faixa
 	speed = 17, -- passo da faixa, em studs por segundo
 	radius = 45, -- a que distancia da faixa ainda se conta como ir no corteo
 	atmosphereBonus = 55, -- ambiente de partida para uma claque que fez o caminho
+}
+
+--[[
+	A entrada em campo. Sai o arbitro, as duas equipas atras dele em fila, e
+	param lado a lado a frente do circulo central, virados para a bancada
+	principal. E o momento mais alto do dia: as duas claques no maximo.
+]]
+Config.Entrance = {
+	lineAt = 14, -- segundos depois de abrir o tunel em que a fila fica presa
+	lineSeconds = 20, -- quanto tempo fica parada
+	lineZ = 22, -- a que distancia do centro, para o lado da bancada principal
+	spacing = 2.6, -- entre dois jogadores lado a lado
+	stagger = 0.9, -- segundos entre um jogador e o seguinte a sair do balneario
+	flares = 4, -- bonecos de cada claque que acendem tocha na fila (so no ecra)
+	flareLights = 1, -- desses, quantos tem luz propria, por claque
 }
 
 --[[

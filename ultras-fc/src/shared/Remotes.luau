@@ -25,6 +25,7 @@ local NAMES = {
 	"Sound", -- servidor -> clientes: toca este som (pelo nome do Config.Sounds), e onde
 	"Celebrate", -- servidor -> quem marcou: corre para a tua claque
 	"Admin", -- admin -> servidor: saltar de fase
+	"Escort", -- servidor -> quem sai do tunel: este e o teu caminho ate a fila
 }
 
 local folder: Folder

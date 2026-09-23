@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
+local Stadium = require(script.Parent:WaitForChild("Stadium"))
 
 local Squad = {}
 
@@ -121,6 +122,37 @@ function Squad.place(f: Footballer, at: Vector3, facingDir: Vector3?)
 	local humanoid = f.humanoid
 	if humanoid and not f.player then
 		humanoid:MoveTo(Vector3.new(at.X, 0, at.Z))
+	end
+end
+
+--[[
+	O balneario. Do corteo a entrada em campo, quem joga espera la dentro:
+	quem chega, e os bonecos que nascem, aparecem la e nao no relvado.
+]]
+local inLocker = false
+
+function Squad.setLocker(on: boolean)
+	inLocker = on
+end
+
+function Squad.inLocker(): boolean
+	return inLocker
+end
+
+-- Onde aparece quem entra agora: no balneario, ou no seu lugar no relvado.
+function Squad.startSpot(f: Footballer): Vector3
+	if inLocker then
+		return Stadium.lockerSpot(f.teamId, f.slot)
+	end
+	return Squad.homeSpot(f)
+end
+
+-- Toda a gente para o balneario, virada para a porta do tunel.
+function Squad.sendAllToLocker()
+	for _, list in slots do
+		for _, f in list do
+			Squad.place(f, Stadium.lockerSpot(f.teamId, f.slot), Vector3.new(0, 0, -Stadium.mainSide()))
+		end
 	end
 end
 
@@ -280,7 +312,7 @@ local function spawnBot(f: Footballer)
 
 	model.Parent = folder
 	root:SetNetworkOwner(nil)
-	Squad.place(f, Squad.homeSpot(f))
+	Squad.place(f, Squad.startSpot(f))
 
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
@@ -349,7 +381,7 @@ local function bindCharacter(f: Footballer, character: Model)
 	end)
 
 	humanoid.WalkSpeed = F.walkSpeed
-	Squad.place(f, Squad.homeSpot(f))
+	Squad.place(f, Squad.startSpot(f))
 end
 
 local connections: { [Player]: RBXScriptConnection } = {}

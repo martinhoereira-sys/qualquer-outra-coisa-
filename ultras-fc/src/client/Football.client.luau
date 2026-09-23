@@ -290,3 +290,39 @@ Remotes.Celebrate.OnClientEvent:Connect(function(spot)
 	end
 	input:Disconnect()
 end)
+
+--[[
+	A entrada em campo: o jogo leva-te do balneario, pelo tunel, ate ao teu
+	lugar na fila, e vira-te para a bancada principal. Na fila ficas preso uns
+	segundos (quem prende e o servidor); e o momento de olhar para as bancadas.
+]]
+Remotes.Escort.OnClientEvent:Connect(function(points, facing)
+	if type(points) ~= "table" or typeof(facing) ~= "Vector3" then
+		return
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not humanoid or not root then
+		return
+	end
+
+	local deadline = os.clock() + Config.Entrance.lineAt + 2
+	for _, point in points do
+		if typeof(point) ~= "Vector3" then
+			continue
+		end
+		while os.clock() < deadline and humanoid.Parent do
+			local flat = Vector3.new(root.Position.X - point.X, 0, root.Position.Z - point.Z)
+			if flat.Magnitude < 1.5 then
+				break
+			end
+			humanoid:MoveTo(Vector3.new(point.X, root.Position.Y, point.Z))
+			task.wait(0.2)
+		end
+	end
+	if humanoid.Parent then
+		local here = root.Position
+		root.CFrame = CFrame.lookAt(here, here + facing)
+	end
+end)

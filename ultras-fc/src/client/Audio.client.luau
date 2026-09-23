@@ -143,3 +143,20 @@ RunService.Heartbeat:Connect(function()
 		corteo.Volume = Sounds.volume("corteo") * near
 	end
 end)
+
+--[[
+	A fila parada a frente da bancada principal: o tambor por cima de tudo,
+	sem ninguem ter de bater. E o momento mais alto do dia.
+]]
+local DRUM_EVERY = 0.5
+local nextDrum = 0
+RunService.Heartbeat:Connect(function()
+	if workspace:GetAttribute("EntranceLine") ~= true then
+		return
+	end
+	local now = os.clock()
+	if now >= nextDrum then
+		nextDrum = now + DRUM_EVERY
+		Sounds.play("tambor", nil, 0.7)
+	end
+end)

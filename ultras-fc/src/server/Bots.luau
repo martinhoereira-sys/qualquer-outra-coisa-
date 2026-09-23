@@ -259,7 +259,20 @@ local function takePiece(f: Footballer, piece: Football.SetPiece, now: number)
 	end
 end
 
+--[[
+	Do corteo a entrada em campo os bonecos nao decidem nada: esperam no
+	balneario e saem na fila, e quem os mexe e a Entrance.
+]]
+local paused = false
+
+function Bots.setPaused(on: boolean)
+	paused = on
+end
+
 function Bots.step(dt: number)
+	if paused then
+		return
+	end
 	accumulator += dt
 	if accumulator < 0.1 then
 		return

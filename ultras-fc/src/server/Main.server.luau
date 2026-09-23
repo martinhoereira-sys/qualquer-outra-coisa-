@@ -27,6 +27,7 @@ local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 local Tifo = require(script.Parent:WaitForChild("Tifo"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
+local Entrance = require(script.Parent:WaitForChild("Entrance"))
 
 --[[
 	A forca do tambor de cada bancada, de 0 a 1.
@@ -75,7 +76,9 @@ local function sendToPitch(player: Player)
 	if not root then
 		return
 	end
-	local at = Vector3.new(0, 3.2, -Config.Stadium.pitchWidth / 2 + 6)
+	-- Antes da entrada em campo, o arbitro espera no balneario, como os jogadores.
+	local locker = Entrance.refereeSpot()
+	local at = if locker then locker + Vector3.new(0, 3.2, 0) else Vector3.new(0, 3.2, -Config.Stadium.pitchWidth / 2 + 6)
 	root.CFrame = CFrame.lookAt(at, Vector3.new(0, at.Y, 0))
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then
@@ -119,6 +122,33 @@ end
 local function rootOf(player: Player): BasePart?
 	local character = player.Character
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
+-- No topo da sua claque: nos degraus atras da baliza que ela ataca.
+local function inOwnStand(position: Vector3, teamId: string): boolean
+	local S = Config.Stadium
+	local inner = S.pitchLength / 2 + S.standGap
+	local across = position.X * Config.Teams[teamId].side
+	return across >= inner - 3 and across <= inner + S.rows * S.rowDepth + 3 and math.abs(position.Z) <= S.pitchWidth / 2 + 4
+end
+
+--[[
+	Quantas pessoas de claque ja estao no seu topo, e quantas ha. So contam
+	pessoas: os bonecos ja la estao e nao decidem quando o jogo comeca.
+]]
+local function standsCount(): (number, number)
+	local ready, total = 0, 0
+	for _, player in Players:GetPlayers() do
+		local teamId = Teams.get(player)
+		if teamId then
+			total += 1
+			local root = rootOf(player)
+			if root and inOwnStand(root.Position, teamId) then
+				ready += 1
+			end
+		end
+	end
+	return ready, total
 end
 
 --[[
@@ -221,6 +251,7 @@ local playing = false
 RunService.Heartbeat:Connect(function(dt)
 	Atmosphere.step(dt)
 	Squad.step(dt, os.clock())
+	Entrance.step()
 	Football.step(dt)
 	Bots.step(dt)
 	March.step(dt)
@@ -292,9 +323,38 @@ MatchLoop.onChange(function(snapshot)
 		end
 	end
 
-	-- O corteo: as faixas aparecem a porta das sedes.
+	-- Se a entrada foi saltada, ou o dia voltou ao principio, arruma-se.
+	if entered and (snapshot.phase == "clubhouse" or snapshot.phase == "first") then
+		Entrance.finish()
+	end
+
+	-- O corteo: as faixas aparecem a porta das sedes, e quem joga vai para o
+	-- balneario esperar pela entrada em campo.
 	if entered and snapshot.phase == "corteo" then
 		March.arm(workspace:WaitForChild("Stadium"))
+		Entrance.prepare()
+	end
+
+	-- Acabou a caminhada: espera-se que as bancadas estejam nos seus lugares.
+	if entered and snapshot.phase == "espera" then
+		March.stop()
+	end
+
+	--[[
+		A entrada em campo. Quem ainda esta fora do estadio vai ja para a sua
+		bancada: a fila sai com as bancadas cheias, e ninguem fica de fora do
+		jogo por ter chegado tarde.
+	]]
+	if entered and snapshot.phase == "entrada" then
+		March.stop()
+		for _, player in Players:GetPlayers() do
+			local teamId = Teams.get(player)
+			local root = rootOf(player)
+			if teamId and root and not insideGround(root.Position) then
+				task.spawn(sendToClaque, player, teamId)
+			end
+		end
+		Entrance.start()
 	end
 
 	if entered and snapshot.phase == "first" then
@@ -418,6 +478,28 @@ end)
 
 -- Enquanto se festeja, a parte nao acaba: o intervalo espera pelo fim da festa.
 MatchLoop.holdWhile(Football.celebrating)
+
+--[[
+	A espera pelas bancadas acaba quando todas as pessoas de claque estao no
+	seu topo — e logo, se nao houver nenhuma. Nunca fica a espera sem fim: o
+	MatchLoop corta-a ao fim de Config.Match.waitLength.
+]]
+MatchLoop.readyWhen(function()
+	local ready, total = standsCount()
+	return ready >= total
+end)
+
+-- Quantos ja estao na bancada, para o ecra da espera.
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		if MatchLoop.phase() == "espera" then
+			local ready, total = standsCount()
+			workspace:SetAttribute("StandsReady", ready)
+			workspace:SetAttribute("StandsTotal", total)
+		end
+	end
+end)
 
 Football.onKick(function(at)
 	sound("pontape", at)

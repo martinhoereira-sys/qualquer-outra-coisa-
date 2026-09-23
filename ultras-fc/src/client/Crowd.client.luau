@@ -136,3 +136,72 @@ RunService.RenderStepped:Connect(function()
 		workspace:BulkMoveTo(moveParts, moveFrames, Enum.BulkMoveMode.FireCFrameChanged)
 	end
 end)
+
+--[[
+	A entrada em campo: com a fila parada, alguns bonecos de cada claque acendem
+	tochas. So neste ecra, e so um por claque com luz propria: uma bancada
+	inteira de luzes deitava abaixo um telemovel, e a chama e o fumo chegam para
+	se ver de longe. Os escolhidos sao os mesmos em todos os ecras, porque o
+	desfasamento de cada boneco vem do servidor.
+]]
+local flares: { Instance } = {}
+
+local function lightFlares()
+	local byTeam: { [string]: { Person } } = {}
+	for _, person in people do
+		byTeam[person.teamId] = byTeam[person.teamId] or {}
+		table.insert(byTeam[person.teamId], person)
+	end
+	for teamId, list in byTeam do
+		table.sort(list, function(a, b)
+			return a.phase > b.phase
+		end)
+		local team = Config.Teams[teamId]
+		for i = 1, math.min(Config.Entrance.flares, #list) do
+			local arm = list[i].model:FindFirstChild("ArmR")
+			if arm and arm:IsA("BasePart") then
+				local fire = Instance.new("Fire")
+				fire.Heat = 9
+				fire.Size = 4
+				fire.Color = team.color
+				fire.SecondaryColor = Color3.fromRGB(255, 238, 196)
+				fire.Parent = arm
+				table.insert(flares, fire)
+
+				local smoke = Instance.new("Smoke")
+				smoke.Color = team.color:Lerp(Color3.new(1, 1, 1), 0.5)
+				smoke.Opacity = 0.3
+				smoke.RiseVelocity = 8
+				smoke.Size = 8
+				smoke.Parent = arm
+				table.insert(flares, smoke)
+
+				if i <= Config.Entrance.flareLights then
+					local light = Instance.new("PointLight")
+					light.Color = team.color
+					light.Brightness = 5
+					light.Range = 30
+					light.Shadows = false
+					light.Parent = arm
+					table.insert(flares, light)
+				end
+			end
+		end
+	end
+end
+
+local function putOutFlares()
+	for _, effect in flares do
+		effect:Destroy()
+	end
+	table.clear(flares)
+end
+
+workspace:GetAttributeChangedSignal("EntranceLine"):Connect(function()
+	if workspace:GetAttribute("EntranceLine") == true then
+		putOutFlares()
+		lightFlares()
+	else
+		putOutFlares()
+	end
+end)

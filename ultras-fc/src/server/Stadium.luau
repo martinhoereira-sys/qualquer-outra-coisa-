@@ -53,6 +53,17 @@ local RAIL = Color3.fromRGB(232, 234, 238)
 local BOARD = Color3.fromRGB(38, 41, 48)
 local ASPHALT = Color3.fromRGB(88, 90, 96)
 
+--[[
+	A bancada principal e a lateral sul: e la que fica o balneario, por baixo
+	do bloco do meio, com o tunel a sair a meio-campo. Uma lateral e nao um
+	topo, porque os topos sao das claques.
+]]
+local MAIN_SIDE = -1
+local TUNNEL_HALF = 4 -- meia largura do tunel
+local TUNNEL_HEIGHT = 7
+local ROOM_HALF = 15 -- meia largura do balneario
+local ROOM_HEIGHT = 8
+
 type Opts = { material: Enum.Material?, transparency: number? }
 
 local function part(name: string, size: Vector3, cf: CFrame, colour: Color3, parent: Instance, opts: Opts?): Part
@@ -245,9 +256,21 @@ local function buildPitch(parent: Instance)
 	-- Placards e bancos de suplentes: sem a barreira o relvado encostava a
 	-- bancada, o que nao acontece em lado nenhum.
 	for _, side in { 1, -1 } do
-		part("BoardZ", Vector3.new(S.pitchLength + 6, 2.6, 0.5), CFrame.new(0, 1.3, (S.pitchWidth / 2 + 3) * side), BOARD, folder, {
-			material = Enum.Material.SmoothPlastic,
-		})
+		local boardZ = (S.pitchWidth / 2 + 3) * side
+		if side == MAIN_SIDE then
+			-- A bancada principal: a placa abre-se na boca do tunel dos jogadores.
+			local gap = TUNNEL_HALF + 1
+			local length = (S.pitchLength + 6) / 2 - gap
+			for _, s in { -1, 1 } do
+				part("BoardZ", Vector3.new(length, 2.6, 0.5), CFrame.new(s * (gap + length / 2), 1.3, boardZ), BOARD, folder, {
+					material = Enum.Material.SmoothPlastic,
+				})
+			end
+		else
+			part("BoardZ", Vector3.new(S.pitchLength + 6, 2.6, 0.5), CFrame.new(0, 1.3, boardZ), BOARD, folder, {
+				material = Enum.Material.SmoothPlastic,
+			})
+		end
 		part("BoardX", Vector3.new(0.5, 2.6, S.pitchWidth + 6), CFrame.new((S.pitchLength / 2 + 3) * side, 1.3, 0), BOARD, folder, {
 			material = Enum.Material.SmoothPlastic,
 		})
@@ -280,7 +303,23 @@ local doorNumber = 0
 	Cada bloco e um troco de degraus; entre blocos fica uma escada. E essa
 	grelha, escada-bloco-escada, que faz uma bancada ler-se como arrumada.
 ]]
-local function buildStand(alongZ: boolean, side: number, blocks: number, parent: Instance, claque: string?)
+--[[
+	O que fica oco por baixo do bloco do meio da bancada principal, fila a
+	fila: o tunel dos jogadores nas filas da frente, o balneario nas de tras.
+	Devolve a largura do vazio e a altura a que comeca o tecto (nil: sem tecto,
+	e uma trincheira aberta, porque as filas da frente sao mais baixas do que
+	uma pessoa).
+]]
+local function hollowFor(row: number): (number, number?)
+	if row <= 4 then
+		return TUNNEL_HALF, nil
+	elseif row == 5 then
+		return TUNNEL_HALF, TUNNEL_HEIGHT
+	end
+	return ROOM_HALF, ROOM_HEIGHT
+end
+
+local function buildStand(alongZ: boolean, side: number, blocks: number, parent: Instance, claque: string?, tunnel: boolean?)
 	local folder = Instance.new("Folder")
 	folder.Name = (alongZ and "EndStand" or "SideStand") .. (side > 0 and "A" or "B")
 	folder.Parent = parent
@@ -321,13 +360,40 @@ local function buildStand(alongZ: boolean, side: number, blocks: number, parent:
 		local across = (inner + (row - 0.5) * S.rowDepth) * side
 
 		-- Os degraus de cada bloco.
-		for _, block in blockList do
-			place("Step", block.width, S.rowDepth, topY, block.centre, across, topY / 2, CONCRETE)
-
+		for index, block in blockList do
 			local seatColour = (row % 2 == 0) and SEAT_A or SEAT_B
-			place("Seats", block.width - 1.2, S.rowDepth - 0.8, 0.4, block.centre, across, topY + 0.2, seatColour, {
-				material = Enum.Material.SmoothPlastic,
-			})
+			local seats: Opts = { material = Enum.Material.SmoothPlastic }
+
+			if tunnel and index == (#blockList + 1) // 2 then
+				--[[
+					O bloco do meio da bancada principal e oco por baixo: o degrau
+					parte-se em dois pelo vazio, e por cima do vazio fica so o
+					tecto, a altura de uma pessoa.
+				]]
+				local half, ceiling = hollowFor(row)
+				local left = block.centre - block.width / 2
+				local right = block.centre + block.width / 2
+				local sideWidth = block.centre - half - left
+				for _, s in { -1, 1 } do
+					local centre = block.centre + s * (half + sideWidth / 2)
+					place("Step", sideWidth, S.rowDepth, topY, centre, across, topY / 2, CONCRETE)
+				end
+				if ceiling then
+					place("Ceiling", half * 2, S.rowDepth, topY - ceiling, block.centre, across, (topY + ceiling) / 2, CONCRETE)
+					place("Seats", block.width - 1.2, S.rowDepth - 0.8, 0.4, block.centre, across, topY + 0.2, seatColour, seats)
+				else
+					-- Trincheira aberta: os lugares ficam dos dois lados dela.
+					for _, s in { -1, 1 } do
+						local from = if s < 0 then left + 0.6 else block.centre + half
+						local to = if s < 0 then block.centre - half else right - 0.6
+						place("Seats", to - from, S.rowDepth - 0.8, 0.4, (from + to) / 2, across, topY + 0.2, seatColour, seats)
+					end
+				end
+				continue
+			end
+
+			place("Step", block.width, S.rowDepth, topY, block.centre, across, topY / 2, CONCRETE)
+			place("Seats", block.width - 1.2, S.rowDepth - 0.8, 0.4, block.centre, across, topY + 0.2, seatColour, seats)
 		end
 
 		for g, centre in centres do
@@ -457,6 +523,123 @@ local function buildStand(alongZ: boolean, side: number, blocks: number, parent:
 			end
 		end
 	end
+end
+
+--------------------------------------------------------------------------------
+-- O balneario e o tunel
+--------------------------------------------------------------------------------
+
+--[[
+	O balneario, por baixo das filas de tras do bloco do meio da bancada
+	principal, e o tunel que sai dele a meio-campo. Simples: bancos, cacifos e
+	uma luz. As paredes sao os proprios degraus a volta.
+
+	A boca do tunel tem uma grade. Fechada, ninguem sai; abre-se para a
+	entrada em campo e fica aberta durante o jogo.
+]]
+local tunnelGate: Part? = nil
+
+local function buildLockerRoom(parent: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "Balneario"
+	folder.Parent = parent
+
+	local z = MAIN_SIDE
+	local roomFront = INNER_Z + 5 * S.rowDepth
+	local roomBack = INNER_Z + STAND_DEPTH
+	local floorY = -0.5
+
+	-- Chao claro, para se ver que e uma sala e nao o avesso da bancada.
+	part("Floor", Vector3.new(ROOM_HALF * 2, 0.2, roomBack - roomFront), CFrame.new(0, floorY + 0.1, z * (roomFront + roomBack) / 2), Color3.fromRGB(196, 198, 204), folder, {
+		material = Enum.Material.SmoothPlastic,
+	})
+
+	-- Cacifos ao fundo, um banco comprido a frente deles, e outro de cada lado.
+	part("Lockers", Vector3.new(ROOM_HALF * 2 - 2, 6, 1.2), CFrame.new(0, floorY + 3, z * (roomBack - 0.8)), Color3.fromRGB(58, 84, 120), folder, {
+		material = Enum.Material.Metal,
+	})
+	part("BenchBack", Vector3.new(ROOM_HALF * 2 - 4, 1.4, 1.6), CFrame.new(0, floorY + 0.7, z * (roomBack - 3)), Color3.fromRGB(150, 116, 78), folder, {
+		material = Enum.Material.Wood,
+	})
+	for _, s in { -1, 1 } do
+		part("BenchSide", Vector3.new(1.6, 1.4, 8), CFrame.new(s * (ROOM_HALF - 1.5), floorY + 0.7, z * (roomFront + 7)), Color3.fromRGB(150, 116, 78), folder, {
+			material = Enum.Material.Wood,
+		})
+	end
+
+	local lamp = part("Lamp", Vector3.new(10, 0.3, 2), CFrame.new(0, ROOM_HEIGHT - 0.3, z * (roomFront + roomBack) / 2), Color3.fromRGB(255, 244, 214), folder, {
+		material = Enum.Material.Neon,
+	})
+	lamp.CastShadow = false
+	local light = Instance.new("PointLight")
+	light.Brightness = 1.4
+	light.Range = 26
+	light.Shadows = false
+	light.Parent = lamp
+
+	-- Corrimaos dos dois lados da trincheira, nas filas da frente.
+	for _, s in { -1, 1 } do
+		span(
+			"TunnelRail",
+			Vector3.new(s * (TUNNEL_HALF + 0.2), S.rowHeight + 1.1, z * (INNER_Z + 0.2)),
+			Vector3.new(s * (TUNNEL_HALF + 0.2), 4 * S.rowHeight + 1.1, z * (INNER_Z + 4 * S.rowDepth)),
+			0.3,
+			0.3,
+			RAIL,
+			folder,
+			{ material = Enum.Material.Metal }
+		)
+	end
+
+	local gate = part("TunnelGate", Vector3.new(TUNNEL_HALF * 2, TUNNEL_HEIGHT, 0.3), CFrame.new(0, floorY + TUNNEL_HEIGHT / 2, z * (INNER_Z - 0.2)), STEEL, folder, {
+		material = Enum.Material.DiamondPlate,
+		transparency = 0.35,
+	})
+	tunnelGate = gate
+end
+
+-- Abre ou fecha a grade da boca do tunel.
+function Stadium.setTunnelOpen(open: boolean)
+	local gate = tunnelGate
+	if gate then
+		gate.CanCollide = not open
+		gate.Transparency = if open then 1 else 0.35
+	end
+end
+
+--[[
+	Onde cada um espera no balneario: cada equipa na sua metade, em duas filas
+	de lugares; o arbitro ao meio, junto a porta do tunel.
+]]
+function Stadium.lockerSpot(teamId: string?, slot: number): Vector3
+	local z = MAIN_SIDE
+	local roomFront = INNER_Z + 5 * S.rowDepth
+	if not teamId then
+		return Vector3.new(0, 0, z * (roomFront + 2.5))
+	end
+	local s = Config.Teams[teamId].side
+	local column = (slot - 1) % 3
+	local line = (slot - 1) // 3
+	return Vector3.new(s * (4 + column * 3.5), 0, z * (roomFront + 7 + line * 4))
+end
+
+--[[
+	O caminho do balneario ao relvado, por uma das tres faixas do tunel: a do
+	meio e do arbitro, cada equipa pela do seu lado.
+]]
+function Stadium.tunnelPath(lane: number): { Vector3 }
+	local z = MAIN_SIDE
+	local roomFront = INNER_Z + 5 * S.rowDepth
+	return {
+		Vector3.new(lane, 0, z * (roomFront + 1.5)), -- a porta do balneario
+		Vector3.new(lane, 0, z * (INNER_Z + 2)), -- ao fundo do tunel
+		Vector3.new(lane, 0, z * (S.pitchWidth / 2 - 4)), -- ja no relvado
+	}
+end
+
+-- O lado da bancada principal, a do tunel: -1, a sul.
+function Stadium.mainSide(): number
+	return MAIN_SIDE
 end
 
 --------------------------------------------------------------------------------
@@ -687,11 +870,12 @@ function Stadium.build()
 					claque = teamId
 				end
 			end
-			buildStand(false, side, S.blocksLong, root)
+			buildStand(false, side, S.blocksLong, root, nil, side == MAIN_SIDE)
 			buildStand(true, side, S.blocksEnd, root, claque)
 		end
 
 		buildClaqueFront(root)
+		buildLockerRoom(root)
 	end)
 
 	-- A meio do topo da propria claque, com a baliza a frente.
