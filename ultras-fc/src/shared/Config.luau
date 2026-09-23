@@ -74,9 +74,7 @@ Config.Atmosphere = {
 }
 
 --[[
-	O jogo. Na Fase 1 quem joga sao NPCs — o que decide o resultado e a bancada.
-	E de proposito: o futebol so precisa de ser suficiente para haver algo a que
-	reagir.
+	O relogio do jogo: aquecimento, duas partes, intervalo e rescaldo.
 ]]
 Config.Match = {
 	warmupLength = 90, -- da tempo ao corteo de chegar
@@ -157,26 +155,80 @@ Config.Stadium = {
 	sempre uma acesa, deixava de ser um momento e passava a ser o fundo do ecra.
 ]]
 --[[
-	Os jogadores em campo. Nao sao pessoas — sao NPCs, e sao de proposito: o
-	futebol so precisa de ser suficiente para a bancada ter algo a que reagir.
-]]
-Config.Pitch = {
-	-- Zero: o relvado fica livre para jogadores a serio. Bonecos a correr atras
-	-- da bola liam-se como enchimento, e o jogo nao e sobre eles.
-	perSide = 0,
-	speed = 17, -- studs por segundo com bola nos pes
-	chaseSpeed = 21, -- sem bola corre-se mais
-	ballSpeed = 58, -- remate
-	passSpeed = 40,
-	controlRange = 4.5, -- a que distancia se ganha a bola
-	shootRange = 34, -- daqui para dentro, remata-se
-	goalHalfWidth = 8,
-	goalHeight = 9,
+	O futebol. Cinco contra cinco, jogado por pessoas; os lugares que ficam
+	vazios levam um boneco, e o boneco sai quando chega alguem.
 
-	-- O ambiente da bancada entra aqui: com a bancada cheia o remate sai mais
-	-- certeiro. E a ligacao entre cantar e marcar, e e o coracao do jogo.
-	shotSpreadCold = 16, -- desvio com a bancada calada
-	shotSpreadHot = 3, -- desvio com a bancada ao rubro
+	A bola e fisica normal do Roblox, nao simulacao: e para ser previsivel e
+	agradavel de chutar, nao realista. Quase tudo o que "sente mal" a jogar
+	resolve-se aqui.
+]]
+Config.Football = {
+	-- A formacao, sem guarda-redes. `x` e a fracao de meio campo a partir do
+	-- centro, para tras; `z` e a fracao da largura do relvado. A ordem e a de
+	-- quem entra: uma pessoa fica com o primeiro lugar livre, de frente para tras.
+	formation = {
+		{ number = 9, x = 0.1, z = 0 },
+		{ number = 10, x = 0.36, z = 0.26 },
+		{ number = 8, x = 0.36, z = -0.26 },
+		{ number = 5, x = 0.64, z = 0.2 },
+		{ number = 4, x = 0.64, z = -0.2 },
+	},
+
+	-- Correr
+	walkSpeed = 16,
+	sprintSpeed = 24,
+	botSpeed = 15, -- os bonecos a posicionar-se
+	botSprintSpeed = 20, -- a ir a bola; abaixo do sprint de uma pessoa, para se lhes poder fugir
+	botDribbleSpeed = 22, -- com bola, um pouco mais do que quem aperta: foge-se por tras, nao pela frente
+	staminaMax = 100,
+	staminaDrain = 24, -- por segundo, a correr em sprint
+	staminaRegen = 13, -- por segundo, sem sprint
+	staminaRecover = 30, -- esgotado, so volta ao sprint a partir daqui
+
+	-- A bola
+	ballSize = 2,
+	claimRange = 3.6, -- a que distancia dos pes se fica com ela
+	claimHeight = 3.8, -- acima disto passa por cima: nao ha cabecear
+	dribbleDistance = 2.6, -- a que distancia a frente dos pes vai com a posse
+	kickLockout = 0.4, -- quem chutou nao a volta a apanhar logo
+	kickFlight = 0.15, -- ninguem lhe toca logo a saida do pe
+	rollDrag = 0.85, -- travao no chao, por segundo
+	airDrag = 0.12, -- travao no ar
+
+	-- Rematar: segurar carrega, largar chuta
+	chargeTime = 1.1, -- segundos ate a forca maxima
+	shotSpeedMin = 42,
+	shotSpeedMax = 112,
+	shotLiftMin = 0.05, -- fracao da velocidade que vai para cima
+	shotLiftMax = 0.2,
+
+	-- Passar: um toque, rasteiro
+	passCone = 25, -- graus; um colega dentro deste cone recebe-a
+	passRange = 70,
+	passSpeedMin = 30,
+	passSpeedMax = 66,
+
+	-- Roubar
+	tackleRange = 2.8, -- encostar
+	tackleImmunity = 1.5, -- quem ganhou a bola nao a perde logo a seguir
+	claimImmunity = 0.5, -- o mesmo, mais curto, a quem apanha uma bola solta
+	fallTime = 1, -- quem a perdeu fica no chao
+
+	-- Recomecos
+	kickoffFreeze = 2, -- toda a gente parada antes do apito
+	restartPriority = 1.5, -- segundos em que so a equipa certa pode tocar
+	outDelay = 1, -- bola fora: quanto tempo ate voltar ao campo
+	goalPause = 2.5, -- a bola na rede antes do pontape de saida
+
+	-- A baliza
+	goalHalfWidth = 8,
+	goalHeight = 8,
+	goalDepth = 5,
+
+	-- Os bonecos
+	botThink = 0.35, -- de quanto em quanto tempo quem tem a bola decide
+	botShootRange = 40,
+	botPressure = 9, -- um adversario a esta distancia aperta
 }
 
 --[[
@@ -213,7 +265,6 @@ Config.March = {
 Config.Referee = {
 	decisionSeconds = 12, -- tempo para decidir antes de sair sozinha
 	contestedGoalChance = 0.4, -- golos que ficam por confirmar
-	shoutInterval = 50, -- de quantos em quantos segundos ha um lance na area
 	suspicionPerCall = 26, -- quanto sobe ao ceder a quem pressiona
 	suspicionDecay = 1.4, -- por segundo, quando se porta bem
 	caughtAt = 100,

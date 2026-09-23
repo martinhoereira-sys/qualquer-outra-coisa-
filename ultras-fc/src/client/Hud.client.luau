@@ -88,12 +88,12 @@ menu.Parent = gui
 
 local title = label(menu, "Escolhe o teu papel", 34, TEXT)
 title.Size = UDim2.new(1, -40, 0, 44)
-title.Position = UDim2.new(0, 20, 0.5, -150)
+title.Position = UDim2.new(0, 20, 0.5, -196)
 
 local subtitle = label(menu, "Sais da sede, vais com o corteo, e entras no estadio", 16, MUTED)
 subtitle.Font = Enum.Font.Gotham
 subtitle.Size = UDim2.new(1, -40, 0, 22)
-subtitle.Position = UDim2.new(0, 20, 0.5, -108)
+subtitle.Position = UDim2.new(0, 20, 0.5, -154)
 
 local function choice(text: string, note: string, colour: Color3, x: number, width: number, y: number, pick: string)
 	local button = Instance.new("TextButton")
@@ -127,10 +127,17 @@ end
 
 for index, teamId in Config.TeamOrder do
 	local team = Config.Teams[teamId]
-	choice(team.name, "claque  ·  tochas, fumo, corteo", team.color, (index == 1) and -232 or 12, 220, -56, teamId)
+	choice(team.name, "claque  ·  tochas, fumo, corteo", team.color, (index == 1) and -232 or 12, 220, -100, teamId)
 end
 
-choice("Apitar o jogo", "arbitro  ·  decides, e podes ceder", Color3.fromRGB(46, 50, 58), -232, 452, 36, "arbitro")
+-- Jogar: escolhe-se a equipa, e fica-se com o primeiro lugar livre. Com o
+-- lugar vazio joga um boneco, por isso ha sempre jogo.
+for index, teamId in Config.TeamOrder do
+	local team = Config.Teams[teamId]
+	choice("Jogar pelo " .. team.short, "jogador  ·  5 contra 5, em campo", team.color:Lerp(INK, 0.35), (index == 1) and -232 or 12, 220, -8, "jogador:" .. teamId)
+end
+
+choice("Apitar o jogo", "arbitro  ·  decides, e podes ceder", Color3.fromRGB(46, 50, 58), -232, 452, 84, "arbitro")
 
 --------------------------------------------------------------------------------
 -- Quem sou
@@ -151,6 +158,13 @@ local function refreshRole()
 		myTeam = nil
 		roleLabel.Text = "apitas este jogo"
 		roleLabel.TextColor3 = TEXT
+	elseif role == "jogador" then
+		myTeam = nil
+		local pitchTeam = Config.Teams[player:GetAttribute("PitchTeam") or ""]
+		if pitchTeam then
+			roleLabel.Text = "jogas pelo " .. pitchTeam.name .. "  ·  n.º " .. tostring(player:GetAttribute("Number") or "")
+			roleLabel.TextColor3 = pitchTeam.color
+		end
 	elseif role and Config.Teams[role] then
 		myTeam = role
 		local suffix = player:GetAttribute("Leader") and "  ·  lider" or ""
@@ -248,6 +262,14 @@ local hint = label(gui, "material na sede    ·    B  pedir ao arbitro    ·    
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
+
+-- Em campo as teclas sao outras, e quem as mostra e o Football.client.
+local function refreshHint()
+	hint.Visible = myRole() ~= "jogador"
+	gearLabel.Visible = hint.Visible
+end
+player:GetAttributeChangedSignal("Team"):Connect(refreshHint)
+refreshHint()
 
 local stock = {
 	tocha = Config.Gear.tocha.perMatch,

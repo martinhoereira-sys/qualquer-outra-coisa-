@@ -14,7 +14,9 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Gear = require(script.Parent:WaitForChild("Gear"))
-local Pitch = require(script.Parent:WaitForChild("Pitch"))
+local Squad = require(script.Parent:WaitForChild("Squad"))
+local Football = require(script.Parent:WaitForChild("Football"))
+local Bots = require(script.Parent:WaitForChild("Bots"))
 local City = require(script.Parent:WaitForChild("City"))
 local Crowd = require(script.Parent:WaitForChild("Crowd"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
@@ -75,7 +77,18 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	-- O apito e um papel como os outros, escolhido a entrada.
 	if teamId == "arbitro" then
 		if Referee.take(player) then
+			Squad.leave(player)
 			task.spawn(sendToSquare, player)
+		end
+		return
+	end
+
+	-- Jogar: "jogador:<equipa>". Quem entra em campo deixa a bancada e o apito.
+	local pitchTeam = string.match(teamId, "^jogador:(%w+)$")
+	if pitchTeam then
+		if Teams.isValid(pitchTeam) and Squad.join(player, pitchTeam) then
+			Teams.forget(player)
+			Referee.release(player)
 		end
 		return
 	end
@@ -87,6 +100,7 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	-- Uma vez so: se a pessoa carregar no botao duas vezes, nao fica com duas
 	-- ligacoes a atirarem-na para a bancada a cada respawn.
 	local first = Teams.get(player) == nil
+	Squad.leave(player)
 	Teams.assign(player, teamId)
 
 	task.spawn(sendToStand, player, teamId)
@@ -128,6 +142,7 @@ Players.PlayerRemoving:Connect(function(player)
 	March.forget(player)
 	Tifo.forget(player)
 	Referee.release(player)
+	Squad.leave(player)
 	lastHit[player] = nil
 end)
 
@@ -136,7 +151,9 @@ local playing = false
 -- A barra desce continuamente; e isso que obriga a manter o cantico.
 RunService.Heartbeat:Connect(function(dt)
 	Atmosphere.step(dt)
-	Pitch.step(dt, playing)
+	Squad.step(dt, os.clock())
+	Football.step(dt)
+	Bots.step(dt)
 	March.step(dt)
 	Referee.step(dt)
 
@@ -219,9 +236,15 @@ MatchLoop.onChange(function(snapshot)
 		Referee.endMatch()
 	end
 
-	-- Bola ao centro em cada recomeco.
-	if snapshot.phase ~= lastPhase and playing then
-		Pitch.kickOff()
+	-- Pontape de saida no inicio de cada parte: a primeira sai a casa, a
+	-- segunda os visitantes. Depois de cada golo sai quem o sofreu (Football).
+	if snapshot.phase ~= lastPhase then
+		Football.setPhase(snapshot.phase)
+		if snapshot.phase == "first" then
+			Football.kickOff(Config.TeamOrder[1])
+		elseif snapshot.phase == "second" then
+			Football.kickOff(Config.TeamOrder[2])
+		end
 	end
 
 	lastPhase = snapshot.phase
@@ -237,7 +260,7 @@ Players.PlayerAdded:Connect(function(player)
 	task.spawn(sendToSquare, player)
 	player.CharacterAdded:Connect(function()
 		task.wait(0.3)
-		if not Teams.get(player) then
+		if not Teams.get(player) and not Squad.byPlayer(player) then
 			sendToSquare(player)
 		end
 	end)
@@ -248,7 +271,8 @@ Clubhouse.onStartMarch(function(teamId)
 end)
 
 Stadium.build()
-Pitch.build(workspace:WaitForChild("Stadium"))
+Squad.build(workspace:WaitForChild("Stadium"))
+Football.build(workspace:WaitForChild("Stadium"))
 Crowd.build(workspace:WaitForChild("Stadium"))
 Tifo.build(workspace:WaitForChild("Stadium"))
 
@@ -261,15 +285,13 @@ Remotes.Tifo.OnServerEvent:Connect(function(player, action, designId)
 	end
 end)
 
--- A bola entrar na baliza e que marca. O ambiente da bancada ja entrou na
--- pontaria do remate, la no campo.
 --[[
 	Um golo. Parte deles fica por confirmar: e o arbitro que decide se conta.
 
 	Sem arbitro em campo, `raise` devolve falso e o golo sobe direto — um jogo
 	nao pode parar a espera de uma pessoa que nao esta la.
 ]]
-Pitch.onGoal(function(teamId)
+Football.onGoal(function(teamId)
 	if math.random() < Config.Referee.contestedGoalChance and Referee.raise("golo", teamId) then
 		return
 	end
@@ -312,15 +334,18 @@ Remotes.Pressure.OnServerEvent:Connect(function(player)
 	Referee.addPressure(player)
 end)
 
--- Um lance na area de vez em quando, para o arbitro ter o que decidir mesmo
--- quando nao ha golos.
-task.spawn(function()
-	while true do
-		task.wait(Config.Referee.shoutInterval)
-		if playing then
-			local teamId = Config.TeamOrder[math.random(1, #Config.TeamOrder)]
-			Referee.raise("penalti", teamId)
-		end
+-- O que o jogador faz com a bola. O servidor e que sabe se ele a tem.
+Remotes.Football.OnServerEvent:Connect(function(player, action, value)
+	local f = Squad.byPlayer(player)
+	if not f then
+		return
+	end
+	if action == "sprint" then
+		Squad.setSprint(player, value == true)
+	elseif action == "shoot" and type(value) == "number" then
+		Football.shoot(f, value)
+	elseif action == "pass" then
+		Football.pass(f)
 	end
 end)
 

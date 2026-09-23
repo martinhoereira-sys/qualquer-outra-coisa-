@@ -217,15 +217,27 @@ local function buildPitch(parent: Instance)
 		line("BoxB" .. sign, Vector3.new(boxDepth, 1.04, 0.5), CFrame.new(boxX + boxDepth / 2 * sign, -0.48, -boxWidth / 2))
 		line("Goalline" .. sign, Vector3.new(0.5, 1.04, S.pitchWidth), CFrame.new((S.pitchLength / 2) * sign, -0.48, 0))
 
-		local goalX = (S.pitchLength / 2 - 0.5) * sign
+		--[[
+			A baliza. Postes e trave em cima da linha, e a rede em paineis finos
+			por tras: fundo, lados e tecto. Tem de ser oca — e a bola a entrar
+			nela que marca, e uma rede macica devolvia-a a linha.
+		]]
+		local G = Config.Football
+		local goalX = (S.pitchLength / 2 + 0.35) * sign
+		local backX = (S.pitchLength / 2 + G.goalDepth) * sign
+		local midX = (goalX + backX) / 2
 		local metal: Opts = { material = Enum.Material.Metal }
-		part("PostL", Vector3.new(0.7, 8, 0.7), CFrame.new(goalX, 4, -8), LINE, folder, metal)
-		part("PostR", Vector3.new(0.7, 8, 0.7), CFrame.new(goalX, 4, 8), LINE, folder, metal)
-		part("Bar", Vector3.new(0.7, 0.7, 16.7), CFrame.new(goalX, 8, 0), LINE, folder, metal)
-		part("Net", Vector3.new(4, 8, 16.7), CFrame.new(goalX + 2 * sign, 4, 0), Color3.fromRGB(222, 226, 232), folder, {
-			material = Enum.Material.Fabric,
-			transparency = 0.7,
-		})
+		local net: Opts = { material = Enum.Material.Fabric, transparency = 0.6 }
+		local NET = Color3.fromRGB(222, 226, 232)
+		local w = G.goalHalfWidth
+		part("PostL", Vector3.new(0.7, G.goalHeight, 0.7), CFrame.new(goalX, G.goalHeight / 2, -w - 0.35), LINE, folder, metal)
+		part("PostR", Vector3.new(0.7, G.goalHeight, 0.7), CFrame.new(goalX, G.goalHeight / 2, w + 0.35), LINE, folder, metal)
+		part("Bar", Vector3.new(0.7, 0.7, w * 2 + 1.4), CFrame.new(goalX, G.goalHeight + 0.35, 0), LINE, folder, metal)
+		part("NetBack", Vector3.new(0.2, G.goalHeight, w * 2 + 1.4), CFrame.new(backX, G.goalHeight / 2, 0), NET, folder, net)
+		part("NetTop", Vector3.new(G.goalDepth, 0.2, w * 2 + 1.4), CFrame.new(midX, G.goalHeight + 0.6, 0), NET, folder, net)
+		for _, edge in { -1, 1 } do
+			part("NetSide", Vector3.new(G.goalDepth, G.goalHeight, 0.2), CFrame.new(midX, G.goalHeight / 2, (w + 0.7) * edge), NET, folder, net)
+		end
 	end
 
 	-- Placards e bancos de suplentes: sem a barreira o relvado encostava a
