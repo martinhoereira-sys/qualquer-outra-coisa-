@@ -230,7 +230,6 @@ Config.Football = {
 	-- Recomecos
 	kickoffFreeze = 2, -- toda a gente parada antes do apito
 	restartPriority = 1.5, -- segundos em que so a equipa certa pode tocar
-	outDelay = 1, -- bola fora: quanto tempo ate voltar ao campo
 	goalPause = 2.5, -- a bola na rede antes do pontape de saida
 
 	-- A baliza
@@ -264,6 +263,29 @@ Config.March = {
 	momento e passava a ser o fundo do ecra. O tambor e a excepcao — esse nao da
 	nada sozinho, so se acertar no compasso.
 ]]
+--[[
+	As regras: reposicoes, faltas, cartoes e fora de jogo.
+
+	A regra que manda em todas: RAPIDEZ. Sao muitas formas de parar o jogo, e se
+	cada uma demorar o jogo morre. Prefere-se um jogo rapido e um bocado tosco a
+	um jogo correto e parado — a bola tem de estar viva pelo menos dois tercos do
+	tempo.
+
+	Distancias em studs (1 m ~ 3 studs). As zonas proibidas so valem para os
+	bonecos: as pessoas ficam onde quiserem, e se alguem se puser em cima da
+	bola o tempo da reposicao trata disso.
+]]
+Config.Rules = {
+	outDelay = 0.5, -- a bola fora ve-se sair antes de ser reposta
+	restartTime = 3, -- quanto se espera por quem repoe; depois a bola fica viva ali
+	restartEdge = 0.5, -- acabado o tempo, a equipa que repunha ainda tem este avanco
+	botTakerDelay = 0.6, -- um boneco na bola bate ao fim disto
+
+	throwInGap = 9, -- lancamento: adversarios a 3 m
+	cornerGap = 15, -- canto: a 5 m
+	freeKickGap = 15, -- livre: a 5 m
+}
+
 --[[
 	O arbitro.
 

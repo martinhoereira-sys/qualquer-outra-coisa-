@@ -240,6 +240,9 @@ MatchLoop.onChange(function(snapshot)
 	-- segunda os visitantes. Depois de cada golo sai quem o sofreu (Football).
 	if snapshot.phase ~= lastPhase then
 		Football.setPhase(snapshot.phase)
+		if snapshot.phase == "warmup" then
+			Football.resetClock()
+		end
 		if snapshot.phase == "first" then
 			Football.kickOff(Config.TeamOrder[1])
 		elseif snapshot.phase == "second" then

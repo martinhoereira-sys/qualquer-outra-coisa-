@@ -149,6 +149,76 @@ local function withBall(f: Footballer, now: number)
 	f.dribbling = true
 end
 
+--------------------------------------------------------------------------------
+-- Reposicoes
+--------------------------------------------------------------------------------
+
+local R = Config.Rules
+local BOX_DEPTH = S.pitchLength * 16.5 / 105
+local BOX_WIDTH = S.pitchWidth * 40.3 / 68
+
+local GAP: { [string]: number } = {
+	lancamento = R.throwInGap,
+	canto = R.cornerGap,
+	livre = R.freeKickGap,
+}
+
+--[[
+	Um boneco da equipa que nao repoe fica fora da zona proibida. So os bonecos:
+	as pessoas ficam onde quiserem.
+]]
+local function keepOut(f: Footballer, target: Vector3, piece: Football.SetPiece): Vector3
+	if f.teamId == piece.team then
+		return target
+	end
+	local spot = piece.spot
+	local gap = GAP[piece.kind]
+	if gap then
+		local away = Vector3.new(target.X - spot.X, 0, target.Z - spot.Z)
+		if away.Magnitude < gap + 1 then
+			local dir = if away.Magnitude > 0.5 then away.Unit else -Football.goalFor(f.teamId).Unit
+			return spot + dir * (gap + 2)
+		end
+	elseif piece.kind == "baliza" then
+		-- Fora da grande area de quem bate.
+		local side = math.sign(spot.X)
+		if target.X * side > HALF - BOX_DEPTH - 2 and math.abs(target.Z) < BOX_WIDTH / 2 + 2 then
+			return Vector3.new(side * (HALF - BOX_DEPTH - 4), 0, target.Z)
+		end
+	end
+	return target
+end
+
+-- Quem bate: um passe, um cruzamento, um pontape longo — conforme o que e.
+local function takePiece(f: Footballer, piece: Football.SetPiece, now: number)
+	if now < piece.takenAt + R.botTakerDelay then
+		return
+	end
+	local root = f.root :: BasePart
+	local here = root.Position
+	local kind = piece.kind
+
+	if kind == "canto" then
+		local side = math.sign(piece.spot.X)
+		local target = Vector3.new(side * (HALF - 20), 0, (math.random() * 2 - 1) * 10)
+		Football.kick(f, 0.45, 0, 0.8, target - here)
+	elseif kind == "baliza" then
+		local target = Vector3.new(0, 0, (math.random() * 2 - 1) * 35)
+		Football.kick(f, 0.85, 0, 0.35, target - here)
+	elseif kind == "penalti" then
+		local goal = Football.goalFor(f.teamId)
+		local target = goal + Vector3.new(0, 0, (if math.random() < 0.5 then -1 else 1) * (F.goalHalfWidth - 2))
+		Football.kick(f, 0.6 + math.random() * 0.3, 0, -0.3, target - here)
+	else
+		local mate = bestMate(f)
+		if mate then
+			Football.passTo(f, mate)
+		else
+			Football.kick(f, 0.35, 0, -1, piece.aim)
+		end
+	end
+end
+
 function Bots.step(dt: number)
 	accumulator += dt
 	if accumulator < 0.1 then
@@ -219,6 +289,21 @@ function Bots.step(dt: number)
 					chasers[first] = true
 				end
 			end
+		end
+
+		local piece = Football.setPiece()
+		if piece and play then
+			-- Reposicao: quem bate bate, os outros tomam posicao, e os
+			-- adversarios ficam fora da zona.
+			for _, f in bots do
+				if carrier == f then
+					takePiece(f, piece, now)
+				elseif not Squad.isDown(f, now) then
+					local spot = keepOut(f, shapeSpot(f, piece.spot, teamId == piece.team), piece)
+					moveTo(f, spot, true)
+				end
+			end
+			continue
 		end
 
 		for _, f in bots do

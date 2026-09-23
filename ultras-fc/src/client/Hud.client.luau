@@ -198,6 +198,32 @@ local goalLabel = label(gui, "", 30, TEXT)
 goalLabel.Size = UDim2.new(1, 0, 0, 36)
 goalLabel.Position = UDim2.new(0, 0, 0, 88)
 
+-- A reposicao em curso, para toda a gente: o que e e de quem.
+local RESTART_TEXT = {
+	lancamento = "LANCAMENTO",
+	canto = "CANTO",
+	baliza = "PONTAPE DE BALIZA",
+	livre = "LIVRE",
+	penalti = "PENALTI",
+}
+local restartLabel = label(gui, "", 18, TEXT)
+restartLabel.Size = UDim2.new(1, 0, 0, 22)
+restartLabel.Position = UDim2.new(0, 0, 0, 150)
+
+local function refreshRestart()
+	local value = workspace:GetAttribute("Restart")
+	if type(value) ~= "string" then
+		restartLabel.Text = ""
+		return
+	end
+	local kind, teamId = string.match(value, "^(%w+):(%w+)$")
+	local team = Config.Teams[teamId or ""]
+	restartLabel.Text = (RESTART_TEXT[kind or ""] or "") .. (if team then "  ·  " .. team.short else "")
+	restartLabel.TextColor3 = if team then team.color:Lerp(TEXT, 0.3) else TEXT
+end
+workspace:GetAttributeChangedSignal("Restart"):Connect(refreshRestart)
+refreshRestart()
+
 --------------------------------------------------------------------------------
 -- As duas bancadas
 --------------------------------------------------------------------------------

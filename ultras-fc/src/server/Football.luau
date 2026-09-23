@@ -31,6 +31,21 @@ local BOX_WIDTH = S.pitchWidth * 40.3 / 68
 
 local ball: Part? = nil
 
+--[[
+	Uma reposicao: lancamento, canto, pontape de baliza, livre, penalti. Todas
+	iguais por dentro — a bola num ponto, uma equipa a repor, uma zona onde os
+	adversarios nao entram e um tempo maximo.
+]]
+export type SetPiece = {
+	kind: string, -- "lancamento" | "canto" | "baliza" | "livre" | "penalti"
+	team: string, -- quem repoe
+	spot: Vector3,
+	aim: Vector3, -- para onde quem bate fica virado
+	deadline: number,
+	taker: Footballer?,
+	takenAt: number, -- quando quem bate chegou a bola
+}
+
 local state = {
 	carrier = nil :: Footballer?,
 	lastTouch = nil :: string?, -- equipa do ultimo toque, para a bola fora
@@ -46,6 +61,9 @@ local state = {
 	flightUntil = 0, -- acabada de chutar, ainda ninguem lhe pode tocar
 	curve = 0, -- desvio lateral do efeito, em studs/s2 (positivo: para a direita de quem chutou)
 	curveUntil = 0,
+	piece = nil :: SetPiece?, -- a reposicao a espera de ser batida
+	liveTime = 0, -- segundos de bola viva e parada nas partes, para medir o ritmo
+	deadTime = 0,
 }
 
 local onGoal: ((string) -> ())? = nil
@@ -150,6 +168,11 @@ local function release(f: Footballer, direction: Vector3, speed: number, lift: n
 	-- quem chutou ficava com a bola antes de ela sair dos pes.
 	state.flightUntil = os.clock() + F.kickFlight
 	state.curve = 0
+	-- Batida a reposicao, o jogo segue.
+	if state.piece then
+		state.piece = nil
+		workspace:SetAttribute("Restart", nil)
+	end
 
 	local from = root.Position
 	b.CFrame = CFrame.new(from.X + dir.X * F.dribbleDistance, R + 0.1, from.Z + dir.Z * F.dribbleDistance)
@@ -275,6 +298,8 @@ end
 ]]
 function Football.kickOff(teamId: string)
 	state.carrier = nil
+	state.piece = nil
+	workspace:SetAttribute("Restart", nil)
 	state.afterWait = nil
 	state.waitUntil = 0
 	table.clear(state.noClaim)
@@ -298,6 +323,10 @@ function Football.setPhase(phase: string)
 	state.botsPlay = state.live or phase == "warmup"
 	if not state.botsPlay and wasPlaying then
 		state.carrier = nil
+		state.piece = nil
+		state.waitUntil = 0
+		state.afterWait = nil
+		workspace:SetAttribute("Restart", nil)
 		placeBall(Vector3.zero)
 	end
 end
@@ -340,25 +369,102 @@ local function checkGoal(p: Vector3): boolean
 end
 
 --[[
-	Bola fora: passado um segundo volta ao campo no ponto onde saiu, e a equipa
-	que nao lhe tocou por ultimo tem prioridade para a jogar. Pela linha de
-	fundo volta a entrada da area.
+	Uma reposicao comeca: bola no ponto, e quem vai bater. Se o mais perto da
+	equipa for um boneco, e posto logo atras da bola, virado para onde vai
+	jogar — e o que faz isto ser rapido. Se houver uma pessoa da equipa mais
+	perto, ninguem e mexido: a bola e dela, e ela que la va.
 ]]
+function Football.startSetPiece(kind: string, team: string, spot: Vector3, aim: Vector3, seconds: number)
+	state.carrier = nil
+	placeBall(spot)
+	local piece: SetPiece = {
+		kind = kind,
+		team = team,
+		spot = Vector3.new(spot.X, 0, spot.Z),
+		aim = flat(aim),
+		deadline = os.clock() + seconds,
+		taker = nil,
+		takenAt = 0,
+	}
+	state.piece = piece
+	workspace:SetAttribute("Restart", kind .. ":" .. team)
+	workspace:SetAttribute("RestartUntil", workspace:GetServerTimeNow() + seconds)
+
+	local now = os.clock()
+	local bestBot: Footballer? = nil
+	local botDistance = math.huge
+	local humanDistance = math.huge
+	for _, f in Squad.team(team) do
+		local root = f.root
+		if root and not Squad.isDown(f, now) then
+			local d = Vector3.new(root.Position.X - spot.X, 0, root.Position.Z - spot.Z).Magnitude
+			if f.player then
+				humanDistance = math.min(humanDistance, d)
+			elseif d < botDistance then
+				botDistance = d
+				bestBot = f
+			end
+		end
+	end
+	if bestBot and botDistance <= humanDistance then
+		Squad.place(bestBot, piece.spot - piece.aim * F.dribbleDistance, piece.aim)
+		piece.taker = bestBot
+		piece.takenAt = now
+		state.carrier = bestBot
+		state.lastTouch = team
+	end
+end
+
+function Football.setPiece(): SetPiece?
+	return state.piece
+end
+
+--[[
+	Bola fora. Quem repoe decide-se sempre pelo ultimo a tocar:
+
+	- pela linha lateral, lancamento para a outra equipa, no ponto onde saiu;
+	- pela linha de fundo, se o ultimo toque foi de quem defende essa baliza,
+	  canto para quem ataca; se foi de quem ataca, pontape de baliza.
+]]
+local SMALL_BOX_DEPTH = S.pitchLength * 5.5 / 105
+
 local function checkOut(p: Vector3): boolean
-	local spot: Vector3
+	local last = state.lastTouch
+	local kind, team, spot, aim
+
 	if math.abs(p.Z) > WIDTH2 + R then
-		spot = Vector3.new(math.clamp(p.X, -HALF + 2, HALF - 2), 0, math.sign(p.Z) * (WIDTH2 - 1.5))
+		kind = "lancamento"
+		team = if last then otherTeam(last) else Config.TeamOrder[1]
+		local side = math.sign(p.Z)
+		spot = Vector3.new(math.clamp(p.X, -HALF + 3, HALF - 3), 0, side * (WIDTH2 - 1.2))
+		aim = Vector3.new(0, 0, -side)
 	elseif math.abs(p.X) > HALF + R then
-		spot = Vector3.new(math.sign(p.X) * (HALF - BOX_DEPTH), 0, math.clamp(p.Z, -BOX_WIDTH / 2 + 4, BOX_WIDTH / 2 - 4))
+		local side = if p.X > 0 then 1 else -1
+		local attackers = Config.TeamOrder[1]
+		for _, teamId in Config.TeamOrder do
+			if Squad.attackSign(teamId) == side then
+				attackers = teamId
+			end
+		end
+		local defenders = otherTeam(attackers)
+		if last == defenders then
+			kind = "canto"
+			team = attackers
+			spot = Vector3.new(side * (HALF - 1.2), 0, math.sign(p.Z) * (WIDTH2 - 1.2))
+			aim = Vector3.new(side * (HALF - 22), 0, 0) - spot
+		else
+			kind = "baliza"
+			team = defenders
+			spot = Vector3.new(side * (HALF - SMALL_BOX_DEPTH), 0, 0)
+			aim = Vector3.new(-side, 0, 0)
+		end
 	else
 		return false
 	end
 
 	state.carrier = nil
-	local restartTeam = if state.lastTouch then otherTeam(state.lastTouch) else nil
-	hold(F.outDelay, function()
-		placeBall(spot)
-		giveTo(restartTeam, F.restartPriority)
+	hold(Config.Rules.outDelay, function()
+		Football.startSetPiece(kind, team, spot, aim, Config.Rules.restartTime)
 	end)
 	return true
 end
@@ -379,6 +485,11 @@ local function canPlay(f: Footballer, now: number): boolean
 		return false
 	end
 	if state.priorityTeam and now < state.priorityUntil and f.teamId ~= state.priorityTeam then
+		return false
+	end
+	-- Numa reposicao so toca na bola quem repoe.
+	local piece = state.piece
+	if piece and f.teamId ~= piece.team then
 		return false
 	end
 	-- Fora do aquecimento e das partes, os bonecos nao jogam.
@@ -409,6 +520,11 @@ local function claim(b: BasePart, now: number)
 		best.immuneUntil = math.max(best.immuneUntil, now + F.claimImmunity)
 		state.carrier = best
 		state.lastTouch = best.teamId
+		local piece = state.piece
+		if piece and piece.taker ~= best then
+			piece.taker = best
+			piece.takenAt = now
+		end
 	end
 end
 
@@ -438,12 +554,42 @@ end
 
 --------------------------------------------------------------------------------
 
+local function clearPiece()
+	state.piece = nil
+	workspace:SetAttribute("Restart", nil)
+end
+
+--[[
+	O ritmo: quantos segundos a bola esteve viva e quantos esteve parada, nas
+	partes. Parada e tudo o que nao e jogo — golo, bola fora, reposicao a
+	espera, pontape de saida, lance no arbitro.
+]]
+local function measure(dt: number)
+	if not state.live then
+		return
+	end
+	local stopped = state.waitUntil > 0 or state.releaseAt > 0 or state.piece ~= nil or Squad.isFrozen()
+	if stopped then
+		state.deadTime += dt
+	else
+		state.liveTime += dt
+	end
+	workspace:SetAttribute("LiveTime", math.floor(state.liveTime))
+	workspace:SetAttribute("DeadTime", math.floor(state.deadTime))
+end
+
+function Football.resetClock()
+	state.liveTime = 0
+	state.deadTime = 0
+end
+
 function Football.step(dt: number)
 	local b = ball
 	if not b then
 		return
 	end
 	local now = os.clock()
+	measure(dt)
 
 	-- A espera do pontape de saida.
 	if state.releaseAt > 0 then
@@ -473,12 +619,36 @@ function Football.step(dt: number)
 		return
 	end
 
+	--[[
+		A reposicao a espera. Acabado o tempo sem ninguem bater, a bola fica
+		viva ali mesmo: quem a tinha segue com ela, e se ninguem a tinha a
+		equipa que repunha ainda leva meio segundo de avanco.
+	]]
+	local piece = state.piece
+	if piece and now >= piece.deadline then
+		local team = piece.team
+		clearPiece()
+		piece = nil
+		if not state.carrier then
+			giveTo(team, Config.Rules.restartEdge)
+		end
+	end
+
 	local carrier = state.carrier
 	if carrier then
 		local root = carrier.root
 		local humanoid = carrier.humanoid
 		if not root or not humanoid or not humanoid.Parent or Squad.isDown(carrier, now) then
 			state.carrier = nil
+		elseif piece then
+			-- Na reposicao a bola nao anda com os pes: fica no ponto ate ser
+			-- batida. Quem se afasta dela larga-a.
+			b.CFrame = CFrame.new(piece.spot.X, R + 0.05, piece.spot.Z)
+			b.AssemblyLinearVelocity = Vector3.zero
+			b.AssemblyAngularVelocity = Vector3.zero
+			if horizontal(root.Position, piece.spot) > F.claimRange + 1.5 then
+				state.carrier = nil
+			end
 		else
 			carrier = tackle(carrier, now)
 			local r = carrier.root :: BasePart
@@ -489,6 +659,9 @@ function Football.step(dt: number)
 			b.AssemblyLinearVelocity = Vector3.new(v.X, 0, v.Z)
 			b.AssemblyAngularVelocity = Vector3.new(v.Z, 0, -v.X) / R
 		end
+	elseif piece then
+		b.CFrame = CFrame.new(piece.spot.X, R + 0.05, piece.spot.Z)
+		b.AssemblyLinearVelocity = Vector3.zero
 	else
 		-- O travao: forte no chao, fraco no ar.
 		local v = b.AssemblyLinearVelocity
@@ -506,7 +679,7 @@ function Football.step(dt: number)
 	end
 
 	local p = b.Position
-	if checkGoal(p) or checkOut(p) then
+	if not piece and (checkGoal(p) or checkOut(p)) then
 		return
 	end
 

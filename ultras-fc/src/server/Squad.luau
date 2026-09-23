@@ -104,12 +104,12 @@ local function hipHeight(f: Footballer): number
 	return 3
 end
 
-function Squad.place(f: Footballer, at: Vector3)
+function Squad.place(f: Footballer, at: Vector3, facingDir: Vector3?)
 	local model = f.model
 	if not model then
 		return
 	end
-	local facing = Vector3.new(Squad.attackSign(f.teamId), 0, 0)
+	local facing = facingDir or Vector3.new(Squad.attackSign(f.teamId), 0, 0)
 	model:PivotTo(groundCFrame(at, facing, hipHeight(f) + 0.1))
 	local root = f.root
 	if root then
