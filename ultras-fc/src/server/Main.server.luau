@@ -342,10 +342,11 @@ Remotes.Football.OnServerEvent:Connect(function(player, action, value)
 	end
 	if action == "sprint" then
 		Squad.setSprint(player, value == true)
-	elseif action == "shoot" and type(value) == "number" then
-		Football.shoot(f, value)
-	elseif action == "pass" then
-		Football.pass(f)
+	elseif action == "kick" and type(value) == "table" then
+		local power, curve, height = value.power, value.curve, value.height
+		if type(power) == "number" and type(curve) == "number" and type(height) == "number" then
+			Football.kick(f, power, curve, height)
+		end
 	end
 end)
 

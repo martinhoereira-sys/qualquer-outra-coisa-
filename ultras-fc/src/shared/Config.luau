@@ -195,16 +195,29 @@ Config.Football = {
 	rollDrag = 0.85, -- travao no chao, por segundo
 	airDrag = 0.12, -- travao no ar
 
-	-- Rematar: segurar carrega, largar chuta
+	--[[
+		Chutar: um botao para tudo. Segurar carrega a forca, largar chuta; um
+		toque curto e um passe, carregado a fundo e um remate. Enquanto se
+		segura, mexer o rato da o efeito (para os lados) e a altura (para cima,
+		chapeu; para baixo, rasteira).
+	]]
 	chargeTime = 1.1, -- segundos ate a forca maxima
-	shotSpeedMin = 42,
-	shotSpeedMax = 112,
-	shotLiftMin = 0.05, -- fracao da velocidade que vai para cima
-	shotLiftMax = 0.2,
+	kickSpeedMin = 24, -- um toque
+	kickSpeedMax = 112, -- tudo
+	aimPixels = 120, -- quanto se mexe o rato para chegar ao maximo de efeito ou altura
+	liftNeutral = 0.08, -- fracao da velocidade que vai para cima, com o rato parado
+	liftMax = 0.8, -- rato todo para cima: chapeu, que passa por cima de quem esta a frente
+	curveAccel = 70, -- studs/s2 de desvio para o lado, com o efeito todo
+	curveTime = 1.2, -- quanto tempo o efeito dura no ar
 
-	-- Passar: um toque, rasteiro
+	-- Chutos fracos para a frente de um colega vao na direcao dele, com a
+	-- forca que se escolheu. Sem isto, passar so pela direcao do boneco era
+	-- quase impossivel.
+	passAssistPower = 0.4, -- ate esta forca ha ajuda
 	passCone = 25, -- graus; um colega dentro deste cone recebe-a
 	passRange = 70,
+
+	-- Os passes dos bonecos
 	passSpeedMin = 30,
 	passSpeedMax = 66,
 

@@ -44,6 +44,8 @@ local state = {
 	releaseAt = 0, -- fim da espera do pontape de saida
 	kickingTeam = nil :: string?,
 	flightUntil = 0, -- acabada de chutar, ainda ninguem lhe pode tocar
+	curve = 0, -- desvio lateral do efeito, em studs/s2 (positivo: para a direita de quem chutou)
+	curveUntil = 0,
 }
 
 local onGoal: ((string) -> ())? = nil
@@ -147,6 +149,7 @@ local function release(f: Footballer, direction: Vector3, speed: number, lift: n
 	-- Ninguem lhe toca no primeiro instante: sem isto, quem estava colado a
 	-- quem chutou ficava com a bola antes de ela sair dos pes.
 	state.flightUntil = os.clock() + F.kickFlight
+	state.curve = 0
 
 	local from = root.Position
 	b.CFrame = CFrame.new(from.X + dir.X * F.dribbleDistance, R + 0.1, from.Z + dir.Z * F.dribbleDistance)
@@ -154,50 +157,10 @@ local function release(f: Footballer, direction: Vector3, speed: number, lift: n
 	b.AssemblyLinearVelocity = dir * speed + Vector3.new(0, lift, 0)
 end
 
---[[
-	Rematar. `power` e 0 a 1, a barra de forca. Mais forca, mais velocidade e
-	mais altura — um remate cheio de perto vai por cima, e e para ir.
-]]
-function Football.shoot(f: Footballer, power: number, direction: Vector3?): boolean
-	if state.carrier ~= f or not f.root then
-		return false
-	end
-	local p = math.clamp(power, 0, 1)
-	local speed = F.shotSpeedMin + (F.shotSpeedMax - F.shotSpeedMin) * p
-	local lift = speed * (F.shotLiftMin + (F.shotLiftMax - F.shotLiftMin) * p)
-	release(f, direction or (f.root :: BasePart).CFrame.LookVector, speed, lift)
-	return true
-end
-
-local function passSpeed(distance: number): number
-	return math.clamp(18 + distance * 0.75, F.passSpeedMin, F.passSpeedMax)
-end
-
-function Football.passTo(f: Footballer, target: Footballer): boolean
-	local root = f.root
-	local other = target.root
-	if state.carrier ~= f or not root or not other then
-		return false
-	end
-	-- Um pouco a frente de quem recebe, para nao lhe chegar aos calcanhares.
-	local aim = other.Position + Vector3.new(other.AssemblyLinearVelocity.X, 0, other.AssemblyLinearVelocity.Z) * 0.35
-	local delta = aim - root.Position
-	release(f, delta, passSpeed(Vector3.new(delta.X, 0, delta.Z).Magnitude), 0)
-	return true
-end
-
---[[
-	Passar: um toque rasteiro. Se houver um colega a frente, dentro do cone, a
-	bola vai para ele; se nao, vai em frente com forca media.
-]]
-function Football.pass(f: Footballer, direction: Vector3?): boolean
-	local root = f.root
-	if state.carrier ~= f or not root then
-		return false
-	end
-	local dir = flat(direction or root.CFrame.LookVector)
+-- Um colega a frente, dentro do cone, para onde um chuto fraco se desvia.
+local function mateInCone(f: Footballer, dir: Vector3): Footballer?
+	local root = f.root :: BasePart
 	local cosCone = math.cos(math.rad(F.passCone))
-
 	local best: Footballer? = nil
 	local bestScore = -math.huge
 	for _, mate in Squad.team(f.teamId) do
@@ -218,11 +181,62 @@ function Football.pass(f: Footballer, direction: Vector3?): boolean
 			end
 		end
 	end
+	return best
+end
 
-	if best then
-		return Football.passTo(f, best)
+--[[
+	Chutar. E o unico gesto com a bola: um toque e um passe, tudo e um remate.
+
+	`power` e 0 a 1, a barra de forca. `curve` e -1 a 1, o efeito: a bola
+	desvia-se para esse lado enquanto vai no ar. `height` e -1 a 1: para baixo
+	sai rasteira, parada sai com um pouco de altura, para cima e um chapeu.
+]]
+function Football.kick(f: Footballer, power: number, curve: number, height: number, direction: Vector3?): boolean
+	local root = f.root
+	if state.carrier ~= f or not root then
+		return false
 	end
-	release(f, dir, passSpeed(30), 0)
+	local p = math.clamp(power, 0, 1)
+	local c = math.clamp(curve, -1, 1)
+	local h = math.clamp(height, -1, 1)
+	local dir = flat(direction or root.CFrame.LookVector)
+
+	if p <= F.passAssistPower then
+		local mate = mateInCone(f, dir)
+		if mate then
+			local other = mate.root :: BasePart
+			local aim = other.Position + Vector3.new(other.AssemblyLinearVelocity.X, 0, other.AssemblyLinearVelocity.Z) * 0.35
+			dir = flat(aim - root.Position)
+		end
+	end
+
+	local speed = F.kickSpeedMin + (F.kickSpeedMax - F.kickSpeedMin) * p
+	local liftFraction = if h < 0 then F.liftNeutral * (1 + h) else F.liftNeutral + (F.liftMax - F.liftNeutral) * h
+	release(f, dir, speed, speed * liftFraction)
+	state.curve = c * F.curveAccel
+	state.curveUntil = os.clock() + F.curveTime
+	return true
+end
+
+-- Os bonecos rematam sem efeito, com a altura de um remate normal.
+function Football.shoot(f: Footballer, power: number, direction: Vector3?): boolean
+	return Football.kick(f, power, 0, 0, direction)
+end
+
+local function passSpeed(distance: number): number
+	return math.clamp(18 + distance * 0.75, F.passSpeedMin, F.passSpeedMax)
+end
+
+function Football.passTo(f: Footballer, target: Footballer): boolean
+	local root = f.root
+	local other = target.root
+	if state.carrier ~= f or not root or not other then
+		return false
+	end
+	-- Um pouco a frente de quem recebe, para nao lhe chegar aos calcanhares.
+	local aim = other.Position + Vector3.new(other.AssemblyLinearVelocity.X, 0, other.AssemblyLinearVelocity.Z) * 0.35
+	local delta = aim - root.Position
+	release(f, delta, passSpeed(Vector3.new(delta.X, 0, delta.Z).Magnitude), 0)
 	return true
 end
 
@@ -236,6 +250,7 @@ local function placeBall(at: Vector3)
 		return
 	end
 	b.CFrame = CFrame.new(at.X, R + 0.1, at.Z)
+	state.curve = 0
 	b.AssemblyLinearVelocity = Vector3.zero
 	b.AssemblyAngularVelocity = Vector3.zero
 end
@@ -388,6 +403,7 @@ local function claim(b: BasePart, now: number)
 		end
 	end
 	if best then
+		state.curve = 0
 		-- Um instante para a dominar: sem isto, apanhar a bola ao lado de um
 		-- adversario era perde-la no mesmo frame.
 		best.immuneUntil = math.max(best.immuneUntil, now + F.claimImmunity)
@@ -478,7 +494,15 @@ function Football.step(dt: number)
 		local v = b.AssemblyLinearVelocity
 		local onGround = b.Position.Y < R + 0.4
 		local keep = math.exp(-(if onGround then F.rollDrag else F.airDrag) * dt)
-		b.AssemblyLinearVelocity = Vector3.new(v.X * keep, v.Y, v.Z * keep)
+		local horizontalV = Vector3.new(v.X * keep, 0, v.Z * keep)
+
+		-- O efeito: a bola vai-se desviando para o lado, sempre de lado em
+		-- relacao ao caminho que leva, e o que a faz curvar em vez de derivar.
+		if state.curve ~= 0 and now < state.curveUntil and horizontalV.Magnitude > 4 then
+			local right = horizontalV.Unit:Cross(Vector3.yAxis)
+			horizontalV += right * state.curve * dt
+		end
+		b.AssemblyLinearVelocity = horizontalV + Vector3.new(0, v.Y, 0)
 	end
 
 	local p = b.Position

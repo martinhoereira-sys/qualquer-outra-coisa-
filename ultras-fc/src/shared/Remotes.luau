@@ -21,7 +21,7 @@ local NAMES = {
 	"RefState", -- servidor -> todos: quem apita, suspeicao, ultima decisao
 	"Tifo", -- cliente -> servidor: o lider dispara um tifo, ou alguem levanta a cartolina
 	"TifoState", -- servidor -> clientes: tifo no ar, e a cartolina de cada um
-	"Football", -- jogador -> servidor: sprint, remate, passe
+	"Football", -- jogador -> servidor: sprint, e o chuto (forca, efeito, altura)
 }
 
 local folder: Folder

@@ -2,9 +2,10 @@
 --[[
 	O que o jogador ve e carrega.
 
-	Rematar: segurar o clique esquerdo (ou F) carrega a forca, largar chuta.
-	Passar: um toque no clique direito (ou E). Correr: Shift, enquanto houver
-	folego.
+	Um botao para tudo: segurar o clique esquerdo carrega a forca, largar chuta.
+	Um toque e um passe, carregado a fundo e um remate — a forca e de quem chuta.
+	Enquanto se segura, mexer o rato da o efeito (para os lados) e a altura
+	(para cima, chapeu; para baixo, rasteira). Shift e correr.
 
 	Aqui so ha input e barras. Quem tem a bola, para onde ela vai e se o remate
 	conta e tudo decidido no servidor.
@@ -81,7 +82,48 @@ staminaTag.Font = Enum.Font.Gotham
 staminaTag.AnchorPoint = Vector2.new(1, 0.5)
 staminaTag.Position = UDim2.new(0, -8, 0.5, 0)
 
-local hint = text(gui, "segurar clique esquerdo  rematar    ·    clique direito  passar    ·    Shift  correr", 12, MUTED)
+--[[
+	O efeito e a altura: um quadrado por cima da barra de forca, com um ponto
+	que segue o rato. Ao centro, sem efeito e altura normal; a direita curva
+	para a direita; em cima e chapeu, em baixo rasteira.
+]]
+local pad = Instance.new("Frame")
+pad.AnchorPoint = Vector2.new(0.5, 1)
+pad.Size = UDim2.fromOffset(64, 64)
+pad.Position = UDim2.new(0.5, 0, 1, -172)
+pad.BackgroundColor3 = TRACK
+pad.BackgroundTransparency = 0.35
+pad.BorderSizePixel = 0
+pad.Visible = false
+pad.Parent = gui
+local padCorner = Instance.new("UICorner")
+padCorner.CornerRadius = UDim.new(0, 8)
+padCorner.Parent = pad
+for _, cross in { UDim2.new(1, -12, 0, 1), UDim2.new(0, 1, 1, -12) } do
+	local line = Instance.new("Frame")
+	line.AnchorPoint = Vector2.new(0.5, 0.5)
+	line.Position = UDim2.fromScale(0.5, 0.5)
+	line.Size = cross
+	line.BackgroundColor3 = MUTED
+	line.BackgroundTransparency = 0.5
+	line.BorderSizePixel = 0
+	line.Parent = pad
+end
+local dot = Instance.new("Frame")
+dot.AnchorPoint = Vector2.new(0.5, 0.5)
+dot.Size = UDim2.fromOffset(10, 10)
+dot.BackgroundColor3 = BRASS
+dot.BorderSizePixel = 0
+dot.Parent = pad
+local dotCorner = Instance.new("UICorner")
+dotCorner.CornerRadius = UDim.new(1, 0)
+dotCorner.Parent = dot
+local padTag = text(pad, "efeito · altura", 11, MUTED)
+padTag.Font = Enum.Font.Gotham
+padTag.AnchorPoint = Vector2.new(0.5, 1)
+padTag.Position = UDim2.new(0.5, 0, 0, -4)
+
+local hint = text(gui, "segurar clique  forca    ·    mexer o rato  efeito e altura    ·    largar  chutar    ·    Shift  correr", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
@@ -112,17 +154,8 @@ refresh()
 --------------------------------------------------------------------------------
 
 local chargingSince: number? = nil
+local pressedAt = Vector2.zero
 local sprinting = false
-
---[[
-	O clique direito e o passe, mas segurar e arrastar o direito e rodar a
-	camara no Roblox. Um toque curto e sem arrastar passa; o resto fica para
-	a camara.
-]]
-local rightSince: number? = nil
-local rightAt = Vector2.zero
-local TAP_TIME = 0.25
-local TAP_DRIFT = 6
 
 local function charge(): number
 	local since = chargingSince
@@ -132,21 +165,22 @@ local function charge(): number
 	return math.clamp((os.clock() - since) / F.chargeTime, 0, 1)
 end
 
-local function isShootInput(input: InputObject): boolean
-	return input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.F
+-- O efeito e a altura, de -1 a 1, pelo que o rato andou desde que se carregou.
+local function aim(): (number, number)
+	if not chargingSince then
+		return 0, 0
+	end
+	local moved = UserInputService:GetMouseLocation() - pressedAt
+	return math.clamp(moved.X / F.aimPixels, -1, 1), math.clamp(-moved.Y / F.aimPixels, -1, 1)
 end
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or not playing() then
 		return
 	end
-	if isShootInput(input) then
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		chargingSince = os.clock()
-	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
-		rightSince = os.clock()
-		rightAt = UserInputService:GetMouseLocation()
-	elseif input.KeyCode == Enum.KeyCode.E then
-		Remotes.Football:FireServer("pass")
+		pressedAt = UserInputService:GetMouseLocation()
 	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then
 		sprinting = true
 		Remotes.Football:FireServer("sprint", true)
@@ -157,16 +191,10 @@ UserInputService.InputEnded:Connect(function(input)
 	if not playing() then
 		return
 	end
-	if isShootInput(input) and chargingSince then
-		Remotes.Football:FireServer("shoot", charge())
+	if input.UserInputType == Enum.UserInputType.MouseButton1 and chargingSince then
+		local curve, height = aim()
+		Remotes.Football:FireServer("kick", { power = charge(), curve = curve, height = height })
 		chargingSince = nil
-	elseif input.UserInputType == Enum.UserInputType.MouseButton2 and rightSince then
-		local quick = os.clock() - rightSince <= TAP_TIME
-		local still = (UserInputService:GetMouseLocation() - rightAt).Magnitude <= TAP_DRIFT
-		rightSince = nil
-		if quick and still then
-			Remotes.Football:FireServer("pass")
-		end
 	elseif (input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift) and sprinting then
 		sprinting = false
 		Remotes.Football:FireServer("sprint", false)
@@ -186,6 +214,10 @@ RunService.RenderStepped:Connect(function()
 	powerTrack.Visible = chargingSince ~= nil
 	powerFill.Size = UDim2.fromScale(math.max(power, 0.02), 1)
 	powerFill.BackgroundColor3 = BRASS:Lerp(SPENT, math.max(power - 0.75, 0) * 4)
+
+	local curve, height = aim()
+	pad.Visible = chargingSince ~= nil
+	dot.Position = UDim2.fromScale(0.5 + curve * 0.5, 0.5 - height * 0.5)
 
 	local stamina = player:GetAttribute("Stamina")
 	local fraction = if type(stamina) == "number" then stamina else 1
