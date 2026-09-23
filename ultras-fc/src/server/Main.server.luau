@@ -182,7 +182,7 @@ RunService.Heartbeat:Connect(function(dt)
 	for teamId, value in intensity do
 		intensity[teamId] = math.max(value - Config.Drum.intensityDecay * dt, 0)
 	end
-	Crowd.step(os.clock(), intensity)
+	Crowd.step(dt, intensity)
 end)
 
 -- Dez vezes por segundo chega para a barra parecer viva sem encher a rede.

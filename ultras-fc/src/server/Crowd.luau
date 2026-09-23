@@ -10,7 +10,15 @@
 	relvado: nao pessoas paradas, um bloco inteiro a mexer ao mesmo tempo. Cada
 	um leva um desfasamento minimo para nao parecer uma maquina.
 
-	Nada usa fisica nem Humanoid: e tudo posto a mao, frame a frame.
+	Nada usa fisica nem Humanoid: e tudo posto a mao, frame a frame — e nao aqui.
+	O servidor so constroi os bonecos e diz o compasso de cada claque; quem os
+	poe a saltar e cada ecra (Crowd.client). Mexer 80 bonecos no servidor era
+	mandar centenas de pecas pela rede a todos, sessenta vezes por segundo, e
+	num telemovel isso pesa mais do que o estadio inteiro.
+
+	O compasso e o mesmo para toda a gente: o servidor acumula-o e publica-o com
+	o relogio dele, e cada ecra anda com ele a partir dai. Todos veem a claque a
+	saltar ao mesmo tempo.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,15 +34,19 @@ local S = Config.Stadium
 
 type Supporter = {
 	model: Model,
-	base: Vector3,
-	phase: number,
 	teamId: string,
 }
 
 local people: { Supporter } = {}
+local root: Folder? = nil
 
--- Claques com o tifo no ar: ficam quietas a segurar a cartolina.
-local holding: { [string]: boolean } = {}
+-- Onde vai o salto de cada claque, em saltos. So interessa a parte decimal.
+local beat: { [string]: number } = {}
+
+-- Quantas vezes por segundo o compasso vai para os ecras. Entre envios, cada
+-- ecra adianta-o sozinho.
+local SEND_EVERY = 0.1
+local sinceSend = math.huge
 
 local SKIN = {
 	Color3.fromRGB(226, 190, 152),
@@ -74,10 +86,6 @@ local function buildSupporter(teamId: string, at: Vector3, withFlag: boolean, pa
 	local function attach(name: string, size: Vector3, colour: Color3, offset: CFrame)
 		local piece = makePart(name, size, colour, model)
 		piece.CFrame = torso.CFrame * offset
-		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = torso
-		weld.Part1 = piece
-		weld.Parent = torso
 	end
 
 	attach("Head", Vector3.new(1, 1, 1), SKIN[math.random(1, #SKIN)], CFrame.new(0, 1.5, 0))
@@ -92,13 +100,20 @@ local function buildSupporter(teamId: string, at: Vector3, withFlag: boolean, pa
 		attach("Flag", Vector3.new(0.15, 3.4, 5), team.color, CFrame.new(0.9, 8, 2.6))
 	end
 
-	return { model = model, base = at, phase = math.random() * 0.9, teamId = teamId }
+	-- O que o ecra precisa para o por a saltar: de que claque e, o desfasamento
+	-- dele, e quantas pecas tem, para saber quando ja chegaram todas.
+	model:SetAttribute("Team", teamId)
+	model:SetAttribute("Phase", math.random() * 0.12) -- em saltos, nao em segundos
+	model:SetAttribute("Parts", #model:GetChildren())
+
+	return { model = model, teamId = teamId }
 end
 
 function Crowd.build(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "Crowd"
 	folder.Parent = parent
+	root = folder
 
 	table.clear(people)
 
@@ -138,21 +153,37 @@ end
 --[[
 	`intensity` e 0 a 1: e a forca do tambor. Com ele parado a claque mexe-se
 	devagar; a bater, salta a serio.
-]]
-function Crowd.step(now: number, intensityByTeam: { [string]: number })
-	for _, person in people do
-		local intensity = intensityByTeam[person.teamId] or 0
-		local rate = C.baseRate + (C.drumRate - C.baseRate) * intensity
-		local height = C.bounceHeight * (0.45 + intensity * 0.55)
 
-		local lift = holding[person.teamId] and 0 or math.abs(math.sin((now + person.phase) * rate * math.pi)) * height
-		local root = person.model.PrimaryPart
-		if root then
-			root.CFrame = CFrame.lookAt(
-				person.base + Vector3.new(0, lift, 0),
-				Vector3.new(0, person.base.Y - 4, 0)
-			)
-		end
+	O compasso acumula-se em vez de se tirar do relogio: assim, quando o tambor
+	acelera, a claque acelera a partir de onde esta, sem dar um salto no ar.
+	Vai para os ecras como atributos da pasta Crowd, com a hora do servidor a
+	que foi tirado.
+]]
+function Crowd.step(dt: number, intensityByTeam: { [string]: number })
+	local folder = root
+	if not folder then
+		return
+	end
+
+	local rates: { [string]: number } = {}
+	for _, teamId in Config.TeamOrder do
+		local intensity = intensityByTeam[teamId] or 0
+		rates[teamId] = C.baseRate + (C.drumRate - C.baseRate) * intensity
+		beat[teamId] = ((beat[teamId] or 0) + rates[teamId] * dt) % 1
+	end
+
+	sinceSend += dt
+	if sinceSend < SEND_EVERY then
+		return
+	end
+	sinceSend = 0
+
+	folder:SetAttribute("Stamp", workspace:GetServerTimeNow())
+	for _, teamId in Config.TeamOrder do
+		local intensity = intensityByTeam[teamId] or 0
+		folder:SetAttribute("Beat_" .. teamId, beat[teamId])
+		folder:SetAttribute("Rate_" .. teamId, rates[teamId])
+		folder:SetAttribute("Height_" .. teamId, C.bounceHeight * (0.45 + intensity * 0.55))
 	end
 end
 
@@ -161,7 +192,9 @@ end
 	cartolina nao salta, e um mastro de nove studs furava o desenho.
 ]]
 function Crowd.setTifo(teamId: string, on: boolean)
-	holding[teamId] = on or nil
+	if root then
+		root:SetAttribute("Hold_" .. teamId, on)
+	end
 	for _, person in people do
 		if person.teamId == teamId then
 			for _, name in { "Pole", "Flag" } do
