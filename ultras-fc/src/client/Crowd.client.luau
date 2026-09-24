@@ -94,6 +94,46 @@ crowd.ChildAdded:Connect(watch)
 local moveParts: { BasePart } = {}
 local moveFrames: { CFrame } = {}
 
+-- Um numero entre 0 e 1 que so depende de `x`: o mesmo em todos os ecras.
+local function hash(x: number): number
+	return (math.sin(x * 12.9898) * 43758.5453) % 1
+end
+
+--[[
+	O golo. Normalmente a claque salta toda ao mesmo tempo, mas no golo
+	ninguem esta organizado: cada um faz o seu, e o contraste e o que faz o
+	golo parecer grande.
+
+	Cada boneco muda de gesto a cada par de segundos: saltos a destempo e mais
+	altos, rodar sobre si, encostar-se ao do lado a abracar, ou balancar com
+	os bracos no ar. Tudo tirado do relogio do servidor e do desfasamento de
+	cada um, por isso todos os ecras veem o mesmo caos.
+]]
+local function chaos(person: Person, now: number): CFrame
+	local seed = person.phase * 97.13
+	local slot = math.floor(now / 2.5 + hash(seed) * 4)
+	local gesture = math.floor(hash(seed + slot * 0.61) * 4)
+	local rate = 1.3 + hash(seed + 1.7) * 2.6
+	local height = Config.Crowd.bounceHeight * (1 + hash(seed + slot * 0.37) * 1.8)
+	local lift = math.abs(math.sin((now * rate + hash(seed + 3.1)) * math.pi)) * height
+
+	local yaw, roll, side = 0, 0, 0
+	if gesture == 1 then
+		-- A rodar sobre si.
+		yaw = now * (3 + hash(seed + 5.3) * 4) % (math.pi * 2)
+	elseif gesture == 2 then
+		-- Encostado ao do lado, num abraco: salta menos e inclina-se para ele.
+		local towards = if hash(seed + slot) < 0.5 then -1 else 1
+		roll = towards * 0.45
+		side = towards * 0.7
+		lift *= 0.35
+	elseif gesture == 3 then
+		-- A balancar de um lado para o outro.
+		roll = math.sin(now * 7 + seed) * 0.4
+	end
+	return person.base * CFrame.new(side, lift, 0) * CFrame.Angles(0, yaw, roll)
+end
+
 RunService.RenderStepped:Connect(function()
 	local stamp = crowd:GetAttribute("Stamp")
 	if type(stamp) ~= "number" then
@@ -105,7 +145,11 @@ RunService.RenderStepped:Connect(function()
 	local beats: { [string]: number } = {}
 	local heights: { [string]: number } = {}
 	local drops: { [string]: number } = {}
+	local parties: { [string]: boolean } = {}
+	local now = workspace:GetServerTimeNow()
 	for _, name in Config.TeamOrder do
+		-- Em festa, e sem tifo no ar (quem segura a cartolina nao larga).
+		parties[name] = crowd:GetAttribute("Party_" .. name) == true and crowd:GetAttribute("Hold_" .. name) ~= true
 		local beat = crowd:GetAttribute("Beat_" .. name)
 		local rate = crowd:GetAttribute("Rate_" .. name)
 		local height = crowd:GetAttribute("Height_" .. name)
@@ -123,8 +167,13 @@ RunService.RenderStepped:Connect(function()
 	for _, person in people do
 		local beat = beats[person.teamId]
 		if beat then
-			local lift = math.abs(math.sin((beat + person.phase) * math.pi)) * heights[person.teamId]
-			local at = person.base + Vector3.new(0, lift - drops[person.teamId], 0)
+			local at: CFrame
+			if parties[person.teamId] then
+				at = chaos(person, now)
+			else
+				local lift = math.abs(math.sin((beat + person.phase) * math.pi)) * heights[person.teamId]
+				at = person.base + Vector3.new(0, lift - drops[person.teamId], 0)
+			end
 			for i, part in person.parts do
 				table.insert(moveParts, part)
 				table.insert(moveFrames, at * person.offsets[i])

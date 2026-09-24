@@ -197,6 +197,8 @@ function Crowd.step(dt: number, intensityByTeam: { [string]: number })
 		folder:SetAttribute("Rate_" .. teamId, rates[teamId])
 		folder:SetAttribute("Height_" .. teamId, heights[teamId])
 		folder:SetAttribute("Sit_" .. teamId, moods[teamId] == "calada")
+		-- Em festa cada um faz o seu: o compasso fica, mas os ecras deixam de o seguir.
+		folder:SetAttribute("Party_" .. teamId, moods[teamId] == "festa")
 	end
 end
 

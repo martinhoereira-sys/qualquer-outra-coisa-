@@ -31,6 +31,7 @@ type Walker = {
 	back: number, -- quantos studs atras da faixa
 	side: number, -- quanto para o lado
 	gather: Vector3, -- onde fica a espera, antes de sair
+	holder: number?, -- -1 ou 1: segura a faixa por esta ponta
 	phase: number, -- para o passo nao ser igual em todos
 	at: Vector3, -- onde esta agora (no chao)
 	facing: Vector3,
@@ -64,7 +65,8 @@ local function piece(name: string, size: Vector3, colour: Color3, parent: Instan
 end
 
 -- Um boneco como os da bancada: tronco, cabeca, pernas e os bracos no ar.
-local function makeWalker(colour: Color3, parent: Instance): ({ BasePart }, { CFrame })
+-- O do meio leva o tambor a frente da barriga.
+local function makeWalker(colour: Color3, parent: Instance, drum: boolean?): ({ BasePart }, { CFrame })
 	local model = Instance.new("Model")
 	model.Name = "Marcha"
 	model.Parent = parent
@@ -82,6 +84,12 @@ local function makeWalker(colour: Color3, parent: Instance): ({ BasePart }, { CF
 		CFrame.new(-1.1, 1, 0) * CFrame.Angles(0, 0, math.rad(18)),
 		CFrame.new(1.1, 1, 0) * CFrame.Angles(0, 0, math.rad(-18)),
 	}
+	if drum then
+		local body = piece("Drum", Vector3.new(1.6, 2.2, 2.2), Color3.fromRGB(196, 186, 168), model)
+		body.Shape = Enum.PartType.Cylinder
+		table.insert(parts, body)
+		table.insert(offsets, CFrame.new(0, -0.4, -1.5) * CFrame.Angles(0, math.rad(90), 0))
+	end
 	return parts, offsets
 end
 
@@ -100,10 +108,9 @@ local function track(banner: Instance)
 	folder.Parent = workspace
 
 	local walkers: { Walker } = {}
-	for _ = 1, M.bots do
-		local parts, offsets = makeWalker(team.color, folder)
-		-- Um grupo, nao uma fila: cada um a uma distancia e para um lado. A
-		-- espera ficam do lado da rua, a frente da faixa, nunca dentro da sede.
+	local function add(back: number, side: number, holder: number?, drum: boolean?)
+		local parts, offsets = makeWalker(team.color, folder, drum)
+		-- A espera ficam do lado da rua, a frente da faixa, nunca dentro da sede.
 		local angle = math.random() * math.pi
 		local radius = 4 + math.random() * 10
 		local gather = Vector3.new(math.cos(angle) * radius, 0, 2 + math.sin(angle) * radius)
@@ -111,15 +118,36 @@ local function track(banner: Instance)
 		table.insert(walkers, {
 			parts = parts,
 			offsets = offsets,
-			back = 4 + math.random() * 22,
-			side = (math.random() - 0.5) * 16,
+			back = back,
+			side = side,
 			gather = gather,
+			holder = holder,
 			phase = math.random() * math.pi * 2,
 			at = Vector3.new(start.X, 0, start.Z),
 			facing = Vector3.new(0, 0, -1),
 			ground = banner.Position.Y - 3,
 			nextGround = 0,
 		})
+	end
+
+	-- Dois seguram a faixa, um em cada ponta, e ela vai esticada entre eles.
+	add(0, 0, -1)
+	add(0, 0, 1)
+
+	--[[
+		O grupo logo atras da faixa, colado e de parede a parede: filas da
+		largura dela, apertadas, com um pouco de desalinho para parecer gente e
+		nao soldados. O lider com o tambor vai no meio da primeira fila.
+	]]
+	local columns = M.columns
+	local spacing = banner.Size.X / columns
+	for i = 0, M.bots - 1 do
+		local row = i // columns
+		local column = i % columns
+		local side = (column - (columns - 1) / 2) * spacing + (math.random() - 0.5) * 0.8
+		local back = 3 + row * 2.6 + (math.random() - 0.5) * 0.8
+		local drum = row == 0 and column == columns // 2
+		add(back, if drum then 0 else side, nil, drum)
 	end
 
 	groups[banner] = {
@@ -215,7 +243,11 @@ RunService.RenderStepped:Connect(function(dt)
 
 		for _, w in group.walkers do
 			local target: Vector3
-			if moving and not arrived then
+			if w.holder and not arrived then
+				-- Na ponta da faixa, a segura-la: vai onde ela vai, virado para a frente.
+				local grip = banner.CFrame * CFrame.new(w.holder * (banner.Size.X / 2 + 0.6), 0, 0.9)
+				target = grip.Position
+			elseif moving and not arrived then
 				local point, direction = alongTrail(trail, w.back)
 				local right = direction:Cross(Vector3.yAxis)
 				target = point + right * w.side
@@ -233,6 +265,11 @@ RunService.RenderStepped:Connect(function(dt)
 			if walking then
 				w.facing = delta.Unit
 				w.at += delta.Unit * stepLength
+			end
+			-- Quem segura a faixa olha sempre para onde ela olha.
+			if w.holder and moving then
+				local look = banner.CFrame.LookVector
+				w.facing = Vector3.new(look.X, 0, look.Z).Unit
 			end
 
 			if now >= w.nextGround then

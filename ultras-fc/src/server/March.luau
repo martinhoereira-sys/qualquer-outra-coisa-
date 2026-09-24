@@ -88,7 +88,8 @@ local function buildBanner(teamId: string, at: Vector3, parent: Instance): Part
 
 	local banner = Instance.new("Part")
 	banner.Name = "Banner_" .. teamId
-	banner.Size = Vector3.new(22, 5, 0.6)
+	-- Larga como a rua cheia de gente atras dela.
+	banner.Size = Vector3.new(26, 5, 0.6)
 	banner.CFrame = CFrame.new(at)
 	banner.Color = team.color
 	banner.Material = Enum.Material.Fabric
@@ -225,9 +226,9 @@ function March.step(dt: number)
 			banner.leg += 1
 			banner.model.CFrame = CFrame.new(target) * banner.model.CFrame.Rotation
 		else
+			-- Atravessada na rua, virada para a frente: toda a gente vem atras dela.
 			local step = delta.Unit * M.speed * dt
 			banner.model.CFrame = CFrame.lookAt(here + step, here + step + delta.Unit)
-				* CFrame.Angles(0, math.rad(90), 0)
 		end
 
 		-- Quem vai junto a faixa ganha credito, proporcional ao tempo que a
