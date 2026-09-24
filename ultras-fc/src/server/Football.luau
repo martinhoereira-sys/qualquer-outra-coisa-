@@ -85,6 +85,8 @@ local state = {
 	steals = 0, -- roubos e faltas nas partes, para o Output dizer o ritmo
 	fouls = 0,
 	reportedAt = 0, -- minuto de bola viva do ultimo relatorio
+	heldBy = nil :: Footballer?, -- o guarda-redes com a bola nas maos
+	heldUntil = 0, -- ate quando a pode segurar
 }
 
 local onGoal: ((string, Footballer?) -> ())? = nil
@@ -688,35 +690,99 @@ local function canPlay(f: Footballer, now: number): boolean
 	return true
 end
 
-local function claim(b: BasePart, now: number)
-	if b.Position.Y - R > F.claimHeight then
-		return
+-- Na area que este jogador defende: a do seu guarda-redes.
+local function inOwnBox(f: Footballer, at: Vector3): boolean
+	local side = -Squad.attackSign(f.teamId)
+	return at.X * side > HALF - BOX_DEPTH and math.abs(at.Z) < BOX_WIDTH / 2
+end
+
+--[[
+	Ate onde chega cada um. O guarda-redes, dentro da sua area, chega mais
+	longe e mais alto — e a atirar-se, mais ainda. Fora dela e um jogador como
+	os outros.
+]]
+local function reachFor(f: Footballer, at: Vector3, now: number): (number, number)
+	if f.keeper and inOwnBox(f, at) then
+		return if now < f.diveUntil then F.keeperDiveReach else F.keeperReach, F.keeperHeight
 	end
+	return F.claimRange, F.claimHeight
+end
+
+local function claim(b: BasePart, now: number)
 	local best: Footballer? = nil
-	local bestDistance = F.claimRange
+	local bestDistance = math.huge
 	for _, f in Squad.active() do
 		local root = f.root :: BasePart
+		local reach, height = reachFor(f, b.Position, now)
 		local d = horizontal(root.Position, b.Position)
-		if d <= bestDistance and canPlay(f, now) then
+		if d <= reach and d < bestDistance and b.Position.Y - R <= height and canPlay(f, now) then
 			bestDistance = d
 			best = f
 		end
 	end
-	if best then
-		state.curve = 0
-		-- Um instante para a dominar: sem isto, apanhar a bola ao lado de um
-		-- adversario era perde-la no mesmo frame.
-		best.immuneUntil = math.max(best.immuneUntil, now + F.claimImmunity)
-		state.carrier = best
-		state.lastTouch = best.teamId
-		state.lastToucher = best
-		local piece = state.piece
-		if piece and piece.taker ~= best then
-			piece.taker = best
-			piece.takenAt = now
-			workspace:SetAttribute("RestartTaker", takerName(best))
+	if not best then
+		return
+	end
+
+	-- O guarda-redes na sua area agarra-a com as maos. O boneco so agarra
+	-- parte dos remates fortes: os outros passam-lhe, e quer-se golos.
+	local keeperCatch = best.keeper and inOwnBox(best, b.Position)
+	if keeperCatch and not best.player and b.AssemblyLinearVelocity.Magnitude > F.fastShot then
+		if math.random() >= F.botKeeperSave then
+			state.noClaim[best] = now + 0.8
+			return
 		end
 	end
+
+	state.curve = 0
+	-- Um instante para a dominar: sem isto, apanhar a bola ao lado de um
+	-- adversario era perde-la no mesmo frame.
+	best.immuneUntil = math.max(best.immuneUntil, now + F.claimImmunity)
+	state.carrier = best
+	state.lastTouch = best.teamId
+	state.lastToucher = best
+	if keeperCatch then
+		state.heldBy = best
+		state.heldUntil = now + F.keeperHoldTime
+		best.diveUntil = 0
+		workspace:SetAttribute("HeldUntil", workspace:GetServerTimeNow() + F.keeperHoldTime)
+		workspace:SetAttribute("HeldTeam", best.teamId)
+	end
+	local piece = state.piece
+	if piece and piece.taker ~= best then
+		piece.taker = best
+		piece.takenAt = now
+		workspace:SetAttribute("RestartTaker", takerName(best))
+	end
+end
+
+--[[
+	O guarda-redes atira-se para o lado da bola. Chega mais longe durante o
+	voo; se nao a apanhar, fica no chao um segundo. Numa pessoa o impulso e
+	dado no proprio ecra (o corpo e dela); aqui so se regista o mergulho.
+]]
+function Football.dive(f: Footballer): boolean
+	local root = f.root
+	local now = os.clock()
+	if not f.keeper or not root or Squad.isDown(f, now) or now < f.diveReadyAt then
+		return false
+	end
+	if state.heldBy == f then
+		return false
+	end
+	f.diveUntil = now + F.keeperDiveTime
+	f.diveReadyAt = now + F.keeperDiveCooldown
+	if not f.player then
+		local toBall = flat(Football.ballPosition() - root.Position)
+		root.AssemblyLinearVelocity = toBall * F.keeperDiveSpeed + Vector3.new(0, 10, 0)
+	end
+	local model = f.model
+	task.delay(F.keeperDiveTime, function()
+		if f.model == model and state.carrier ~= f then
+			Squad.fall(f, os.clock())
+		end
+	end)
+	return true
 end
 
 local RULES = Config.Rules
@@ -869,7 +935,8 @@ end
 	fica um segundo imune, senao a bola andava de pe em pe sem ninguem a jogar.
 ]]
 local function tackle(carrier: Footballer, now: number): Footballer
-	if now < carrier.immuneUntil then
+	-- Com a bola nas maos do guarda-redes ninguem lha tira.
+	if now < carrier.immuneUntil or state.heldBy == carrier then
 		return carrier
 	end
 	local root = carrier.root :: BasePart
@@ -1076,8 +1143,41 @@ function Football.step(dt: number)
 		piece = nil
 	end
 
+	--[[
+		A bola nas maos do guarda-redes. Sai das maos quando ele a joga, quando
+		sai da area com ela (fora e um jogador normal, com a bola nos pes), ou
+		quando passa o tempo: ai perde-a, a frente dele.
+	]]
+	local keeper = state.heldBy
+	if keeper and (state.carrier ~= keeper or not keeper.root) then
+		state.heldBy = nil
+		workspace:SetAttribute("HeldUntil", nil)
+	elseif keeper and keeper.root then
+		local root = keeper.root :: BasePart
+		if not inOwnBox(keeper, root.Position) then
+			state.heldBy = nil
+			workspace:SetAttribute("HeldUntil", nil)
+		elseif now >= state.heldUntil then
+			state.heldBy = nil
+			workspace:SetAttribute("HeldUntil", nil)
+			state.carrier = nil
+			state.noClaim[keeper] = now + 1.2
+			local look = flat(root.CFrame.LookVector)
+			b.CFrame = CFrame.new(root.Position.X + look.X * 3, R + 0.1, root.Position.Z + look.Z * 3)
+			b.AssemblyLinearVelocity = look * 6
+		else
+			-- Nas maos, a altura do peito.
+			local look = flat(root.CFrame.LookVector)
+			b.CFrame = CFrame.new(root.Position + look * 1.4 + Vector3.new(0, 0.6, 0))
+			b.AssemblyLinearVelocity = Vector3.zero
+			b.AssemblyAngularVelocity = Vector3.zero
+		end
+	end
+
 	local carrier = state.carrier
-	if carrier then
+	if state.heldBy ~= nil and carrier == state.heldBy then
+		-- Ja tratado acima: a bola vai nas maos.
+	elseif carrier then
 		local root = carrier.root
 		local humanoid = carrier.humanoid
 		if not root or not humanoid or not humanoid.Parent or Squad.isDown(carrier, now) then

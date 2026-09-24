@@ -47,6 +47,9 @@ export type Footballer = {
 	idle: AnimationTrack?,
 	yellows: number,
 	sentOff: boolean, -- expulso: o lugar fica vazio ate ao fim do jogo, sem boneco
+	keeper: boolean, -- o guarda-redes: agarra a bola na sua area
+	diveUntil: number, -- a meio de um mergulho, chega mais longe
+	diveReadyAt: number, -- quando se pode atirar outra vez
 }
 
 local slots: { [string]: { Footballer } } = {}
@@ -220,6 +223,8 @@ local function dress(f: Footballer)
 		return
 	end
 	local team = Config.Teams[f.teamId]
+	-- O guarda-redes veste outra cor, para se ver quem pode agarrar a bola.
+	local shirt = if f.keeper then team.keeperColor else team.color
 
 	for _, child in model:GetChildren() do
 		if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then
@@ -238,9 +243,9 @@ local function dress(f: Footballer)
 		colours.Parent = model
 	end
 	local bc = colours :: BodyColors
-	bc.TorsoColor3 = team.color
-	bc.LeftArmColor3 = team.color
-	bc.RightArmColor3 = team.color
+	bc.TorsoColor3 = shirt
+	bc.LeftArmColor3 = shirt
+	bc.RightArmColor3 = shirt
 	bc.LeftLegColor3 = SHORTS
 	bc.RightLegColor3 = SHORTS
 
@@ -264,9 +269,10 @@ local function spawnBot(f: Footballer)
 
 	local description = Instance.new("HumanoidDescription")
 	description.HeadColor = skin
-	description.TorsoColor = team.color
-	description.LeftArmColor = team.color
-	description.RightArmColor = team.color
+	local shirt = if f.keeper then team.keeperColor else team.color
+	description.TorsoColor = shirt
+	description.LeftArmColor = shirt
+	description.RightArmColor = shirt
 	description.LeftLegColor = SHORTS
 	description.RightLegColor = SHORTS
 
@@ -388,21 +394,23 @@ local connections: { [Player]: RBXScriptConnection } = {}
 
 --[[
 	Uma pessoa entra em campo, no primeiro lugar livre da equipa — de frente
-	para tras, que e onde quem chega quer jogar. Equipa cheia, nao entra.
+	para tras, que e onde quem chega quer jogar. A baliza so a quem a pede
+	(`keeper`); se ninguem a quiser, fica la um boneco. Lugar ocupado, nao entra.
 ]]
-function Squad.join(player: Player, teamId: string): boolean
+function Squad.join(player: Player, teamId: string, keeper: boolean?): boolean
 	local list = slots[teamId]
 	if not list then
 		return false
 	end
+	local wantsGoal = keeper == true
 	local current = Squad.byPlayer(player)
-	if current and current.teamId == teamId then
+	if current and current.teamId == teamId and current.keeper == wantsGoal then
 		return true
 	end
 
 	local free: Footballer? = nil
 	for _, f in list do
-		if not f.player and not f.sentOff then
+		if not f.player and not f.sentOff and f.keeper == wantsGoal then
 			free = f
 			break
 		end
@@ -421,6 +429,7 @@ function Squad.join(player: Player, teamId: string): boolean
 	player:SetAttribute("Team", "jogador")
 	player:SetAttribute("PitchTeam", teamId)
 	player:SetAttribute("Number", f.number)
+	player:SetAttribute("Keeper", f.keeper)
 
 	connections[player] = player.CharacterAdded:Connect(function(character)
 		bindCharacter(f, character)
@@ -452,6 +461,7 @@ function Squad.leave(player: Player)
 		player:SetAttribute("PitchTeam", nil)
 		player:SetAttribute("Number", nil)
 		player:SetAttribute("Stamina", nil)
+		player:SetAttribute("Keeper", nil)
 		if player:GetAttribute("Team") == "jogador" then
 			player:SetAttribute("Team", nil)
 		end
@@ -758,6 +768,9 @@ function Squad.build(parent: Instance)
 				idle = nil,
 				yellows = 0,
 				sentOff = false,
+				keeper = spot.keeper == true,
+				diveUntil = 0,
+				diveReadyAt = 0,
 			} :: Footballer)
 		end
 		slots[teamId] = list

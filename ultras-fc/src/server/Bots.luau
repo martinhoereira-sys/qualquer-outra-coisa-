@@ -176,6 +176,60 @@ local function withBall(f: Footballer, now: number)
 end
 
 --------------------------------------------------------------------------------
+-- O guarda-redes
+--------------------------------------------------------------------------------
+
+-- No sitio dele: na linha, a acompanhar a bola de um poste ao outro.
+local BOX_DEPTH_GK = S.pitchLength * 16.5 / 105
+local BOX_WIDTH_GK = S.pitchWidth * 40.3 / 68
+
+local function keeperSpot(f: Footballer, ballAt: Vector3): Vector3
+	local side = -Squad.attackSign(f.teamId)
+	local z = math.clamp(ballAt.Z * 0.5, -F.goalHalfWidth + 1.5, F.goalHalfWidth - 1.5)
+	return Vector3.new(side * (HALF - 3), 0, z)
+end
+
+local function inOwnBox(f: Footballer, at: Vector3): boolean
+	local side = -Squad.attackSign(f.teamId)
+	return at.X * side > HALF - BOX_DEPTH_GK and math.abs(at.Z) < BOX_WIDTH_GK / 2
+end
+
+--[[
+	O boneco na baliza. Fica na linha e acompanha a bola; a um remate forte
+	que vem para ele, atira-se (e o Football decide se agarra). Uma bola
+	solta e lenta dentro da area, vai busca-la. Com ela nas maos, espera um
+	instante e poe-na num colega, ou longe.
+]]
+local function keeperThink(f: Footballer, ballAt: Vector3, carrier: Footballer?, now: number)
+	local root = f.root :: BasePart
+	if carrier == f then
+		if now >= (nextThink[f] or 0) then
+			local mate = bestMate(f)
+			if mate then
+				Football.passTo(f, mate)
+			else
+				Football.kick(f, 0.8, 0, 0.4, Vector3.new(Squad.attackSign(f.teamId), 0, 0))
+			end
+		end
+		moveTo(f, root.Position, false)
+		return
+	end
+
+	local velocity = Football.ballVelocity()
+	local side = -Squad.attackSign(f.teamId)
+	local coming = velocity.X * side > 0 and velocity.Magnitude > F.fastShot
+	if coming and flatDistance(root.Position, ballAt) < F.keeperDiveReach + 6 then
+		Football.dive(f)
+	end
+
+	if not carrier and inOwnBox(f, ballAt) and velocity.Magnitude < 25 then
+		moveTo(f, ballAt, true)
+		return
+	end
+	moveTo(f, keeperSpot(f, ballAt), coming)
+end
+
+--------------------------------------------------------------------------------
 -- Reposicoes
 --------------------------------------------------------------------------------
 
@@ -293,7 +347,7 @@ function Bots.step(dt: number)
 
 	-- Quem acabou de receber olha antes de decidir, como toda a gente.
 	if carrier and carrier ~= lastCarrier then
-		nextThink[carrier] = now + F.botThink * 1.5
+		nextThink[carrier] = now + (if carrier.keeper then F.botKeeperDelay else F.botThink * 1.5)
 	end
 	lastCarrier = carrier
 
@@ -318,7 +372,8 @@ function Bots.step(dt: number)
 
 			local byDistance = {}
 			for _, f in team do
-				if f.root and not Squad.isDown(f, now) then
+				-- O guarda-redes nao sai da baliza atras da bola: tem a sua conta.
+				if f.root and not f.keeper and not Squad.isDown(f, now) then
 					table.insert(byDistance, f)
 				end
 			end
@@ -358,6 +413,8 @@ function Bots.step(dt: number)
 			for _, f in bots do
 				if carrier == f then
 					takePiece(f, piece, now)
+				elseif f.keeper and not Squad.isDown(f, now) then
+					moveTo(f, keeperSpot(f, piece.spot), false)
 				elseif not Squad.isDown(f, now) then
 					local spot = keepOut(f, shapeSpot(f, piece.spot, teamId == piece.team), piece)
 					moveTo(f, spot, true)
@@ -367,7 +424,9 @@ function Bots.step(dt: number)
 		end
 
 		for _, f in bots do
-			if not play or Squad.isDown(f, now) then
+			if play and f.keeper and not Squad.isDown(f, now) then
+				keeperThink(f, ballAt, carrier, now)
+			elseif not play or Squad.isDown(f, now) then
 				if not play then
 					moveTo(f, Squad.homeSpot(f), false)
 				end

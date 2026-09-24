@@ -111,7 +111,10 @@ end
 -- lugar vazio joga um boneco, por isso ha sempre jogo.
 for index, teamId in Config.TeamOrder do
 	local team = Config.Teams[teamId]
-	choice("Jogar pelo " .. team.short, "jogador  ·  5 contra 5, em campo", team.color:Lerp(INK, 0.35), (index == 1) and -232 or 12, 220, -8, "jogador:" .. teamId)
+	local x = (index == 1) and -232 or 12
+	choice("Jogar pelo " .. team.short, "jogador  ·  4 + guarda-redes", team.color:Lerp(INK, 0.35), x, 150, -8, "jogador:" .. teamId)
+	-- A baliza, ao lado: se ninguem a quiser, fica la um boneco.
+	choice("GR", "baliza", team.keeperColor:Lerp(INK, 0.35), x + 156, 64, -8, "baliza:" .. teamId)
 end
 
 choice("Apitar o jogo", "arbitro  ·  decides, e podes ceder", Color3.fromRGB(46, 50, 58), -232, 452, 84, "arbitro")
@@ -139,7 +142,8 @@ local function refreshRole()
 		myTeam = nil
 		local pitchTeam = Config.Teams[player:GetAttribute("PitchTeam") or ""]
 		if pitchTeam then
-			roleLabel.Text = "jogas pelo " .. pitchTeam.name .. "  ·  n.º " .. tostring(player:GetAttribute("Number") or "")
+			local where = if player:GetAttribute("Keeper") == true then "  ·  na baliza" else ""
+			roleLabel.Text = "jogas pelo " .. pitchTeam.name .. "  ·  n.º " .. tostring(player:GetAttribute("Number") or "") .. where
 			roleLabel.TextColor3 = pitchTeam.color
 		end
 	elseif role and Config.Teams[role] then

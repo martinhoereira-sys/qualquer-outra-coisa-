@@ -143,11 +143,74 @@ local function playing(): boolean
 	return player:GetAttribute("Team") == "jogador"
 end
 
+local function isKeeper(): boolean
+	return playing() and player:GetAttribute("Keeper") == true
+end
+
+--[[
+	O guarda-redes: Q (ou o botao, no telemovel) atira-o para o lado da bola.
+	Chega mais longe, mas se falhar fica um segundo no chao. Com a bola nas
+	maos tem uns segundos para a por em jogo, e a contagem aparece aqui.
+]]
+local diveButton = Instance.new("TextButton")
+diveButton.AnchorPoint = Vector2.new(1, 1)
+diveButton.Size = UDim2.fromOffset(110, 44)
+diveButton.Position = UDim2.new(1, -24, 1, -150)
+diveButton.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
+diveButton.BackgroundTransparency = 0.15
+diveButton.BorderSizePixel = 0
+diveButton.Font = Enum.Font.GothamBold
+diveButton.TextSize = 14
+diveButton.TextColor3 = TEXT
+diveButton.Text = "Q  ATIRAR-SE"
+diveButton.Visible = false
+diveButton.Parent = gui
+local diveCorner = Instance.new("UICorner")
+diveCorner.CornerRadius = UDim.new(0, 8)
+diveCorner.Parent = diveButton
+
+local holdLabel = text(gui, "", 18, BRASS)
+holdLabel.Font = Enum.Font.GothamBlack
+holdLabel.AnchorPoint = Vector2.new(0.5, 1)
+holdLabel.Size = UDim2.fromOffset(420, 24)
+holdLabel.Position = UDim2.new(0.5, 0, 1, -200)
+
 local function refresh()
 	gui.Enabled = playing()
+	diveButton.Visible = isKeeper()
 end
 player:GetAttributeChangedSignal("Team"):Connect(refresh)
+player:GetAttributeChangedSignal("Keeper"):Connect(refresh)
 refresh()
+
+local lastDive = 0
+local function dive()
+	if not isKeeper() or os.clock() - lastDive < F.keeperDiveCooldown then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local ball = workspace:FindFirstChild("Ball", true) :: BasePart?
+	if not root then
+		return
+	end
+	lastDive = os.clock()
+	-- O corpo e desta pessoa: o impulso da-se aqui, e o servidor so regista.
+	local towards = if ball then ball.Position - root.Position else root.CFrame.LookVector
+	local flat = Vector3.new(towards.X, 0, towards.Z)
+	local dir = if flat.Magnitude > 0.1 then flat.Unit else root.CFrame.LookVector
+	-- Solto das pernas durante o voo, senao o boneco travava o mergulho a andar.
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.PlatformStand = true
+		task.delay(F.keeperDiveTime, function()
+			humanoid.PlatformStand = false
+		end)
+	end
+	root.AssemblyLinearVelocity = dir * F.keeperDiveSpeed + Vector3.new(0, 10, 0)
+	Remotes.Football:FireServer("dive")
+end
+diveButton.Activated:Connect(dive)
 
 --------------------------------------------------------------------------------
 -- Input
@@ -181,6 +244,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		chargingSince = os.clock()
 		pressedAt = UserInputService:GetMouseLocation()
+	elseif input.KeyCode == Enum.KeyCode.Q then
+		dive()
 	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then
 		sprinting = true
 		Remotes.Football:FireServer("sprint", true)
@@ -223,6 +288,14 @@ RunService.RenderStepped:Connect(function()
 	local fraction = if type(stamina) == "number" then stamina else 1
 	staminaFill.Size = UDim2.fromScale(fraction, 1)
 	staminaFill.BackgroundColor3 = if player:GetAttribute("Exhausted") then SPENT else TEXT
+
+	-- Bola nas maos de um guarda-redes: quanto tempo falta para a perder.
+	local heldUntil = workspace:GetAttribute("HeldUntil")
+	if type(heldUntil) == "number" and isKeeper() and workspace:GetAttribute("HeldTeam") == player:GetAttribute("PitchTeam") then
+		holdLabel.Text = string.format("BOLA NAS MAOS  ·  %d", math.max(math.ceil(heldUntil - workspace:GetServerTimeNow()), 0))
+	else
+		holdLabel.Text = ""
+	end
 
 	local at = workspace:GetAttribute("KickoffAt")
 	local left = if type(at) == "number" then at - workspace:GetServerTimeNow() else -1

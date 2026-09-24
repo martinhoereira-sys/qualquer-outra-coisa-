@@ -185,9 +185,11 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	end
 
 	-- Jogar: "jogador:<equipa>". Quem entra em campo deixa a bancada e o apito.
-	local pitchTeam = string.match(teamId, "^jogador:(%w+)$")
+	-- Na baliza: "baliza:<equipa>", o lugar do guarda-redes.
+	local goalTeam = string.match(teamId, "^baliza:(%w+)$")
+	local pitchTeam = goalTeam or string.match(teamId, "^jogador:(%w+)$")
 	if pitchTeam then
-		if Teams.isValid(pitchTeam) and Squad.join(player, pitchTeam) then
+		if Teams.isValid(pitchTeam) and Squad.join(player, pitchTeam, goalTeam ~= nil) then
 			Teams.forget(player)
 			Referee.release(player)
 		end
@@ -565,6 +567,8 @@ Remotes.Football.OnServerEvent:Connect(function(player, action, value)
 	end
 	if action == "sprint" then
 		Squad.setSprint(player, value == true)
+	elseif action == "dive" then
+		Football.dive(f)
 	elseif action == "kick" and type(value) == "table" then
 		local power, curve, height = value.power, value.curve, value.height
 		if type(power) == "number" and type(curve) == "number" and type(height) == "number" then

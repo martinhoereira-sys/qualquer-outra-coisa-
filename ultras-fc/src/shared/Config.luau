@@ -23,6 +23,7 @@ Config.Teams = {
 		short = "AGN",
 		color = Color3.fromRGB(196, 58, 48),
 		side = -1, -- topo poente
+		keeperColor = Color3.fromRGB(46, 160, 82), -- a camisola do guarda-redes, diferente da equipa
 	},
 	away = {
 		id = "away",
@@ -30,6 +31,7 @@ Config.Teams = {
 		short = "LES",
 		color = Color3.fromRGB(46, 98, 178),
 		side = 1, -- topo nascente
+		keeperColor = Color3.fromRGB(236, 176, 40),
 	},
 }
 
@@ -209,16 +211,37 @@ Config.Stadium = {
 	resolve-se aqui.
 ]]
 Config.Football = {
-	-- A formacao, sem guarda-redes. `x` e a fracao de meio campo a partir do
-	-- centro, para tras; `z` e a fracao da largura do relvado. A ordem e a de
-	-- quem entra: uma pessoa fica com o primeiro lugar livre, de frente para tras.
+	-- A formacao: quatro no campo e um na baliza, como no futsal. `x` e a
+	-- fracao de meio campo a partir do centro, para tras; `z` e a fracao da
+	-- largura do relvado. A ordem e a de quem entra: uma pessoa fica com o
+	-- primeiro lugar livre de campo, de frente para tras. A baliza so a quem
+	-- a escolhe.
 	formation = {
-		{ number = 9, x = 0.1, z = 0 },
-		{ number = 10, x = 0.36, z = 0.26 },
-		{ number = 8, x = 0.36, z = -0.26 },
-		{ number = 5, x = 0.64, z = 0.2 },
-		{ number = 4, x = 0.64, z = -0.2 },
+		{ number = 9, x = 0.12, z = 0 },
+		{ number = 7, x = 0.42, z = 0.27 },
+		{ number = 11, x = 0.42, z = -0.27 },
+		{ number = 4, x = 0.68, z = 0 },
+		{ number = 1, x = 0.95, z = 0, keeper = true },
 	},
+
+	--[[
+		O guarda-redes. Dentro da sua area agarra a bola que lhe passa perto,
+		sozinho; fora dela e um jogador como os outros. Com a bola nas maos
+		ninguem lha tira, e tem uns segundos para a por em jogo.
+
+		O boneco fica na linha, a acompanhar a bola, e defende so uma parte dos
+		remates fortes — quer-se golos.
+	]]
+	keeperReach = 5, -- a esta distancia agarra sozinho, na sua area
+	keeperHeight = 8, -- e ate esta altura: apanha a bola no ar
+	keeperDiveReach = 11, -- a atirar-se chega mais longe
+	keeperDiveSpeed = 42, -- studs/s do mergulho
+	keeperDiveTime = 0.5, -- quanto dura o voo; falhou, fica no chao (fallTime)
+	keeperDiveCooldown = 1.5,
+	keeperHoldTime = 5, -- segundos com a bola nas maos; depois perde-a
+	botKeeperSave = 0.45, -- remates fortes que o boneco agarra
+	botKeeperDelay = 1.2, -- o boneco com a bola nas maos espera isto antes de a por em jogo
+	fastShot = 38, -- acima desta velocidade e um remate a serio, nao uma bola a rolar
 
 	-- Correr
 	walkSpeed = 16,
