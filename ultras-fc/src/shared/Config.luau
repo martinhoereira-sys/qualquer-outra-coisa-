@@ -380,15 +380,16 @@ Config.Rules = {
 	--[[
 		As faltas. A maior parte do contacto e so contacto: decide-se no momento
 		do roubo, e por tras e mais provavel do que de frente, mas mesmo por
-		tras a maioria nao e falta. Depois de uma, ha `foulGap` segundos sem
-		nenhuma. O alvo e uma falta a cada 30 a 40 segundos; o Output diz a
-		cada minuto quantas houve.
+		tras a maioria nao e falta. Nao ha relogio: e sorte a cada entrada, e
+		por isso em 30 segundos tanto pode nao haver nenhuma como haver duas ou
+		tres. Em media da perto de duas por minuto; o Output diz a cada minuto
+		quantas houve. `foulGap` so impede duas faltas no mesmo lance.
 		O arbitro automatico marca o que aqui sai; uma pessoa com o apito pode
 		marcar outra coisa.
 	]]
 	foulBehind = 0.2, -- roubos por tras que sao falta
-	foulFront = 0.04, -- roubos de frente que sao falta
-	foulGap = 20, -- segundos depois de uma falta em que nenhuma entrada o e
+	foulFront = 0.05, -- roubos de frente que sao falta
+	foulGap = 3, -- segundos depois de uma falta em que nenhuma entrada o e: so o mesmo lance
 	behindDot = -0.2, -- abaixo disto (olhar de quem leva a bola vs. de onde vem quem rouba) e por tras
 	boxLineMargin = 3, -- a esta distancia da linha da area, fica em duvida: penalti ou livre
 
