@@ -268,31 +268,86 @@ bigNote.Position = UDim2.new(0, 0, 0.3, 118)
 bigNote.TextStrokeTransparency = 0.5
 bigNote.Visible = false
 
--- A reposicao em curso, para toda a gente: o que e e de quem.
+--[[
+	A reposicao em curso, para toda a gente, e para se perceber em dois
+	segundos: o que aconteceu, de quem e, quem bate, e quanto falta.
+]]
 local RESTART_TEXT = {
 	lancamento = "LANCAMENTO",
 	canto = "CANTO",
 	baliza = "PONTAPE DE BALIZA",
-	livre = "LIVRE",
+	livre = "FALTA  ·  LIVRE",
 	penalti = "PENALTI",
 }
-local restartLabel = label(gui, "", 18, TEXT)
-restartLabel.Size = UDim2.new(1, 0, 0, 22)
-restartLabel.Position = UDim2.new(0, 0, 0, 150)
+
+local restartBox = Instance.new("Frame")
+restartBox.AnchorPoint = Vector2.new(0.5, 0)
+restartBox.Size = UDim2.fromOffset(360, 64)
+restartBox.Position = UDim2.new(0.5, 0, 0, 140)
+restartBox.BackgroundColor3 = INK
+restartBox.BackgroundTransparency = 0.2
+restartBox.BorderSizePixel = 0
+restartBox.Visible = false
+restartBox.Parent = gui
+
+local restartCorner = Instance.new("UICorner")
+restartCorner.CornerRadius = UDim.new(0, 8)
+restartCorner.Parent = restartBox
+
+local restartStripe = Instance.new("Frame")
+restartStripe.Size = UDim2.new(0, 6, 1, 0)
+restartStripe.BorderSizePixel = 0
+restartStripe.Parent = restartBox
+
+local restartLabel = label(restartBox, "", 22, TEXT)
+restartLabel.Font = Enum.Font.GothamBlack
+restartLabel.TextXAlignment = Enum.TextXAlignment.Left
+restartLabel.Size = UDim2.new(1, -80, 0, 28)
+restartLabel.Position = UDim2.fromOffset(18, 6)
+
+local restartTaker = label(restartBox, "", 14, MUTED)
+restartTaker.Font = Enum.Font.Gotham
+restartTaker.TextXAlignment = Enum.TextXAlignment.Left
+restartTaker.Size = UDim2.new(1, -80, 0, 18)
+restartTaker.Position = UDim2.fromOffset(18, 36)
+
+local restartCount = label(restartBox, "", 30, TEXT)
+restartCount.Font = Enum.Font.GothamBlack
+restartCount.TextXAlignment = Enum.TextXAlignment.Right
+restartCount.Size = UDim2.fromOffset(60, 52)
+restartCount.Position = UDim2.new(1, -72, 0, 6)
 
 local function refreshRestart()
 	local value = workspace:GetAttribute("Restart")
 	if type(value) ~= "string" then
-		restartLabel.Text = ""
+		restartBox.Visible = false
 		return
 	end
 	local kind, teamId = string.match(value, "^(%w+):(%w+)$")
 	local team = Config.Teams[teamId or ""]
-	restartLabel.Text = (RESTART_TEXT[kind or ""] or "") .. (if team then "  ·  " .. team.short else "")
-	restartLabel.TextColor3 = if team then team.color:Lerp(TEXT, 0.3) else TEXT
+	restartLabel.Text = RESTART_TEXT[kind or ""] or ""
+	restartStripe.BackgroundColor3 = if team then team.color else TEXT
+	local taker = workspace:GetAttribute("RestartTaker")
+	local teamName = if team then team.short else ""
+	restartTaker.Text = if type(taker) == "string" then "bate " .. taker .. "  ·  " .. teamName else teamName
+	restartBox.Visible = true
 end
 workspace:GetAttributeChangedSignal("Restart"):Connect(refreshRestart)
+workspace:GetAttributeChangedSignal("RestartTaker"):Connect(refreshRestart)
 refreshRestart()
+
+-- A contagem dos segundos que faltam para a bola ficar viva ali.
+RunService.Heartbeat:Connect(function()
+	if not restartBox.Visible then
+		return
+	end
+	local untilAt = workspace:GetAttribute("RestartUntil")
+	if type(untilAt) == "number" then
+		restartCount.Text = tostring(math.max(math.ceil(untilAt - workspace:GetServerTimeNow()), 0))
+	else
+		restartCount.Text = ""
+	end
+end)
 
 --------------------------------------------------------------------------------
 -- As duas bancadas

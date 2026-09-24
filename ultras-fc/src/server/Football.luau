@@ -511,11 +511,32 @@ local function checkGoal(p: Vector3): boolean
 	return true
 end
 
+-- Ha alguma pessoa a jogar por esta equipa? Com pessoas e bonecos misturados,
+-- as reposicoes sao das pessoas.
+local function teamHasHuman(teamId: string): boolean
+	for _, f in Squad.team(teamId) do
+		if f.player and not f.sentOff then
+			return true
+		end
+	end
+	return false
+end
+
+-- O nome de quem bate, como aparece no ecra.
+local function takerName(f: Footballer): string
+	local player = f.player
+	return if player then player.DisplayName else Squad.label(f)
+end
+
 --[[
-	Uma reposicao comeca: bola no ponto, e quem vai bater. Se o mais perto da
-	equipa for um boneco, e posto logo atras da bola, virado para onde vai
-	jogar — e o que faz isto ser rapido. Se houver uma pessoa da equipa mais
-	perto, ninguem e mexido: a bola e dela, e ela que la va.
+	Uma reposicao comeca: bola no ponto, e quem vai bater ja atras dela,
+	virado para onde vai jogar, sem ter de la ir a correr. E so esse que se
+	mexe: os outros ficam onde estao, e a marca no chao mostra aos adversarios
+	onde nao podem estar.
+
+	Bate qualquer um da equipa que repoe. Com pessoas e bonecos misturados, so
+	as pessoas batem — a mais perto, ou quem sofreu o penalti se for pessoa.
+	Uma pessoa tem mais uns segundos, que apontar e dosear leva tempo.
 ]]
 function Football.startSetPiece(kind: string, team: string, spot: Vector3, aim: Vector3, seconds: number, preferred: Footballer?)
 	state.carrier = nil
@@ -525,41 +546,50 @@ function Football.startSetPiece(kind: string, team: string, spot: Vector3, aim: 
 		team = team,
 		spot = Vector3.new(spot.X, 0, spot.Z),
 		aim = flat(aim),
-		deadline = os.clock() + seconds,
+		deadline = 0,
 		taker = nil,
 		takenAt = 0,
 	}
 	state.piece = piece
-	workspace:SetAttribute("Restart", kind .. ":" .. team)
-	workspace:SetAttribute("RestartUntil", workspace:GetServerTimeNow() + seconds)
 
 	local now = os.clock()
-	local bestBot: Footballer? = nil
-	local botDistance = math.huge
-	local humanDistance = math.huge
+	local nearestHuman: Footballer? = nil
+	local nearestBot: Footballer? = nil
+	local humanDistance, botDistance = math.huge, math.huge
 	for _, f in Squad.team(team) do
 		local root = f.root
-		if root and not Squad.isDown(f, now) then
+		if root and not f.sentOff and not Squad.isDown(f, now) then
 			local d = Vector3.new(root.Position.X - spot.X, 0, root.Position.Z - spot.Z).Magnitude
 			if f.player then
-				humanDistance = math.min(humanDistance, d)
+				if d < humanDistance then
+					humanDistance = d
+					nearestHuman = f
+				end
 			elseif d < botDistance then
 				botDistance = d
-				bestBot = f
+				nearestBot = f
 			end
 		end
 	end
-	-- Quem sofreu a falta bate o penalti: se for um boneco, vai ele; se for
-	-- uma pessoa, a bola espera por ela.
+
 	local chosen: Footballer? = nil
-	if preferred and preferred.root and not preferred.sentOff then
-		if preferred.player then
-			return
-		end
+	local usable = preferred and preferred.root and not preferred.sentOff
+	if usable and preferred and (preferred.player or not nearestHuman) then
 		chosen = preferred
-	elseif bestBot and botDistance <= humanDistance then
-		chosen = bestBot
+	elseif nearestHuman then
+		chosen = nearestHuman
+	else
+		chosen = nearestBot
 	end
+
+	if chosen and chosen.player then
+		seconds = math.max(seconds, Config.Rules.humanRestartTime)
+	end
+	piece.deadline = now + seconds
+	workspace:SetAttribute("Restart", kind .. ":" .. team)
+	workspace:SetAttribute("RestartUntil", workspace:GetServerTimeNow() + seconds)
+	workspace:SetAttribute("RestartTaker", if chosen then takerName(chosen) else nil)
+
 	if chosen then
 		Squad.place(chosen, piece.spot - piece.aim * F.dribbleDistance, piece.aim)
 		piece.taker = chosen
@@ -647,6 +677,10 @@ local function canPlay(f: Footballer, now: number): boolean
 	if piece and f.teamId ~= piece.team then
 		return false
 	end
+	-- Com pessoas na equipa, e uma delas que repoe: os bonecos nao lhe tiram a bola.
+	if piece and not f.player and teamHasHuman(piece.team) then
+		return false
+	end
 	-- Fora do aquecimento e das partes, os bonecos nao jogam.
 	if not state.botsPlay and not f.player then
 		return false
@@ -680,6 +714,7 @@ local function claim(b: BasePart, now: number)
 		if piece and piece.taker ~= best then
 			piece.taker = best
 			piece.takenAt = now
+			workspace:SetAttribute("RestartTaker", takerName(best))
 		end
 	end
 end
@@ -905,7 +940,73 @@ function Football.resetClock()
 	state.reportedAt = 0
 end
 
+--[[
+	A reposicao a vista de toda a gente, em dois segundos: a bola destacada
+	atraves de quem estiver a frente, e no chao um circulo com a zona onde os
+	adversarios nao podem estar. Os bonecos respeitam-no sozinhos; as pessoas
+	veem-no.
+]]
+local RING_GAP: { [string]: number } = {
+	lancamento = Config.Rules.throwInGap,
+	canto = Config.Rules.cornerGap,
+	livre = Config.Rules.freeKickGap,
+	penalti = Config.Rules.freeKickGap,
+}
+
+local ring: Part? = nil
+local glow: Highlight? = nil
+
+local function syncMarks()
+	local b = ball
+	if not b then
+		return
+	end
+	local piece = state.piece
+	local gap = piece and RING_GAP[piece.kind]
+
+	if not glow then
+		local h = Instance.new("Highlight")
+		h.Name = "Reposicao"
+		h.FillColor = Color3.fromRGB(255, 214, 90)
+		h.FillTransparency = 0.35
+		h.OutlineColor = Color3.new(1, 1, 1)
+		h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		h.Enabled = false
+		h.Parent = b
+		glow = h
+	end
+	local h = glow :: Highlight
+	h.Enabled = piece ~= nil
+
+	if not ring then
+		local p = Instance.new("Part")
+		p.Name = "ZonaProibida"
+		p.Shape = Enum.PartType.Cylinder
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Material = Enum.Material.Neon
+		p.Transparency = 1
+		p.Parent = b.Parent
+		ring = p
+	end
+	local p = ring :: Part
+	if piece and gap then
+		-- Da cor de quem nao pode entrar: os adversarios de quem repoe.
+		local other = if piece.team == Config.TeamOrder[1] then Config.TeamOrder[2] else Config.TeamOrder[1]
+		p.Color = Config.Teams[other].color
+		p.Size = Vector3.new(0.12, gap * 2, gap * 2)
+		p.CFrame = CFrame.new(piece.spot.X, 0.08, piece.spot.Z) * CFrame.Angles(0, 0, math.rad(90))
+		p.Transparency = 0.72
+	elseif p.Transparency < 1 then
+		p.Transparency = 1
+	end
+end
+
 function Football.step(dt: number)
+	syncMarks()
 	local b = ball
 	if not b then
 		return
