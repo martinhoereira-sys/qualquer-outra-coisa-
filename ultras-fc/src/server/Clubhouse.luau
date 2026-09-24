@@ -126,8 +126,28 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance)
 	local team = Config.Teams[teamId]
 	local centre = pivot.Position
 
+	--[[
+		Onde fica cada botao. Os blocos sao para quem faz o mapa: se dentro da
+		sede houver uma peca com este nome (feita no Studio), o botao vai para
+		ela; senao fica no sitio de sempre, preso a uma peca invisivel.
+		  Balcao  — "Entrar" na claque
+		  Tambor  — "Pegar" no tambor (passa a lider)
+		  Porta   — "Sair em corteo"
+	]]
+	local function spot(name: string, size: Vector3, cf: CFrame): BasePart
+		local own = parent:FindFirstChild(name, true)
+		if own and own:IsA("BasePart") then
+			return own
+		end
+		local holder = fixture(name, size, cf, team.color, parent)
+		holder.Transparency = 1
+		holder.CanCollide = false
+		holder.CastShadow = false
+		return holder
+	end
+
 	-- Balcao: e aqui que se entra na claque.
-	local desk = fixture("Desk", Vector3.new(10, 3.5, 2.5), pivot * CFrame.new(-12, 1.75, -6), team.color, parent)
+	local desk = spot("Balcao", Vector3.new(10, 3.5, 2.5), pivot * CFrame.new(-12, 1.75, -6))
 	local join = prompt(desk, "Entrar", "Claque do " .. team.name, 12)
 
 	-- O letreiro vai no portao, que e o que se ve da rua.
@@ -147,7 +167,7 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance)
 		largar mais ninguem pode ser. E dai que vem a autoridade: nao de um
 		titulo, de ser o unico a ter o tambor.
 	]]
-	local stand = fixture("DrumStand", Vector3.new(3, 3.4, 3), pivot * CFrame.new(0, 1.7, -10), Color3.fromRGB(188, 178, 160), parent)
+	local stand = spot("Tambor", Vector3.new(3, 3.4, 3), pivot * CFrame.new(0, 1.7, -10))
 	local takeDrum = prompt(stand, "Pegar", "Tambor da claque", 10)
 
 	takeDrum.Triggered:Connect(function(player)
@@ -161,7 +181,7 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance)
 	end)
 
 	-- A porta. So o lider a abre, e so com gente suficiente atras dele.
-	local door = fixture("Gate", Vector3.new(12, 6, 1.5), pivot * CFrame.new(0, 3, 17), team.color, parent)
+	local door = spot("Porta", Vector3.new(12, 6, 1.5), pivot * CFrame.new(0, 3, 17))
 	local start = prompt(door, "Sair em corteo", "So o lider", 14)
 	marker(door, "SEDE  ·  " .. string.upper(team.name), team.color, 22)
 

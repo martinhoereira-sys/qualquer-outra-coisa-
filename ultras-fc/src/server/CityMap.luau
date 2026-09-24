@@ -739,6 +739,17 @@ function CityMap.generate(parent: Instance): Model
 	stadiumArea:SetAttribute("Nota", "O estadio aparece aqui ao carregar em Play. Nao construas por cima.")
 	signOn(stadiumArea, Enum.NormalId.Top, "ESTADIO (aparece no Play)", Color3.fromRGB(255, 255, 255), Vector2.new(800, 400))
 
+	--[[
+		O chao trancado: estrada, passeios, relva e calcada nao se selecionam
+		com o rato no Studio, para nao se arrastar a cidade toda ao clicar nela.
+		Os predios e o resto continuam livres. (Destrancar: propriedade Locked.)
+	]]
+	for _, d in city:GetDescendants() do
+		if d:IsA("BasePart") and (d.Parent == ground or d.Name == "Passeio" or d.Name == "Relva" or d.Name == "Calcada") then
+			d.Locked = true
+		end
+	end
+
 	city.Parent = parent
 	return city
 end
