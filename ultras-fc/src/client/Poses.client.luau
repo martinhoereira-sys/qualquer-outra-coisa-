@@ -4,7 +4,7 @@
 
 	Cada pessoa tem dois atributos que o servidor poe:
 	- "Hold": o que tem no ar — "tocha" ou "fumo" (braco direito levantado) ou
-	  "cachecol" (os dois bracos no ar, com o cachecol esticado entre as maos);
+	  "cachecol" (os dois bracos a frente, com o cachecol esticado entre as maos);
 	- "Emote": a animacao de adepto que escolheu no menu.
 
 	Aqui, a cada frame, dobram-se as juntas de cada corpo (Motor6D.Transform)
@@ -264,16 +264,19 @@ RunService.Stepped:Connect(function()
 		end
 
 		if hold == "tocha" or hold == "fumo" then
-			-- O braco direito no ar, a acenar um pouco com a tocha.
-			local wave = math.sin(t * 4) * math.rad(8)
-			arm(rig.rightShoulder, 1, RAISED + wave, math.rad(8))
+			-- O braco direito no ar, a agitar a tocha: para a frente e para tras,
+			-- para cima e para baixo, como se faz numa bancada.
+			local wave = math.sin(t * 4.5) * math.rad(18)
+			local side = math.sin(t * 3.1) * math.rad(12)
+			arm(rig.rightShoulder, 1, RAISED + wave, math.rad(8) + side)
 			set(rig.rightElbow, CFrame.identity)
 			dropScarf(player)
 		elseif hold == "cachecol" then
-			-- Os dois bracos no ar, abertos, com o cachecol esticado entre as maos.
-			local sway = math.sin(t * 3) * 0.12
-			arm(rig.rightShoulder, 1, math.rad(168), math.rad(22) + sway)
-			arm(rig.leftShoulder, -1, math.rad(168), math.rad(22) - sway)
+			-- Os dois bracos a frente, abertos, com o cachecol esticado entre as
+			-- maos a altura da cara, a subir e a descer ao ritmo.
+			local pump = math.sin(t * 3) * math.rad(10)
+			arm(rig.rightShoulder, 1, math.rad(115) + pump, math.rad(28))
+			arm(rig.leftShoulder, -1, math.rad(115) + pump, math.rad(28))
 			set(rig.rightElbow, CFrame.identity)
 			set(rig.leftElbow, CFrame.identity)
 			placeScarf(player, character)

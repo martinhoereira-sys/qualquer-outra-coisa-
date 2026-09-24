@@ -385,9 +385,9 @@ Config.Rules = {
 		O arbitro automatico marca o que aqui sai; uma pessoa com o apito pode
 		marcar outra coisa.
 	]]
-	foulBehind = 0.12, -- roubos por tras que sao falta
-	foulFront = 0.02, -- roubos de frente que sao falta
-	foulGap = 25, -- segundos depois de uma falta em que nenhuma entrada o e
+	foulBehind = 0.2, -- roubos por tras que sao falta
+	foulFront = 0.04, -- roubos de frente que sao falta
+	foulGap = 20, -- segundos depois de uma falta em que nenhuma entrada o e
 	behindDot = -0.2, -- abaixo disto (olhar de quem leva a bola vs. de onde vem quem rouba) e por tras
 	boxLineMargin = 3, -- a esta distancia da linha da area, fica em duvida: penalti ou livre
 
