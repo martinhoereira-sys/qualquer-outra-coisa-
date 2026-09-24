@@ -27,6 +27,7 @@ local NAMES = {
 	"Admin", -- admin -> servidor: saltar de fase
 	"Escort", -- servidor -> quem sai do tunel: este e o teu caminho ate a fila
 	"Home", -- cliente -> servidor: leva-me a minha sede
+	"Emote", -- cliente -> servidor: a animacao de adepto que escolhi ("" para parar)
 }
 
 local folder: Folder

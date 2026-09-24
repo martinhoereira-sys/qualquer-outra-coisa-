@@ -245,6 +245,85 @@ homeButton.Activated:Connect(function()
 	Remotes.Home:FireServer()
 end)
 
+--[[
+	O menu de animacoes de adepto (G, ou o botao). Escolher uma poe-na a
+	andar; escolher a mesma outra vez, ou mexer-se, para-a. Toda a gente a ve:
+	o servidor guarda qual e, e cada ecra anima-a (Poses.client).
+]]
+local emoteButton = Instance.new("TextButton")
+emoteButton.AnchorPoint = Vector2.new(1, 1)
+emoteButton.Size = UDim2.fromOffset(130, 30)
+emoteButton.Position = UDim2.new(1, -20, 1, -96)
+emoteButton.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
+emoteButton.BackgroundTransparency = 0.15
+emoteButton.BorderSizePixel = 0
+emoteButton.Font = Enum.Font.GothamBold
+emoteButton.TextSize = 12
+emoteButton.TextColor3 = TEXT
+emoteButton.Text = "G  ANIMACOES"
+emoteButton.Parent = gui
+
+local emoteCorner = Instance.new("UICorner")
+emoteCorner.CornerRadius = UDim.new(0, 6)
+emoteCorner.Parent = emoteButton
+
+local emotePanel = Instance.new("Frame")
+emotePanel.AnchorPoint = Vector2.new(1, 1)
+emotePanel.Size = UDim2.fromOffset(170, 12 + #Config.Emotes * 34)
+emotePanel.Position = UDim2.new(1, -20, 1, -132)
+emotePanel.BackgroundColor3 = INK
+emotePanel.BackgroundTransparency = 0.15
+emotePanel.BorderSizePixel = 0
+emotePanel.Visible = false
+emotePanel.Parent = gui
+
+local emotePanelCorner = Instance.new("UICorner")
+emotePanelCorner.CornerRadius = UDim.new(0, 8)
+emotePanelCorner.Parent = emotePanel
+
+local emoteRows: { [string]: TextButton } = {}
+for index, emote in Config.Emotes do
+	local row = Instance.new("TextButton")
+	row.Size = UDim2.new(1, -12, 0, 30)
+	row.Position = UDim2.fromOffset(6, 6 + (index - 1) * 34)
+	row.BackgroundColor3 = Color3.fromRGB(40, 44, 52)
+	row.BorderSizePixel = 0
+	row.Font = Enum.Font.GothamBold
+	row.TextSize = 14
+	row.TextColor3 = TEXT
+	row.Text = emote.label
+	row.Parent = emotePanel
+	local rowCorner = Instance.new("UICorner")
+	rowCorner.CornerRadius = UDim.new(0, 6)
+	rowCorner.Parent = row
+	emoteRows[emote.id] = row
+
+	row.Activated:Connect(function()
+		local current = player:GetAttribute("Emote")
+		Remotes.Emote:FireServer(if current == emote.id then "" else emote.id)
+	end)
+end
+
+-- A que esta a andar fica acesa na lista.
+local function refreshEmotes()
+	local current = player:GetAttribute("Emote")
+	for id, row in emoteRows do
+		row.BackgroundColor3 = if id == current then BRASS:Lerp(INK, 0.3) else Color3.fromRGB(40, 44, 52)
+	end
+end
+player:GetAttributeChangedSignal("Emote"):Connect(refreshEmotes)
+
+local function toggleEmotes()
+	emotePanel.Visible = not emotePanel.Visible
+end
+emoteButton.Activated:Connect(toggleEmotes)
+ContextActionService:BindAction("Animacoes", function(_, inputState)
+	if inputState == Enum.UserInputState.Begin then
+		toggleEmotes()
+	end
+	return Enum.ContextActionResult.Pass
+end, false, Enum.KeyCode.G)
+
 local goalLabel = label(gui, "", 30, TEXT)
 goalLabel.Size = UDim2.new(1, 0, 0, 36)
 goalLabel.Position = UDim2.new(0, 0, 0, 88)

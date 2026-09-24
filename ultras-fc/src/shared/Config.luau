@@ -456,6 +456,28 @@ Config.Performance = {
 }
 
 --[[
+	As animacoes: os bracos com a tocha no ar, o cachecol esticado, e o menu
+	de animacoes de adepto. Sao feitas em codigo, junta a junta, em todos os
+	ecras (Poses.client) — assim toda a gente ve as de toda a gente, sem
+	depender de animacoes carregadas de fora. So para avatares R15.
+
+	`raisedArm` e o angulo do braco com a tocha acesa: 0 caido, 180 todo no
+	ar. O Gear usa o mesmo para a tocha ficar de pe na mao.
+]]
+Config.Poses = {
+	raisedArm = 150,
+}
+
+-- O menu de animacoes, pela ordem em que aparecem. Mexer-se para-as.
+Config.Emotes = {
+	{ id = "aplaudir", label = "Aplaudir" },
+	{ id = "maos", label = "Maos no ar" },
+	{ id = "saltar", label = "Saltar" },
+	{ id = "balancar", label = "Balancar" },
+	{ id = "agachado", label = "Agachado" },
+}
+
+--[[
 	O material de claque. Esta sempre na barra de baixo de quem e de claque,
 	desde que escolhe o lado; quem nao e de claque nao tem nada. Acender gasta
 	um do stock do jogo, e o objecto fica na mao a espera do proximo.

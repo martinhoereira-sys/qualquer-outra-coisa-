@@ -609,6 +609,18 @@ Remotes.Admin.OnServerEvent:Connect(function(player, action)
 	end
 end)
 
+-- O menu de animacoes: o servidor so guarda qual e, e cada ecra anima-a.
+local EMOTE_IDS: { [string]: boolean } = {}
+for _, emote in Config.Emotes do
+	EMOTE_IDS[emote.id] = true
+end
+Remotes.Emote.OnServerEvent:Connect(function(player, id)
+	if type(id) ~= "string" then
+		return
+	end
+	player:SetAttribute("Emote", if EMOTE_IDS[id] then id else nil)
+end)
+
 -- O botao "SEDE": volta-se quando se quer, nunca a forca.
 local lastHome: { [Player]: number } = {}
 Remotes.Home.OnServerEvent:Connect(function(player)

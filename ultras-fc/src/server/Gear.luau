@@ -3,15 +3,21 @@
 	O material de claque: tochas, bombas de fumo, cachecol e, para o lider, o
 	tambor.
 
-	E a imagem do jogo. Uma bancada as escuras e um ponto de luz a arder no
-	meio dela, o fumo a encher o topo e a ver-se do outro lado do campo. Por
-	isso e o servidor que as acende: uma tocha que so quem a acendeu visse nao
-	servia de nada.
+	E a imagem do jogo. Uma bancada as escuras e pontos de luz a arder no meio
+	dela, o fumo a encher o topo e a ver-se do outro lado do campo. Por isso e
+	o servidor que as acende: uma tocha que so quem a acendeu visse nao servia
+	de nada. Cada uma sozinha e modesta, como na vida real; e a bancada inteira
+	acesa que faz a imagem.
 
 	Esta sempre na barra de baixo de quem e de claque, desde que escolhe o
 	lado: nada de ir a uma caixa buscar. Quem nao e de claque nao tem nada.
 	Acender gasta um do stock do jogo (ou nada, com Config.GearStock.unlimited),
 	e o objecto fica na mao, apagado, pronto para o proximo.
+
+	Como se segura: a tocha e a lata de fumo vao presas a mao direita, e acesas
+	sobem com o braco por cima da cabeca. O cachecol vai ao pescoco; clicar
+	estica-o por cima da cabeca, com as duas maos. Os bracos quem os mexe e o
+	Poses.client, em todos os ecras, pelo atributo "Hold" de cada pessoa.
 
 	O que estava partido antes, para nao voltar:
 	- o tambor do lider ocupava o unico "lugar aceso" que cada um tinha, e o
@@ -50,6 +56,14 @@ local SMOKE = "rbxasset://textures/particles/smoke_main.dds"
 local SPARK = "rbxasset://textures/particles/sparkles_main.dds"
 
 local HOT = Color3.fromRGB(255, 244, 214) -- o branco do centro de uma chama
+local WHITE = Color3.fromRGB(240, 240, 240)
+
+--[[
+	O angulo do braco com a tocha acesa, a contar do braco caido (0) ate ao
+	braco todo no ar (180). Tem de ser o mesmo que o Poses.client usa: e com
+	ele que se calcula para onde a tocha aponta dentro da mao, para ficar de pe.
+]]
+local RAISED = math.rad(Config.Poses.raisedArm)
 
 -- Contagens por tipo: cada material tem o seu stock e a sua espera.
 local remaining: { [Player]: { [string]: number } } = {}
@@ -57,6 +71,16 @@ local nextAllowed: { [Player]: { [string]: number } } = {}
 
 -- O objecto de cada tipo que cada um tem, na barra ou na mao.
 local tools: { [Player]: { [string]: Tool } } = {}
+
+-- O que esta na mao de cada objecto equipado: a peca solta e a solda a mao.
+type Held = {
+	model: Model,
+	body: BasePart,
+	tip: BasePart,
+	weld: Weld,
+	length: number,
+}
+local held: { [Tool]: Held } = {}
 
 type Lit = {
 	player: Player,
@@ -70,7 +94,7 @@ type Lit = {
 -- O que esta aceso agora, um por objecto: o tambor do lider ja nao tapa a tocha.
 local lit: { [Tool]: Lit } = {}
 
--- Cachecois no ar, a rodar.
+-- Cachecois esticados no ar.
 local raised: { [Tool]: { player: Player, teamId: string } } = {}
 
 local onDrumHit: ((Player) -> ())? = nil
@@ -184,11 +208,12 @@ local function smokesBurning(): number
 end
 
 --[[
-	A tocha: uma chama branca e forte no centro, a cor da equipa a volta, um
-	halo que se ve de longe, faiscas a saltar e fumo a sair dela.
+	A tocha: uma chama pequena e muito viva na ponta, branca no centro e da
+	cor da equipa a volta, faiscas a saltar e um fio de fumo a sair. Sozinha e
+	modesta; uma bancada inteira delas e que enche o topo.
 
 	As chamas e o fumo sobem por aceleracao, nao pela direcao da ponta: seja
-	qual for o angulo da mao, o fogo vai sempre para cima, como um a serio.
+	qual for o angulo da mao, o fogo vai sempre para cima.
 ]]
 local function flareEffects(at: Attachment, colour: Color3)
 	local flame = emitter("Chama", FIRE, at)
@@ -199,47 +224,47 @@ local function flareEffects(at: Attachment, colour: Color3)
 	})
 	flame.LightEmission = 1
 	flame.LightInfluence = 0
-	flame.Size = curve({ { 0, 1.7 }, { 0.5, 1.1 }, { 1, 0.2 } })
+	flame.Size = curve({ { 0, 0.9 }, { 0.5, 0.6 }, { 1, 0.1 } })
 	flame.Transparency = curve({ { 0, 0 }, { 0.7, 0.35 }, { 1, 1 } })
-	flame.Lifetime = NumberRange.new(0.25, 0.5)
-	flame.Rate = 80
-	flame.Speed = NumberRange.new(1, 3)
-	flame.SpreadAngle = Vector2.new(25, 25)
-	flame.Acceleration = Vector3.new(0, 16, 0)
+	flame.Lifetime = NumberRange.new(0.2, 0.4)
+	flame.Rate = 45
+	flame.Speed = NumberRange.new(0.5, 2)
+	flame.SpreadAngle = Vector2.new(20, 20)
+	flame.Acceleration = Vector3.new(0, 12, 0)
 	flame.RotSpeed = NumberRange.new(-140, 140)
 
-	-- O halo: e ele que faz a tocha ver-se do outro lado do estadio.
+	-- Um halo discreto, para a tocha se distinguir de longe.
 	local glow = emitter("Halo", FIRE, at)
 	glow.Color = ColorSequence.new(colour:Lerp(HOT, 0.2))
 	glow.LightEmission = 1
 	glow.LightInfluence = 0
-	glow.Size = curve({ { 0, 5 }, { 1, 6.5 } })
-	glow.Transparency = curve({ { 0, 0.55 }, { 1, 1 } })
+	glow.Size = curve({ { 0, 2.4 }, { 1, 3 } })
+	glow.Transparency = curve({ { 0, 0.75 }, { 1, 1 } })
 	glow.Lifetime = NumberRange.new(0.12, 0.2)
-	glow.Rate = 30
+	glow.Rate = 18
 	glow.Speed = NumberRange.new(0, 0)
 
 	local sparks = emitter("Faiscas", SPARK, at)
 	sparks.Color = ColorSequence.new(HOT, colour:Lerp(HOT, 0.5))
 	sparks.LightEmission = 1
 	sparks.LightInfluence = 0
-	sparks.Size = curve({ { 0, 0.35 }, { 1, 0 } })
-	sparks.Lifetime = NumberRange.new(0.4, 0.9)
-	sparks.Rate = 40
-	sparks.Speed = NumberRange.new(6, 13)
-	sparks.SpreadAngle = Vector2.new(70, 70)
+	sparks.Size = curve({ { 0, 0.2 }, { 1, 0 } })
+	sparks.Lifetime = NumberRange.new(0.3, 0.7)
+	sparks.Rate = 18
+	sparks.Speed = NumberRange.new(4, 9)
+	sparks.SpreadAngle = Vector2.new(60, 60)
 	sparks.Acceleration = Vector3.new(0, -22, 0)
 	sparks.Drag = 1
 
 	local smoke = emitter("Fumo", SMOKE, at)
-	smoke.Color = ColorSequence.new(colour:Lerp(Color3.fromRGB(210, 210, 210), 0.45), Color3.fromRGB(170, 170, 175))
-	smoke.LightEmission = 0.15
+	smoke.Color = ColorSequence.new(colour:Lerp(Color3.fromRGB(210, 210, 210), 0.5), Color3.fromRGB(170, 170, 175))
+	smoke.LightEmission = 0.1
 	smoke.LightInfluence = 0.6
-	smoke.Size = curve({ { 0, 1.2 }, { 0.3, 6 }, { 1, 11 } })
-	smoke.Transparency = curve({ { 0, 0.35 }, { 0.5, 0.5 }, { 1, 1 } })
-	smoke.Lifetime = NumberRange.new(4, 6.5)
-	smoke.Rate = 16
-	smoke.Speed = NumberRange.new(3, 5)
+	smoke.Size = curve({ { 0, 0.8 }, { 0.3, 3.5 }, { 1, 7 } })
+	smoke.Transparency = curve({ { 0, 0.45 }, { 0.5, 0.6 }, { 1, 1 } })
+	smoke.Lifetime = NumberRange.new(3.5, 5.5)
+	smoke.Rate = 9
+	smoke.Speed = NumberRange.new(2, 4)
 	smoke.SpreadAngle = Vector2.new(20, 20)
 	smoke.Acceleration = Vector3.new(0, 3, 0)
 	smoke.Drag = 0.5
@@ -247,20 +272,19 @@ local function flareEffects(at: Attachment, colour: Color3)
 end
 
 --[[
-	A bomba de fumo: uma nuvem grossa, da cor da equipa, que sai com forca,
-	abre, sobe devagar e fica no ar. Tem de encher o topo e ver-se do outro
-	lado do campo.
+	A bomba de fumo: uma nuvem da cor da equipa que sai com forca da lata,
+	abre, sobe devagar e fica no ar.
 ]]
 local function smokeEffects(at: Attachment, colour: Color3)
 	local plume = emitter("Nuvem", SMOKE, at)
-	plume.Color = ColorSequence.new(colour:Lerp(Color3.new(1, 1, 1), 0.08), colour:Lerp(Color3.new(1, 1, 1), 0.3))
-	plume.LightEmission = 0.1
-	plume.LightInfluence = 0.7
-	plume.Size = curve({ { 0, 2 }, { 0.15, 9 }, { 1, 19 } })
-	plume.Transparency = curve({ { 0, 0.05 }, { 0.6, 0.2 }, { 1, 1 } })
-	plume.Lifetime = NumberRange.new(7, 11)
-	plume.Rate = if smokesBurning() >= Config.Performance.maxSmokes then 13 else 26
-	plume.Speed = NumberRange.new(7, 11)
+	plume.Color = ColorSequence.new(colour:Lerp(Color3.new(1, 1, 1), 0.1), colour:Lerp(Color3.new(1, 1, 1), 0.35))
+	plume.LightEmission = 0.05
+	plume.LightInfluence = 0.75
+	plume.Size = curve({ { 0, 1.5 }, { 0.15, 6 }, { 1, 13 } })
+	plume.Transparency = curve({ { 0, 0.15 }, { 0.6, 0.35 }, { 1, 1 } })
+	plume.Lifetime = NumberRange.new(6, 9)
+	plume.Rate = if smokesBurning() >= Config.Performance.maxSmokes then 9 else 16
+	plume.Speed = NumberRange.new(5, 8)
 	plume.SpreadAngle = Vector2.new(22, 22)
 	plume.Acceleration = Vector3.new(0, 1.2, 0)
 	plume.Drag = 0.5
@@ -269,29 +293,19 @@ local function smokeEffects(at: Attachment, colour: Color3)
 	-- O jacto a sair da lata, com a cor viva, antes de abrir em nuvem.
 	local jet = emitter("Jacto", SMOKE, at)
 	jet.Color = ColorSequence.new(colour)
-	jet.LightEmission = 0.3
+	jet.LightEmission = 0.2
 	jet.LightInfluence = 0.5
-	jet.Size = curve({ { 0, 0.8 }, { 1, 4 } })
-	jet.Transparency = curve({ { 0, 0 }, { 1, 1 } })
-	jet.Lifetime = NumberRange.new(0.6, 1)
-	jet.Rate = 30
-	jet.Speed = NumberRange.new(10, 14)
+	jet.Size = curve({ { 0, 0.5 }, { 1, 2.5 } })
+	jet.Transparency = curve({ { 0, 0.1 }, { 1, 1 } })
+	jet.Lifetime = NumberRange.new(0.5, 0.8)
+	jet.Rate = 20
+	jet.Speed = NumberRange.new(7, 10)
 	jet.SpreadAngle = Vector2.new(10, 10)
 end
 
 --------------------------------------------------------------------------------
--- O objecto
+-- O que se tem na mao
 --------------------------------------------------------------------------------
-
-local function weldTo(handle: BasePart, piece: BasePart, offset: CFrame)
-	-- Primeiro no sitio, depois a solda: soldar antes deixava a ponta presa
-	-- dentro do cabo, que era onde a tocha acabava escondida.
-	piece.CFrame = handle.CFrame * offset
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = handle
-	weld.Part1 = piece
-	weld.Parent = handle
-end
 
 local function loosePart(name: string, size: Vector3, colour: Color3, parent: Instance): Part
 	local p = Instance.new("Part")
@@ -308,73 +322,163 @@ local function loosePart(name: string, size: Vector3, colour: Color3, parent: In
 	return p
 end
 
-local function buildTool(kind: string, colour: Color3): Tool
-	local tool = Instance.new("Tool")
-	tool.Name = LABEL[kind]
-	tool.ToolTip = LABEL[kind]
-	tool:SetAttribute("Kind", kind)
-	tool.RequiresHandle = true
-	tool.CanBeDropped = false
-	-- Com pega, o Roblox poe sozinho a pose de segurar: o braco sobe e a mao
-	-- fecha-se no cabo, sem ser preciso animacao nenhuma.
-	tool.Grip = CFrame.new(0, -0.4, 0) * CFrame.Angles(math.rad(-20), 0, 0)
+-- Cola `piece` a `body`, no sitio certo: primeiro o sitio, depois a solda.
+local function weldTo(body: BasePart, piece: BasePart, offset: CFrame)
+	piece.CFrame = body.CFrame * offset
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = body
+	weld.Part1 = piece
+	weld.Parent = body
+end
 
-	local handle = loosePart("Handle", Vector3.new(0.35, 1.8, 0.35), Color3.fromRGB(26, 26, 29), tool)
+--[[
+	Para onde aponta o objecto dentro da mao. Com o braco levantado `angle`
+	(0 caido, 180 no ar), este e o sentido que, no mundo, fica a apontar para
+	cima. Apagado vai com o braco caido, um pouco para a frente.
+]]
+local function stickDirection(angle: number): Vector3
+	return Vector3.new(0, math.cos(angle), -math.sin(angle))
+end
 
-	if kind == "tambor" then
-		handle.Size = Vector3.new(2.6, 2.2, 2.6)
-		handle.Shape = Enum.PartType.Cylinder
-		handle.Color = Color3.fromRGB(196, 186, 168)
-		-- Deitado e a tiracolo, como se leva um bombo.
-		tool.Grip = CFrame.new(0, -1.4, 0) * CFrame.Angles(0, 0, math.rad(90))
+local function gripFor(h: Held, up: Vector3): CFrame
+	local unit = up.Unit
+	return CFrame.fromMatrix(unit * (h.length / 2 - 0.35), Vector3.xAxis, unit)
+end
 
-		local skin = loosePart("Skin", Vector3.new(0.3, 2.3, 2.3), colour, tool)
-		skin.Shape = Enum.PartType.Cylinder
-		weldTo(handle, skin, CFrame.new(1.4, 0, 0))
-	elseif kind == "cachecol" then
-		-- Uma tira comprida da cor da equipa, com as pontas brancas.
-		handle.Size = Vector3.new(0.25, 5, 0.9)
-		handle.Color = colour
-		handle.Material = Enum.Material.Fabric
-		tool.Grip = CFrame.new(0, -2.1, 0)
-		for _, y in { 2.2, -2.2 } do
-			local tip = loosePart("Ponta", Vector3.new(0.27, 0.6, 0.92), Color3.fromRGB(240, 240, 240), tool)
-			tip.Material = Enum.Material.Fabric
-			weldTo(handle, tip, CFrame.new(0, y, 0))
-		end
+local LOW = Vector3.new(0, 0.55, -0.85) -- apagado: na mao, a apontar para a frente e para cima
+
+local function handOf(character: Model): BasePart?
+	return (character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")) :: BasePart?
+end
+
+--[[
+	A tocha e a lata, feitas pecas soltas presas a mao. Uma tocha a serio e um
+	bastao fino e vermelho, com a chama so na ponta; a lata e mais grossa e
+	curta, com uma banda da cor da equipa.
+]]
+local function buildHeld(kind: string, colour: Color3): Held
+	local model = Instance.new("Model")
+	model.Name = "NaMao"
+
+	local body: BasePart
+	local length: number
+	if kind == "tocha" then
+		length = 1.7
+		body = loosePart("Tocha", Vector3.new(0.2, length, 0.2), Color3.fromRGB(196, 38, 34), model)
+		local cap = loosePart("Tampa", Vector3.new(0.22, 0.28, 0.22), Color3.fromRGB(40, 40, 44), model)
+		weldTo(body, cap, CFrame.new(0, -length / 2 + 0.14, 0))
 	else
-		if kind == "fumo" then
-			-- Uma lata, mais grossa e mais curta do que uma tocha.
-			handle.Size = Vector3.new(0.6, 1.3, 0.6)
-			handle.Color = Color3.fromRGB(46, 48, 54)
-			local band = loosePart("Banda", Vector3.new(0.62, 0.4, 0.62), colour, tool)
-			weldTo(handle, band, CFrame.new(0, 0.1, 0))
-		end
-
-		local tip = loosePart("Tip", Vector3.new(0.42, 0.3, 0.42), colour, tool)
-		tip.Material = Enum.Material.Neon
-		tip.Transparency = 1 -- so acende quando for acesa
-		weldTo(handle, tip, CFrame.new(0, handle.Size.Y / 2 + 0.12, 0))
+		length = 1.1
+		body = loosePart("Lata", Vector3.new(0.5, length, 0.5), Color3.fromRGB(46, 48, 54), model)
+		local band = loosePart("Banda", Vector3.new(0.52, 0.34, 0.52), colour, model)
+		weldTo(body, band, CFrame.new(0, 0.1, 0))
 	end
 
-	return tool
+	local tip = loosePart("Ponta", Vector3.new(0.24, 0.14, 0.24), colour, model)
+	tip.Material = Enum.Material.Neon
+	tip.Transparency = 1 -- so se ve acesa
+	weldTo(body, tip, CFrame.new(0, length / 2 + 0.05, 0))
+
+	local weld = Instance.new("Weld")
+	weld.Name = "Mao"
+	weld.Part1 = body
+	weld.Parent = body
+
+	model.PrimaryPart = body
+	return { model = model, body = body, tip = tip, weld = weld, length = length }
+end
+
+-- Pega: o objecto aparece na mao direita.
+local function equip(tool: Tool, kind: string, teamId: string)
+	local character = tool.Parent
+	if not character or not character:IsA("Model") then
+		return
+	end
+	local hand = handOf(character)
+	if not hand then
+		return
+	end
+	local h = buildHeld(kind, Config.Teams[teamId].color)
+	h.weld.Part0 = hand
+	h.weld.C0 = gripFor(h, LOW)
+	h.model.Parent = character
+	held[tool] = h
+end
+
+-- O cachecol ao pescoco: a volta e as duas pontas a cair a frente.
+local NECK = "CachecolPescoco"
+
+local function wearScarf(character: Model, colour: Color3)
+	if character:FindFirstChild(NECK) then
+		return
+	end
+	local torso = (character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")) :: BasePart?
+	if not torso then
+		return
+	end
+	local model = Instance.new("Model")
+	model.Name = NECK
+
+	local top = torso.Size.Y / 2
+	local ring = loosePart("Volta", Vector3.new(1.3, 0.32, 1.1), colour, model)
+	ring.Material = Enum.Material.Fabric
+	ring.CFrame = torso.CFrame * CFrame.new(0, top - 0.1, 0)
+	for _, x in { -0.3, 0.3 } do
+		local strip = loosePart("Ponta", Vector3.new(0.36, 1.2, 0.08), colour, model)
+		strip.Material = Enum.Material.Fabric
+		strip.CFrame = torso.CFrame * CFrame.new(x, top - 0.75, -torso.Size.Z / 2 - 0.05)
+		local fringe = loosePart("Franja", Vector3.new(0.37, 0.18, 0.09), WHITE, model)
+		weldTo(strip, fringe, CFrame.new(0, -0.6, 0))
+	end
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = torso
+			weld.Part1 = part
+			weld.Parent = part
+		end
+	end
+	model.Parent = character
+end
+
+local function showScarf(character: Model?, visible: boolean)
+	local scarf = character and character:FindFirstChild(NECK)
+	if not scarf then
+		return
+	end
+	for _, part in scarf:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Transparency = if visible then 0 else 1
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Acender e apagar
+--------------------------------------------------------------------------------
+
+-- O braco no ar, em todos os ecras: o Poses.client le isto.
+local function setHold(player: Player, what: string?)
+	player:SetAttribute("Hold", what)
 end
 
 local function ignite(player: Player, tool: Tool, kind: string, teamId: string)
-	local tip = tool:FindFirstChild("Tip") :: BasePart?
-	if not tip then
+	local h = held[tool]
+	if not h then
 		return
 	end
 
 	local colour = Config.Teams[teamId].color
-	tip.Color = colour
-	tip.Transparency = 0
+	h.tip.Color = colour
+	h.tip.Transparency = 0
+	-- Acesa, sobe com o braco e fica de pe.
+	h.weld.C0 = gripFor(h, stickDirection(RAISED))
+	setHold(player, kind)
 
-	-- Os efeitos novos de cada vez: os do acendimento anterior ainda se estao a
-	-- desfazer no ar, e ficam la ate acabarem.
 	local effects = Instance.new("Attachment")
 	effects.Name = "Aceso"
-	effects.Parent = tip
+	effects.Position = Vector3.new(0, 0.1, 0)
+	effects.Parent = h.tip
 
 	if kind == "tocha" then
 		flareEffects(effects, colour)
@@ -400,8 +504,8 @@ local function ignite(player: Player, tool: Tool, kind: string, teamId: string)
 		return
 	end
 	local light = Instance.new("PointLight")
-	light.Brightness = if kind == "tocha" then 8 else 3
-	light.Range = if kind == "tocha" then 34 else 24
+	light.Brightness = if kind == "tocha" then 4 else 1.5
+	light.Range = if kind == "tocha" then 22 else 16
 	light.Color = colour:Lerp(HOT, 0.2)
 	-- Sombras de uma luz pequena sao das coisas mais caras que ha.
 	light.Shadows = false
@@ -421,12 +525,36 @@ local function extinguish(entry: Lit)
 		end
 	end
 	-- O fumo mais lento ainda leva uns segundos a sumir.
-	task.delay(12, function()
+	task.delay(10, function()
 		effects:Destroy()
 	end)
-	local tip = entry.tool:FindFirstChild("Tip") :: BasePart?
-	if tip then
-		tip.Transparency = 1
+
+	local h = held[entry.tool]
+	if h then
+		h.tip.Transparency = 1
+		h.weld.C0 = gripFor(h, LOW)
+	end
+	if entry.player:GetAttribute("Hold") == entry.kind then
+		setHold(entry.player, nil)
+	end
+end
+
+-- Larga: o que estava na mao some, e aceso apaga-se.
+local function unequip(player: Player, tool: Tool)
+	local entry = lit[tool]
+	if entry then
+		extinguish(entry)
+	end
+	if raised[tool] then
+		raised[tool] = nil
+		setHold(player, nil)
+		showScarf(player.Character, true)
+	end
+	local h = held[tool]
+	held[tool] = nil
+	if h then
+		-- O fumo que ja saiu fica no ar: so se tira a peca da mao.
+		h.model:Destroy()
 	end
 end
 
@@ -444,13 +572,16 @@ local function activate(player: Player, tool: Tool, kind: string)
 		return
 	end
 
-	-- O cachecol levanta-se e baixa-se.
+	-- O cachecol: do pescoco para cima da cabeca, esticado, e de volta.
 	if kind == "cachecol" then
 		if raised[tool] then
 			raised[tool] = nil
-			tool.Grip = CFrame.new(0, -2.1, 0)
+			setHold(player, nil)
+			showScarf(player.Character, true)
 		else
 			raised[tool] = { player = player, teamId = teamId }
+			setHold(player, "cachecol")
+			showScarf(player.Character, false)
 		end
 		return
 	end
@@ -474,8 +605,45 @@ local function activate(player: Player, tool: Tool, kind: string)
 end
 
 --------------------------------------------------------------------------------
--- Quem tem o que
+-- A barra
 --------------------------------------------------------------------------------
+
+local function buildTool(player: Player, kind: string, teamId: string): Tool
+	local colour = Config.Teams[teamId].color
+	local tool = Instance.new("Tool")
+	tool.Name = LABEL[kind]
+	tool.ToolTip = LABEL[kind]
+	tool:SetAttribute("Kind", kind)
+	tool:SetAttribute("Team", teamId)
+	tool.CanBeDropped = false
+
+	if kind == "tambor" then
+		-- O tambor continua um objecto do Roblox com pega: deitado, a tiracolo.
+		tool.RequiresHandle = true
+		tool.Grip = CFrame.new(0, -1.4, 0) * CFrame.Angles(0, 0, math.rad(90))
+		local handle = loosePart("Handle", Vector3.new(2.6, 2.2, 2.6), Color3.fromRGB(196, 186, 168), tool)
+		handle.Shape = Enum.PartType.Cylinder
+		local skin = loosePart("Skin", Vector3.new(0.3, 2.3, 2.3), colour, tool)
+		skin.Shape = Enum.PartType.Cylinder
+		weldTo(handle, skin, CFrame.new(1.4, 0, 0))
+	else
+		-- Sem pega: o que se ve na mao poe-se a parte, preso a mao (equip).
+		tool.RequiresHandle = false
+	end
+
+	if kind == "tocha" or kind == "fumo" then
+		tool.Equipped:Connect(function()
+			equip(tool, kind, teamId)
+		end)
+	end
+	tool.Unequipped:Connect(function()
+		unequip(player, tool)
+	end)
+	tool.Activated:Connect(function()
+		activate(player, tool, kind)
+	end)
+	return tool
+end
 
 local function has(player: Player, tool: Tool?): boolean
 	if not tool or not tool.Parent then
@@ -492,17 +660,14 @@ local function drop(player: Player, kind: string)
 		return
 	end
 	mine[kind] = nil
-	local entry = lit[tool]
-	if entry then
-		extinguish(entry)
-	end
-	raised[tool] = nil
+	unequip(player, tool)
 	tool:Destroy()
 end
 
 --[[
-	Poe na barra de cada um o que lhe cabe, e tira o que ja nao cabe. Pode ser
-	chamado as vezes que for preciso: so mexe no que falta ou esta a mais.
+	Poe na barra de cada um o que lhe cabe, e tira o que ja nao cabe; e o
+	cachecol ao pescoco de quem e de claque. Pode ser chamado as vezes que for
+	preciso: so mexe no que falta ou esta a mais.
 ]]
 function Gear.sync(player: Player)
 	if not player.Parent then
@@ -513,6 +678,21 @@ function Gear.sync(player: Player)
 	tools[player] = tools[player] or {}
 	local mine = tools[player]
 	local touched = false
+
+	local character = player.Character
+	if character then
+		local scarf = character:FindFirstChild(NECK)
+		if scarf and scarf:GetAttribute("Team") ~= teamId then
+			scarf:Destroy()
+		end
+		if teamId and not character:FindFirstChild(NECK) then
+			wearScarf(character, Config.Teams[teamId].color)
+			local worn = character:FindFirstChild(NECK)
+			if worn then
+				worn:SetAttribute("Team", teamId)
+			end
+		end
+	end
 
 	for _, kind in ORDER do
 		local wanted = teamId ~= nil and (kind ~= "tambor" or Teams.isLeader(player))
@@ -534,11 +714,7 @@ function Gear.sync(player: Player)
 			if tool then
 				drop(player, kind)
 			end
-			local fresh = buildTool(kind, Config.Teams[teamId].color)
-			fresh:SetAttribute("Team", teamId)
-			fresh.Activated:Connect(function()
-				activate(player, fresh, kind)
-			end)
+			local fresh = buildTool(player, kind, teamId)
 			fresh.Parent = backpack
 			mine[kind] = fresh
 			touched = true
@@ -550,26 +726,12 @@ function Gear.sync(player: Player)
 	end
 end
 
---[[
-	Enquanto arde, o material balanca na mao; o cachecol no ar roda. E
-	movimento a serio sem animacao carregada: mexer o Grip mexe o objecto
-	dentro da mao, e e isso que se ve da outra ponta do estadio.
-]]
-local function sway(tool: Tool, now: number)
-	local t = now * 5.5
-	tool.Grip = CFrame.new(math.sin(t) * 0.12, -0.4, 0)
-		* CFrame.Angles(math.rad(-20) + math.sin(t) * 0.35, math.sin(t * 0.7) * 0.25, math.cos(t) * 0.2)
-end
-
-local function twirl(tool: Tool, now: number)
-	tool.Grip = CFrame.new(0, -2.1, 0) * CFrame.Angles(0, now * 9, math.sin(now * 9) * 0.5)
-end
-
 function Gear.start()
 	Teams.onChanged(Gear.sync)
 
 	local function watch(player: Player)
 		player.CharacterAdded:Connect(function()
+			player:SetAttribute("Hold", nil)
 			-- O Roblox esvazia a mochila ao renascer; da-se-lhe tempo e volta a encher.
 			task.wait(0.5)
 			Gear.sync(player)
@@ -585,7 +747,7 @@ function Gear.start()
 		while true do
 			task.wait(2)
 			for _, player in Players:GetPlayers() do
-				if Teams.get(player) then
+				if Teams.get(player) or tools[player] then
 					Gear.sync(player)
 				end
 			end
@@ -599,16 +761,16 @@ function Gear.start()
 				lit[tool] = nil
 			elseif now >= entry.until_ then
 				extinguish(entry)
-				tool.Grip = CFrame.new(0, -0.4, 0) * CFrame.Angles(math.rad(-20), 0, 0)
-			else
-				sway(tool, now)
 			end
 		end
 		for tool in raised do
 			if not tool.Parent then
 				raised[tool] = nil
-			else
-				twirl(tool, now)
+			end
+		end
+		for tool, h in held do
+			if not tool.Parent or not h.model.Parent then
+				held[tool] = nil
 			end
 		end
 	end)
