@@ -276,7 +276,7 @@ function DayNight.start()
 	Lighting.ClockTime = D.startHour
 
 	local hoursPerSecond = 24 / (D.dayMinutes * 60)
-	local sinceSky = math.huge
+	local sinceSky = 0 -- a contar desde ja: infinito aqui dava uma hora invalida (noite) no arranque
 	RunService.Heartbeat:Connect(function(dt)
 		sinceSky += dt
 		-- Meio segundo de cada vez chega: o sol anda devagar, e cada mudanca
