@@ -117,14 +117,17 @@ local function readyNeeded(teamId: string): number
 end
 
 --[[
-	Monta uma sede: balcao de inscricao, caixa de material, o tambor no seu
-	suporte, e a porta por onde o corteo sai.
+	Monta uma sede: balcao de inscricao, o tambor no seu suporte, e a porta por
+	onde o corteo sai. `pivot` e o centro do chao da sede, com a porta para o
+	seu +Z: a sede pode estar em qualquer sitio do mapa, virada para qualquer
+	lado, e o recheio vai com ela.
 ]]
-function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
+function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance)
 	local team = Config.Teams[teamId]
+	local centre = pivot.Position
 
 	-- Balcao: e aqui que se entra na claque.
-	local desk = fixture("Desk", Vector3.new(10, 3.5, 2.5), CFrame.new(centre.X - 12, 1.75, centre.Z - 6), team.color, parent)
+	local desk = fixture("Desk", Vector3.new(10, 3.5, 2.5), pivot * CFrame.new(-12, 1.75, -6), team.color, parent)
 	local join = prompt(desk, "Entrar", "Claque do " .. team.name, 12)
 
 	-- O letreiro vai no portao, que e o que se ve da rua.
@@ -144,7 +147,7 @@ function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
 		largar mais ninguem pode ser. E dai que vem a autoridade: nao de um
 		titulo, de ser o unico a ter o tambor.
 	]]
-	local stand = fixture("DrumStand", Vector3.new(3, 3.4, 3), CFrame.new(centre.X, 1.7, centre.Z - 10), Color3.fromRGB(188, 178, 160), parent)
+	local stand = fixture("DrumStand", Vector3.new(3, 3.4, 3), pivot * CFrame.new(0, 1.7, -10), Color3.fromRGB(188, 178, 160), parent)
 	local takeDrum = prompt(stand, "Pegar", "Tambor da claque", 10)
 
 	takeDrum.Triggered:Connect(function(player)
@@ -158,7 +161,7 @@ function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
 	end)
 
 	-- A porta. So o lider a abre, e so com gente suficiente atras dele.
-	local door = fixture("Gate", Vector3.new(12, 6, 1.5), CFrame.new(centre.X, 3, centre.Z + 17), team.color, parent)
+	local door = fixture("Gate", Vector3.new(12, 6, 1.5), pivot * CFrame.new(0, 3, 17), team.color, parent)
 	local start = prompt(door, "Sair em corteo", "So o lider", 14)
 	marker(door, "SEDE  ·  " .. string.upper(team.name), team.color, 22)
 
@@ -175,7 +178,7 @@ function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
 	end)
 
 	-- Quadro com a contagem, para se perceber do que se esta a espera.
-	local board = fixture("Board", Vector3.new(9, 3, 0.4), CFrame.new(centre.X, 8, centre.Z + 16.2), Color3.fromRGB(28, 30, 36), parent)
+	local board = fixture("Board", Vector3.new(9, 3, 0.4), pivot * CFrame.new(0, 8, 16.2), Color3.fromRGB(28, 30, 36), parent)
 	counters[teamId] = board
 
 	local sign = Instance.new("SurfaceGui")

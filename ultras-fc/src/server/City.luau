@@ -4,307 +4,48 @@
 
 	Isto existe por uma razao: nao se entra num estadio por magia. Apareces na
 	sede da tua claque, sais para a rua, e andas ate la — e no caminho que o
-	corteo ha-de acontecer. Um jogo que te punha ja sentado na bancada perdia a
-	melhor parte.
+	corteo ha-de acontecer.
 
-	As sedes ficam em pontas opostas da avenida, de proposito: as duas claques
-	nao se cruzam antes do estadio, e cada uma faz o seu percurso.
+	A cidade vive no mapa (Workspace.Cidade), feita uma vez pelo CityMap e
+	depois mexida a mao no Studio por quem quiser. Aqui le-se o que la estiver:
+	- Cidade.Sedes.Sede_<equipa>: cada sede, onde quer que esteja e virada
+	  para onde estiver. A porta e o lado +Z do modelo;
+	- Cidade.Chegada: onde aparece quem ainda nao escolheu lado;
+	- Cidade.PostoArbitragem: onde fica a cabine do arbitro;
+	- Cidade.Rotas.<equipa>: o caminho de sempre do corteo, pontos 1, 2, 3...
+	- Cidade.EstadioArea: so uma marca no Studio de onde o estadio aparece.
+	Os marcadores ficam invisiveis quando o jogo arranca. Se nao houver cidade
+	no mapa, gera-se uma na hora.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
-local Budget = require(script.Parent:WaitForChild("Budget"))
 local Clubhouse = require(script.Parent:WaitForChild("Clubhouse"))
+local CityMap = require(script.Parent:WaitForChild("CityMap"))
 
 local City = {}
 
-local S = Config.Stadium
-
-local ASPHALT = Color3.fromRGB(22, 23, 27)
-local KERB = Color3.fromRGB(44, 46, 52)
-local WINDOW_ON = Color3.fromRGB(255, 226, 164)
-local WINDOW_OFF = Color3.fromRGB(126, 142, 158)
-
-local WALLS = {
-	Color3.fromRGB(58, 56, 54),
-	Color3.fromRGB(48, 50, 56),
-	Color3.fromRGB(66, 60, 54),
-	Color3.fromRGB(42, 44, 50),
-	Color3.fromRGB(72, 66, 58),
-}
-
 local spawnPoints: { [string]: Vector3 } = {}
+local routes: { [string]: { Vector3 } } = {}
+local neutral: Vector3? = nil
 
-local function part(
-	name: string,
-	size: Vector3,
-	cf: CFrame,
-	colour: Color3,
-	parent: Instance,
-	material: Enum.Material?
-): Part
-	Budget.take("Cidade")
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Size = size
-	p.CFrame = cf
-	p.Color = colour
-	p.Anchored = true
-	p.Material = material or Enum.Material.Concrete
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	p.Parent = parent
-	return p
-end
+-- A porta de uma sede, no chao a frente dela: e ai que se aparece e que o corteo comeca.
+local SEDE_FRONT = 17 + 9
 
-local function streetLamp(x: number, z: number, facing: number, parent: Instance)
-	part("Pole", Vector3.new(0.8, 18, 0.8), CFrame.new(x, 9, z), Color3.fromRGB(26, 28, 33), parent, Enum.Material.Metal)
-
-	local lamp = part(
-		"Lamp",
-		Vector3.new(3.4, 0.6, 1.6),
-		CFrame.new(x + math.sin(facing) * 1.8, 18, z + math.cos(facing) * 1.8),
-		WINDOW_ON,
-		parent,
-		Enum.Material.Neon
-	)
-	lamp.CastShadow = false
-
-	-- Apagado: de fim de tarde um candeeiro e um poste, nao uma luz. Deixa-se o
-	-- corpo montado para bastar acende-lo quando houver jogos a noite.
-	lamp.Color = Color3.fromRGB(150, 150, 146)
-	lamp.Material = Enum.Material.SmoothPlastic
-end
-
---[[
-	Um predio. Janelas acesas ao acaso — e isso que separa uma cidade de uma
-	fila de caixas: uma fachada toda igual le-se como cenario, uma com luzes
-	trocadas le-se como gente la dentro.
-]]
-local SHOPS = {
-	{ name = "CAFE CENTRAL", tint = Color3.fromRGB(226, 148, 62) },
-	{ name = "TABACARIA", tint = Color3.fromRGB(86, 168, 214) },
-	{ name = "MERCEARIA", tint = Color3.fromRGB(104, 186, 116) },
-	{ name = "CERVEJARIA", tint = Color3.fromRGB(216, 84, 76) },
-	{ name = "TASCA DO TONI", tint = Color3.fromRGB(232, 196, 92) },
-	{ name = "BARBEARIA", tint = Color3.fromRGB(198, 108, 196) },
-}
-
---[[
-	Uma loja no res-do-chao, virada a rua.
-
-	E o que separa um quarteirao de um cenario: montras acesas ao nivel dos
-	olhos, com nomes. Predios lisos ate ao chao lem-se como paredes, e ninguem
-	passeia ao lado de paredes.
-]]
-local function shopfront(centre: Vector3, width: number, facing: number, parent: Instance)
-	local shop = SHOPS[math.random(1, #SHOPS)]
-	local dir = Vector3.new(math.sin(facing), 0, math.cos(facing))
-	local at = Vector3.new(centre.X, 2.4, centre.Z) + dir * 0.4
-
-	local window = part(
-		"Shopfront",
-		Vector3.new(
-			math.abs(dir.Z) > 0.5 and width - 6 or 0.5,
-			4.4,
-			math.abs(dir.X) > 0.5 and width - 6 or 0.5
-		),
-		CFrame.new(at),
-		WINDOW_OFF,
-		parent,
-		Enum.Material.Glass
-	)
-	window.Reflectance = 0.3
-	window.CastShadow = false
-
-	-- Montras: o vidro e que se ve, nao um halo. De dia o brilho so lavava a rua.
-	local glow = Instance.new("PointLight")
-	glow.Brightness = 0.5
-	glow.Range = 14
-	glow.Color = shop.tint
-	glow.Parent = window
-
-	local board = part(
-		"Sign",
-		Vector3.new(
-			math.abs(dir.Z) > 0.5 and width - 8 or 0.4,
-			1.8,
-			math.abs(dir.X) > 0.5 and width - 8 or 0.4
-		),
-		CFrame.new(at + Vector3.new(0, 3.6, 0)),
-		shop.tint,
-		parent,
-		Enum.Material.Neon
-	)
-	board.CastShadow = false
-
-	local sign = Instance.new("SurfaceGui")
-	sign.Face = math.abs(dir.Z) > 0.5
-		and (dir.Z > 0 and Enum.NormalId.Front or Enum.NormalId.Back)
-		or (dir.X > 0 and Enum.NormalId.Right or Enum.NormalId.Left)
-	sign.CanvasSize = Vector2.new(700, 120)
-	sign.Parent = board
-
-	local text = Instance.new("TextLabel")
-	text.Size = UDim2.fromScale(1, 1)
-	text.BackgroundTransparency = 1
-	text.Font = Enum.Font.GothamBold
-	text.Text = shop.name
-	text.TextScaled = true
-	text.TextColor3 = Color3.fromRGB(22, 22, 26)
-	text.Parent = sign
-end
-
-local function building(centre: Vector3, footprint: Vector2, floors: number, parent: Instance)
-	local floorHeight = 5
-	local height = floors * floorHeight
-	local colour = WALLS[math.random(1, #WALLS)]
-
-	part(
-		"Walls",
-		Vector3.new(footprint.X, height, footprint.Y),
-		CFrame.new(centre.X, height / 2, centre.Z),
-		colour,
-		parent
-	)
-
-	-- Loja virada a avenida, no res-do-chao.
-	shopfront(
-		Vector3.new(centre.X, 0, centre.Z + (footprint.Y / 2) * (centre.Z > 0 and -1 or 1)),
-		footprint.X,
-		centre.Z > 0 and math.pi or 0,
-		parent
-	)
-
-	-- Cornija, para o topo nao ser um corte seco.
-	part(
-		"Cornice",
-		Vector3.new(footprint.X + 1.5, 1, footprint.Y + 1.5),
-		CFrame.new(centre.X, height + 0.5, centre.Z),
-		colour:Lerp(Color3.new(0, 0, 0), 0.35),
-		parent
-	)
-
-	for floor = 2, floors do
-		local y = (floor - 0.5) * floorHeight
-		for _, spec in {
-			{ normal = Vector3.new(0, 0, 1), span = footprint.X, depth = footprint.Y / 2 },
-			{ normal = Vector3.new(0, 0, -1), span = footprint.X, depth = footprint.Y / 2 },
-			{ normal = Vector3.new(1, 0, 0), span = footprint.Y, depth = footprint.X / 2 },
-			{ normal = Vector3.new(-1, 0, 0), span = footprint.Y, depth = footprint.X / 2 },
-		} do
-			--[[
-				Uma faixa de vidro por andar e por fachada, em vez de uma peca por
-				janela: eram mais de mil pecas so em janelas apagadas, numa cidade
-				por onde so se passa antes do jogo.
-
-				Vidro, nao Neon. Neon brilha sempre — era por isso que os predios
-				ardiam a plena luz do dia. De tarde uma janela e um reflexo.
-			]]
-			local front = Vector3.new(centre.X, y, centre.Z) + spec.normal * (spec.depth + 0.15)
-			local band = part(
-				"Windows",
-				Vector3.new(
-					spec.normal.X ~= 0 and 0.4 or spec.span - 3,
-					2.4,
-					spec.normal.Z ~= 0 and 0.4 or spec.span - 3
-				),
-				CFrame.new(front),
-				WINDOW_OFF,
-				parent,
-				Enum.Material.Glass
-			)
-			band.Reflectance = 0.35
-			band.CastShadow = false
-
-			-- So uma aqui e ali esta mesmo acesa, a frente da faixa.
-			local count = math.max(2, math.floor(spec.span / 7))
-			for i = 1, count do
-				if math.random() < 0.08 then
-					local offset = (i - (count + 1) / 2) * (spec.span / count)
-					local along = Vector3.new(spec.normal.Z, 0, spec.normal.X) * offset
-					local pane = part(
-						"Window",
-						Vector3.new(
-							spec.normal.X ~= 0 and 0.4 or 2.6,
-							2.4,
-							spec.normal.Z ~= 0 and 0.4 or 2.6
-						),
-						CFrame.new(front + along + spec.normal * 0.15),
-						WINDOW_ON,
-						parent,
-						Enum.Material.Neon
-					)
-					pane.CastShadow = false
-				end
+local function hide(part: Instance)
+	if part:IsA("BasePart") then
+		part.Transparency = 1
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		for _, child in part:GetChildren() do
+			if child:IsA("SurfaceGui") then
+				child:Destroy()
 			end
 		end
 	end
 end
-
---[[
-	A sede da claque. E daqui que se sai, por isso tem de se perceber de quem e
-	antes sequer de se ler o nome: a cor esta na fachada toda, nao num cartaz.
-]]
-local function clubhouse(teamId: string, centre: Vector3, parent: Instance)
-	local team = Config.Teams[teamId]
-	local folder = Instance.new("Folder")
-	folder.Name = "Clubhouse_" .. teamId
-	folder.Parent = parent
-
-	local width, depth, height = 46, 34, 14
-
-	part("Floor", Vector3.new(width, 2, depth), CFrame.new(centre.X, 0, centre.Z), Color3.fromRGB(38, 38, 42), folder)
-	part("Roof", Vector3.new(width + 3, 1.5, depth + 3), CFrame.new(centre.X, height, centre.Z), Color3.fromRGB(24, 26, 30), folder)
-
-	-- Tres paredes e a frente aberta: entra-se e sai-se sem porta nenhuma.
-	part("Back", Vector3.new(width, height, 2), CFrame.new(centre.X, height / 2, centre.Z - depth / 2), team.color, folder)
-	part("Left", Vector3.new(2, height, depth), CFrame.new(centre.X - width / 2, height / 2, centre.Z), team.color, folder)
-	part("Right", Vector3.new(2, height, depth), CFrame.new(centre.X + width / 2, height / 2, centre.Z), team.color, folder)
-
-	-- Faixa por cima da entrada.
-	local banner = part(
-		"Banner",
-		Vector3.new(width - 6, 4, 0.6),
-		CFrame.new(centre.X, height - 3, centre.Z + depth / 2),
-		team.color,
-		folder,
-		Enum.Material.Fabric
-	)
-
-	local sign = Instance.new("SurfaceGui")
-	sign.Face = Enum.NormalId.Front
-	sign.CanvasSize = Vector2.new(800, 140)
-	sign.Parent = banner
-
-	local text = Instance.new("TextLabel")
-	text.Size = UDim2.fromScale(1, 1)
-	text.BackgroundTransparency = 1
-	text.Font = Enum.Font.GothamBlack
-	text.Text = team.name
-	text.TextScaled = true
-	text.TextColor3 = Color3.fromRGB(245, 245, 245)
-	text.Parent = sign
-
-	-- Luz quente la dentro, que e o que faz uma sede parecer aberta a noite.
-	local glow = part("Glow", Vector3.new(width - 8, 0.5, depth - 8), CFrame.new(centre.X, height - 1.5, centre.Z), WINDOW_ON, folder, Enum.Material.Neon)
-	glow.CastShadow = false
-
-	local light = Instance.new("PointLight")
-	light.Brightness = 1
-	light.Range = 32
-	light.Color = team.color:Lerp(Color3.fromRGB(255, 230, 190), 0.6)
-	light.Parent = glow
-
-	-- Balcao, caixa de tochas e fumos, tambor e a porta do corteo.
-	Clubhouse.equip(teamId, centre, folder)
-
-	-- A porta da sede, assente no chao: alto de mais e cai-se a entrar.
-	spawnPoints[teamId] = Vector3.new(centre.X, 3.5, centre.Z + depth / 2 + 9)
-end
-
-local neutral: Vector3? = nil
 
 --[[
 	Onde se chega quando ainda nao se e de lado nenhum: a praca, entre as duas
@@ -318,78 +59,81 @@ function City.spawnPoint(teamId: string): Vector3?
 	return spawnPoints[teamId]
 end
 
-function City.build(parent: Instance)
-	local folder = Instance.new("Folder")
-	folder.Name = "City"
-	folder.Parent = parent
+-- O caminho de sempre do corteo desta claque, a comecar a porta da sede.
+function City.route(teamId: string): { Vector3 }
+	local list = {}
+	local start = spawnPoints[teamId]
+	if start then
+		table.insert(list, start)
+	end
+	for _, point in routes[teamId] or {} do
+		table.insert(list, point)
+	end
+	return list
+end
 
-	local outerZ = S.pitchWidth / 2 + S.standGap + S.rows * S.rowDepth + 26
-	local outerX = S.pitchLength / 2 + S.standGap + S.rows * S.rowDepth + 26
-	local roadZ = outerZ + 70
-	local roadLength = 900
+function City.build(_parent: Instance)
+	local city = workspace:FindFirstChild("Cidade")
+	if not city then
+		city = CityMap.generate(workspace)
+	end
+	assert(city)
 
-	--[[
-		Chao debaixo de tudo, antes de mais nada.
+	-- So para o Studio: o sitio do estadio sai, o estadio a serio ja esta la.
+	local area = city:FindFirstChild("EstadioArea")
+	if area then
+		area:Destroy()
+	end
 
-		As sedes ficam a 450 studs do centro e a explanada do estadio so chega a
-		perto de 180: sem isto, aparecia-se em cima do vazio e caia-se. Uma laje
-		so, do tamanho do bairro inteiro, e o topo a mesma altura da explanada
-		para nao haver degrau nenhum entre a rua e o recinto.
-	]]
-	local span = roadLength + 400
-	local depthSpan = (roadZ + 320) + (outerZ + 160)
-	part(
-		"Ground",
-		Vector3.new(span, 4, depthSpan),
-		CFrame.new(0, -2.5, (roadZ + 320 - outerZ - 160) / 2),
-		Color3.fromRGB(30, 32, 37),
-		folder,
-		Enum.Material.Asphalt
-	)
+	-- As sedes: onde estiverem no mapa, e o Clubhouse poe-lhes o recheio.
+	local sedes = city:FindFirstChild("Sedes")
+	for _, teamId in Config.TeamOrder do
+		local sede = sedes and sedes:FindFirstChild("Sede_" .. teamId)
+		if sede and sede:IsA("Model") then
+			local pivot = sede:GetPivot()
+			-- O pivo e o chao da sede (a peca Base); o recheio assenta no passeio.
+			local flat = CFrame.new(pivot.Position.X, pivot.Position.Y - 0.5, pivot.Position.Z) * pivot.Rotation
+			spawnPoints[teamId] = (flat * CFrame.new(0, 3.5, SEDE_FRONT)).Position
+			Clubhouse.equip(teamId, flat, sede)
+		else
+			warn("[City] falta a sede de " .. teamId .. " no mapa (Cidade.Sedes.Sede_" .. teamId .. ")")
+		end
+	end
 
-	-- Quarteiroes dos dois lados da avenida, deixando a faixa da estrada livre.
-	local blockDepth = 90
-	for _, side in { 1, -1 } do
-		local rowZ = roadZ + (50 + blockDepth / 2) * side
+	-- A praca da chegada e o posto do arbitro.
+	local arrival = city:FindFirstChild("Chegada")
+	if arrival and arrival:IsA("BasePart") then
+		neutral = Vector3.new(arrival.Position.X, 3.5, arrival.Position.Z)
+		hide(arrival)
+	end
+	local post = city:FindFirstChild("PostoArbitragem")
+	if post and post:IsA("BasePart") then
+		Clubhouse.refereePost(Vector3.new(post.Position.X, 0, post.Position.Z), city)
+		hide(post)
+	end
 
-		for i = 1, 9 do
-			local x = -roadLength / 2 + 40 + (i - 1) * 100
-			local width = math.random(38, 62)
-			local depth = math.random(34, 54)
-
-			-- Do lado do estadio, nada em cima do recinto nem do caminho do corteo
-			-- que da a volta a muralha.
-			local onStadium = side < 0 and math.abs(x) - width / 2 < outerX + 30
-
-			-- Deixa um vao a meio: e por ali que se corta para o estadio.
-			if math.abs(x) > 70 and not onStadium then
-				building(Vector3.new(x, 0, rowZ), Vector2.new(width, depth), math.random(3, 9), folder)
+	-- Os caminhos do corteo, pela ordem dos numeros.
+	local folder = city:FindFirstChild("Rotas")
+	for _, teamId in Config.TeamOrder do
+		local route = folder and folder:FindFirstChild(teamId)
+		local points: { { index: number, at: Vector3 } } = {}
+		if route then
+			for _, child in route:GetChildren() do
+				local index = tonumber(child.Name)
+				if index and child:IsA("BasePart") then
+					table.insert(points, { index = index, at = Vector3.new(child.Position.X, 3, child.Position.Z) })
+					hide(child)
+				end
 			end
 		end
-
-		-- Passeio virado a avenida.
-		part("Pavement", Vector3.new(roadLength, 2.6, 14), CFrame.new(0, -1.1, roadZ + 44 * side), KERB, folder)
+		table.sort(points, function(a, b)
+			return a.index < b.index
+		end)
+		routes[teamId] = {}
+		for _, point in points do
+			table.insert(routes[teamId], point.at)
+		end
 	end
-
-	-- Rua transversal, do vao dos quarteiroes ate a avenida.
-	part("CrossStreet", Vector3.new(60, 2, 200), CFrame.new(0, -1.45, roadZ + 120), ASPHALT, folder, Enum.Material.Asphalt)
-	for i = 1, 6 do
-		streetLamp(34, roadZ + 40 + i * 28, math.pi, folder)
-		streetLamp(-34, roadZ + 40 + i * 28, 0, folder)
-	end
-
-	-- As sedes, em pontas opostas: as duas claques nao se cruzam antes do jogo.
-	local order = Config.TeamOrder
-	clubhouse(order[1], Vector3.new(-roadLength / 2 + 90, 0, roadZ + 110), folder)
-	clubhouse(order[2], Vector3.new(roadLength / 2 - 90, 0, roadZ + 110), folder)
-
-	-- A praca, a meio da avenida e entre as duas sedes.
-	part("Square", Vector3.new(120, 2.2, 90), CFrame.new(0, -1.4, roadZ + 110), KERB, folder)
-	neutral = Vector3.new(0, 3.5, roadZ + 110)
-
-	-- O posto de arbitragem fica na praca, fora das duas sedes: quem apita nao
-	-- e de nenhum lado.
-	Clubhouse.refereePost(Vector3.new(34, 0, roadZ + 118), folder)
 end
 
 return City

@@ -58,36 +58,21 @@ function March.forget(player: Player)
 end
 
 --[[
-	O percurso: sai-se pela frente da sede, contorna-se o quarteirao por tras,
-	desce-se a rua do meio ate a avenida, e segue-se por ela ate a porta do topo
-	da claque. Cada sede fica do lado do seu topo, por isso os dois corteos
-	descem a avenida cada um para o seu lado e nunca se cruzam.
+	O percurso de sempre: da porta da sede pelos pontos do mapa (Cidade.Rotas,
+	que se mexem no Studio), e no fim a porta da claque no estadio. E o que a
+	faixa faz sozinha quando nao ha lider a guia-la; com lider, vai por onde
+	ele for.
 ]]
 local function routeFor(teamId: string): { Vector3 }
-	local start = City.spawnPoint(teamId)
-	if not start then
+	local points = City.route(teamId)
+	if #points == 0 then
 		return {}
 	end
 
 	local S = Config.Stadium
-	local standDepth = S.rows * S.rowDepth
-	local outerZ = S.pitchWidth / 2 + S.standGap + standDepth + 26
-	local outerX = S.pitchLength / 2 + S.standGap + standDepth + 26
-	local roadZ = outerZ + 70
-
-	local side = Config.Teams[teamId].side
-	local behind = roadZ + 165 -- por tras dos quarteiroes, onde nao ha predios
-	local street = side * 20 -- a rua do meio, cada claque do seu lado
-	local flank = side * (outerX + 20) -- por fora da muralha, rente ao topo
-
-	return {
-		start,
-		Vector3.new(start.X, 3, behind),
-		Vector3.new(street, 3, behind),
-		Vector3.new(street, 3, roadZ),
-		Vector3.new(flank, 3, roadZ),
-		Vector3.new(side * (outerX + 10), 3, 0), -- a porta da claque
-	}
+	local outerX = S.pitchLength / 2 + S.standGap + S.rows * S.rowDepth + 26
+	table.insert(points, Vector3.new(Config.Teams[teamId].side * (outerX + 10), 3, 0)) -- a porta da claque
+	return points
 end
 
 local function buildBanner(teamId: string, at: Vector3, parent: Instance): Part
