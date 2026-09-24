@@ -98,6 +98,18 @@ Config.Match = {
 }
 
 --[[
+	As horas do dia. Um dia inteiro (24 horas de jogo) dura `dayMinutes`
+	minutos reais, e o servidor arranca a `startHour`. De noite acendem-se os
+	candeeiros e os holofotes; so um candeeiro em cada `lampLightEvery`
+	ilumina a serio, os outros so brilham.
+]]
+Config.DayNight = {
+	dayMinutes = 30,
+	startHour = 15,
+	lampLightEvery = 3,
+}
+
+--[[
 	Quem pode saltar de fase, pelo numero da conta Roblox. E o servidor que
 	confirma: o botao so aparece a estes, mas quem decide e a lista.
 ]]

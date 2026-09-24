@@ -221,6 +221,22 @@ phaseNote.Size = UDim2.new(1, -24, 0, 14)
 phaseNote.Position = UDim2.fromOffset(12, 52)
 phaseNote.ZIndex = 6
 
+-- A hora do dia no jogo, ao canto: de noite acendem-se as luzes.
+local dayClock = label(phaseBox, "", 12, MUTED)
+dayClock.TextXAlignment = Enum.TextXAlignment.Right
+dayClock.Size = UDim2.fromOffset(60, 14)
+dayClock.Position = UDim2.new(1, -72, 0, 37)
+dayClock.ZIndex = 6
+
+task.spawn(function()
+	local Lighting = game:GetService("Lighting")
+	while true do
+		local hour = Lighting.ClockTime
+		dayClock.Text = string.format("%02d:%02d", math.floor(hour), math.floor((hour % 1) * 60))
+		task.wait(1)
+	end
+end)
+
 --[[
 	Voltar a sede quando se quer. Ninguem e mandado para casa a forca: o dia de
 	jogo recomeca la, e quem quiser ir carrega aqui.

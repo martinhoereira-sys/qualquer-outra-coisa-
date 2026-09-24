@@ -28,6 +28,7 @@ local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 local Tifo = require(script.Parent:WaitForChild("Tifo"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
 local Entrance = require(script.Parent:WaitForChild("Entrance"))
+local DayNight = require(script.Parent:WaitForChild("DayNight"))
 
 --[[
 	A forca do tambor de cada bancada, de 0 a 1.
@@ -426,6 +427,8 @@ Clubhouse.onStartMarch(function(teamId)
 end)
 
 Stadium.build()
+-- As horas a andar, com o estadio e a cidade ja de pe (para achar as luzes).
+DayNight.start()
 Squad.build(workspace:WaitForChild("Stadium"))
 Budget.run("Jogo", Football.build, workspace:WaitForChild("Stadium"))
 Budget.run("Adeptos", Crowd.build, workspace:WaitForChild("Stadium"))

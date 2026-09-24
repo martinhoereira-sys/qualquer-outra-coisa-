@@ -125,7 +125,7 @@ local OLD: District = {
 	name = "Bairro Velho",
 	floors = NumberRange.new(2, 4),
 	floorHeight = 10,
-	width = NumberRange.new(16, 28),
+	width = NumberRange.new(20, 32),
 	depth = 30,
 	walls = {
 		Color3.fromRGB(142, 72, 56),
@@ -639,7 +639,7 @@ function CityMap.generate(parent: Instance): Model
 
 			-- Umas arvores no passeio dos bairros com espaco.
 			if d == NEW or d == CENTRE then
-				for _ = 1, 3 do
+				for _ = 1, 1 do
 					tree(Vector3.new(rng:NextNumber(px0 + 3, px1 - 3), 0, pz1 - 3.5), rng, cell)
 				end
 			end
@@ -684,7 +684,7 @@ function CityMap.generate(parent: Instance): Model
 	local cars = Instance.new("Folder")
 	cars.Name = "Carros"
 	cars.Parent = props
-	for _ = 1, 60 do
+	for _ = 1, 40 do
 		local vertical = rng:NextNumber() < 0.5
 		if vertical then
 			local i = rng:NextInteger(2, #XS - 1)
