@@ -2,10 +2,13 @@
 --[[
 	O que o jogador ve e carrega.
 
-	Um botao para tudo: segurar o clique esquerdo carrega a forca, largar chuta.
-	Um toque e um passe, carregado a fundo e um remate — a forca e de quem chuta.
-	Enquanto se segura, mexer o rato da o efeito (para os lados) e a altura
-	(para cima, chapeu; para baixo, rasteira). Shift e correr.
+	Segurar carrega a forca, largar chuta. Um toque e um passe, carregado a fundo
+	e um remate — a forca e de quem chuta.
+
+	Clique esquerdo: chuta direito, e o rato fica livre para virar a camara e
+	apontar. Clique direito: enquanto se segura, mexer o rato da o efeito (para
+	os lados) e a altura (para cima, chapeu; para baixo, rasteira). Shift e
+	correr.
 
 	Aqui so ha input e barras. Quem tem a bola, para onde ela vai e se o remate
 	conta e tudo decidido no servidor.
@@ -123,7 +126,7 @@ padTag.Font = Enum.Font.Gotham
 padTag.AnchorPoint = Vector2.new(0.5, 1)
 padTag.Position = UDim2.new(0.5, 0, 0, -4)
 
-local hint = text(gui, "segurar clique  forca    ·    mexer o rato  efeito e altura    ·    largar  chutar    ·    Shift  correr", 12, MUTED)
+local hint = text(gui, "clique esquerdo  chutar    ·    clique direito  chutar com efeito    ·    Shift  correr    ·    Ctrl  trancar camara", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
@@ -217,7 +220,8 @@ diveButton.Activated:Connect(dive)
 --------------------------------------------------------------------------------
 
 local chargingSince: number? = nil
-local pressedAt = Vector2.zero
+local withSpin = false -- a carregar com o clique direito: o rato da efeito e altura
+local moved = Vector2.zero -- o que o rato andou desde que se carregou
 local sprinting = false
 
 local function charge(): number
@@ -230,10 +234,9 @@ end
 
 -- O efeito e a altura, de -1 a 1, pelo que o rato andou desde que se carregou.
 local function aim(): (number, number)
-	if not chargingSince then
+	if not chargingSince or not withSpin then
 		return 0, 0
 	end
-	local moved = UserInputService:GetMouseLocation() - pressedAt
 	return math.clamp(moved.X / F.aimPixels, -1, 1), math.clamp(-moved.Y / F.aimPixels, -1, 1)
 end
 
@@ -241,9 +244,10 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or not playing() then
 		return
 	end
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+	if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2) and not chargingSince then
 		chargingSince = os.clock()
-		pressedAt = UserInputService:GetMouseLocation()
+		withSpin = input.UserInputType == Enum.UserInputType.MouseButton2
+		moved = Vector2.zero
 	elseif input.KeyCode == Enum.KeyCode.Q then
 		dive()
 	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then
@@ -256,13 +260,22 @@ UserInputService.InputEnded:Connect(function(input)
 	if not playing() then
 		return
 	end
-	if input.UserInputType == Enum.UserInputType.MouseButton1 and chargingSince then
+	local button = if withSpin then Enum.UserInputType.MouseButton2 else Enum.UserInputType.MouseButton1
+	if input.UserInputType == button and chargingSince then
 		local curve, height = aim()
 		Remotes.Football:FireServer("kick", { power = charge(), curve = curve, height = height })
 		chargingSince = nil
 	elseif (input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift) and sprinting then
 		sprinting = false
 		Remotes.Football:FireServer("sprint", false)
+	end
+end)
+
+-- O rato conta pelo que anda, nao por onde esta: com a camara trancada ou a
+-- rodar com o botao direito, o cursor fica parado no sitio.
+UserInputService.InputChanged:Connect(function(input)
+	if chargingSince and withSpin and input.UserInputType == Enum.UserInputType.MouseMovement then
+		moved += Vector2.new(input.Delta.X, input.Delta.Y)
 	end
 end)
 
@@ -281,7 +294,7 @@ RunService.RenderStepped:Connect(function()
 	powerFill.BackgroundColor3 = BRASS:Lerp(SPENT, math.max(power - 0.75, 0) * 4)
 
 	local curve, height = aim()
-	pad.Visible = chargingSince ~= nil
+	pad.Visible = chargingSince ~= nil and withSpin
 	dot.Position = UDim2.fromScale(0.5 + curve * 0.5, 0.5 - height * 0.5)
 
 	local stamina = player:GetAttribute("Stamina")

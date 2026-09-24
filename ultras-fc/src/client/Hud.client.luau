@@ -130,7 +130,7 @@ end
 local roleLabel = label(gui, "", 14, MUTED)
 roleLabel.Font = Enum.Font.Gotham
 roleLabel.Size = UDim2.new(1, 0, 0, 20)
-roleLabel.Position = UDim2.new(0, 0, 1, -142)
+roleLabel.Position = UDim2.new(0, 0, 1, -166)
 
 local function refreshRole()
 	local role = myRole()
@@ -392,7 +392,7 @@ end
 local ownTrack = Instance.new("Frame")
 ownTrack.AnchorPoint = Vector2.new(0.5, 1)
 ownTrack.Size = UDim2.fromOffset(240, 6)
-ownTrack.Position = UDim2.new(0.5, 0, 1, -84)
+ownTrack.Position = UDim2.new(0.5, 0, 1, -94)
 ownTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
 ownTrack.BackgroundTransparency = 0.3
 ownTrack.BorderSizePixel = 0
@@ -410,13 +410,13 @@ ownFill.Parent = ownTrack
 
 local gearLabel = label(gui, "", 13, BRASS)
 gearLabel.Size = UDim2.new(1, 0, 0, 18)
-gearLabel.Position = UDim2.new(0.5, 0, 1, -122)
+gearLabel.Position = UDim2.new(0.5, 0, 1, -142)
 gearLabel.AnchorPoint = Vector2.new(0.5, 0)
 
 local hint = label(gui, "1-4 material na barra    ·    clica para acender    ·    B  pedir ao arbitro    ·    T  tifo    ·    espaco  saltar", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
-hint.Position = UDim2.new(0, 0, 1, -104)
+hint.Position = UDim2.new(0, 0, 1, -118)
 
 --[[
 	Cada um ve so o que e seu. O material, as teclas da bancada e a barra da
