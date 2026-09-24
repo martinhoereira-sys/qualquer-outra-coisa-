@@ -18,6 +18,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local Budget = require(script.Parent:WaitForChild("Budget"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 
 local Clubhouse = {}
 
@@ -122,7 +123,7 @@ end
 	seu +Z: a sede pode estar em qualquer sitio do mapa, virada para qualquer
 	lado, e o recheio vai com ela.
 ]]
-function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance, front: number?)
+function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance, front: number?, staffed: boolean?)
 	-- A que distancia do centro fica a frente (a porta): depende do tamanho da sede.
 	local reach = front or 17
 	local team = Config.Teams[teamId]
@@ -151,6 +152,8 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance, front:
 	-- Balcao: e aqui que se entra na claque.
 	local desk = spot("Balcao", Vector3.new(10, 3.5, 2.5), pivot * CFrame.new(-12, 1.75, -6))
 	local join = prompt(desk, "Entrar", "Claque do " .. team.name, 12)
+	-- Com NPCs nas mesas, sao eles que inscrevem e que dao o tambor.
+	join.Enabled = not staffed
 
 	-- O letreiro vai no portao, que e o que se ve da rua.
 
@@ -225,7 +228,7 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance, front:
 			local needed = readyNeeded(teamId)
 			local leader = Teams.leader(teamId)
 			-- O lider saiu do jogo: o tambor volta ao suporte para outro o pegar.
-			takeDrum.Enabled = leader == nil
+			takeDrum.Enabled = leader == nil and not staffed
 			text.Text = string.format(
 				"%d / %d prontos\n%s",
 				ready,
@@ -237,6 +240,136 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance, front:
 				or Color3.fromRGB(240, 240, 240)
 		end
 	end)
+end
+
+--------------------------------------------------------------------------------
+-- Os NPCs das mesas
+--------------------------------------------------------------------------------
+
+local SKIN = Color3.fromRGB(214, 176, 140)
+
+-- O que o NPC diz, no ecra de quem falou com ele.
+local function say(player: Player, title: string, lines: { string })
+	Remotes.Npc:FireClient(player, { title = title, lines = lines })
+end
+
+local function staffMember(teamId: string, name: string, title: string, at: CFrame, parent: Instance): BasePart?
+	local team = Config.Teams[teamId]
+	local description = Instance.new("HumanoidDescription")
+	description.HeadColor = SKIN
+	description.TorsoColor = team.color
+	description.LeftArmColor = team.color
+	description.RightArmColor = team.color
+	description.LeftLegColor = Color3.fromRGB(28, 30, 36)
+	description.RightLegColor = Color3.fromRGB(28, 30, 36)
+	local ok, result = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
+	end)
+	if not ok then
+		warn("[Clubhouse] NPC nao nasceu:", result)
+		return nil
+	end
+	local model = result :: Model
+	model.Name = name
+	local humanoid = model:FindFirstChildOfClass("Humanoid") :: Humanoid
+	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	root.Anchored = true
+	-- De pe no chao: a anca a altura certa acima do ponto dado.
+	model:PivotTo(at * CFrame.new(0, humanoid.HipHeight + root.Size.Y / 2, 0))
+	model.Parent = parent
+
+	-- O titulo por cima da cabeca, para se saber de longe para que e cada mesa.
+	local tag = Instance.new("BillboardGui")
+	tag.Size = UDim2.fromOffset(200, 40)
+	tag.StudsOffset = Vector3.new(0, 3.4, 0)
+	tag.MaxDistance = 80
+	tag.Parent = root
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(1, 1)
+	text.BackgroundTransparency = 1
+	text.Font = Enum.Font.GothamBlack
+	text.TextScaled = true
+	text.TextColor3 = Color3.fromRGB(245, 245, 245)
+	text.TextStrokeTransparency = 0.3
+	text.Text = title
+	text.Parent = tag
+	return root
+end
+
+--[[
+	As tres mesas da sede, cada uma com o seu NPC atras, virado para quem
+	entra. Da esquerda para a direita, para quem entra: inscricao, loja,
+	lider. `desks` vem ja por essa ordem; `inward` e o sentido de quem entra.
+]]
+function Clubhouse.staff(teamId: string, desks: { Model }, inward: Vector3, parent: Instance)
+	local team = Config.Teams[teamId]
+	local roles = {
+		{ id = "inscricao", title = "INSCRICAO" },
+		{ id = "loja", title = "LOJA" },
+		{ id = "lider", title = "LIDER" },
+	}
+	for i, desk in desks do
+		local role = roles[i]
+		if not role then
+			break
+		end
+		local box, size = desk:GetBoundingBox()
+		local floor = box.Position.Y - size.Y / 2
+		local depth = math.max(math.abs(size.X * inward.X), math.abs(size.Z * inward.Z)) / 2
+		local spot = Vector3.new(box.Position.X, floor, box.Position.Z) + inward * (depth + 2.2)
+		local at = CFrame.lookAt(spot, spot - inward)
+		local root = staffMember(teamId, "NPC_" .. role.id, role.title, at, parent)
+		if not root then
+			continue
+		end
+
+		if role.id == "inscricao" then
+			local p = prompt(root, "Entrar na claque", "Claque do " .. team.name, 10)
+			p.Triggered:Connect(function(player)
+				if Teams.get(player) ~= teamId then
+					Teams.assign(player, teamId)
+				end
+				say(player, "Bem-vindo a claque do " .. team.name, {
+					"Na tua barra: 1 tocha, 2 fumo, 3 cachecol (e 4 tambor, se fores lider). Clica para acender.",
+					"G animacoes  ·  Ctrl trancar a camara  ·  B pedir ao arbitro  ·  espaco saltar",
+					"Antes do jogo sai-se daqui em corteo ate ao estadio, atras da faixa e do lider.",
+					"No estadio a claque fica no topo atras da baliza: salta, canta, acende, e empurra a equipa.",
+				})
+			end)
+		elseif role.id == "loja" then
+			local p = prompt(root, "Ver a loja", "Tochas, fumos, cachecois, bandeiras", 10)
+			p.Triggered:Connect(function(player)
+				say(player, "Loja da claque", {
+					"Tochas, bombas de fumo, cachecois e bandeiras, em varias cores.",
+					"Em breve com o dinheiro do jogo, ganho a ir aos jogos e ao corteo.",
+					"Por agora o material e de graca e ja esta na tua barra.",
+				})
+			end)
+		else
+			local p = prompt(root, "Ser o lider", "Claque do " .. team.name, 10)
+			p.Triggered:Connect(function(player)
+				if Teams.get(player) ~= teamId then
+					say(player, "Lider da claque", { "Primeiro inscreve-te na claque, na mesa da inscricao." })
+				elseif Teams.isLeader(player) then
+					say(player, "Ja es o lider", {
+						"Bate o tambor (4) ao ritmo: a bancada salta mais e o ambiente sobe.",
+						"Em breve aqui: desenhar o tifo e marcar encontros para o corteo.",
+					})
+				elseif Teams.claimLeader(player) then
+					say(player, "Es o lider da claque", {
+						"Tens o tambor (4): bate ao ritmo para a bancada saltar.",
+						"Com gente suficiente na sede, abre o corteo na porta: a faixa vai a tua frente, por onde andares.",
+						"Em breve aqui: desenhar o tifo e marcar encontros para o corteo.",
+					})
+				else
+					local leader = Teams.leader(teamId)
+					say(player, "A claque ja tem lider", { (if leader then leader.DisplayName else "Alguem") .. " e o lider. Quando sair, o lugar fica livre." })
+				end
+			end)
+		end
+	end
 end
 
 --[[

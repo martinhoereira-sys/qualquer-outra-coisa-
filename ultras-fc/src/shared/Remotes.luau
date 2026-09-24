@@ -28,6 +28,7 @@ local NAMES = {
 	"Escort", -- servidor -> quem sai do tunel: este e o teu caminho ate a fila
 	"Home", -- cliente -> servidor: leva-me a minha sede
 	"Emote", -- cliente -> servidor: a animacao de adepto que escolhi ("" para parar)
+	"Npc", -- servidor -> cliente: o que um NPC da sede te diz (titulo e linhas)
 }
 
 local folder: Folder

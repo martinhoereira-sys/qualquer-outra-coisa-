@@ -1070,6 +1070,99 @@ end
 workspace:GetAttributeChangedSignal("EntranceLine"):Connect(refreshLineHint)
 
 --------------------------------------------------------------------------------
+-- O que dizem os NPCs da sede
+--------------------------------------------------------------------------------
+
+--[[
+	Uma janela ao meio do ecra com o que o NPC da mesa disse: as instrucoes da
+	inscricao, a loja, ou o que o lider pode fazer. Fecha-se no OK, ou sozinha
+	ao afastar-se da mesa.
+]]
+local talk = Instance.new("Frame")
+talk.AnchorPoint = Vector2.new(0.5, 0.5)
+talk.Size = UDim2.fromOffset(460, 230)
+talk.Position = UDim2.fromScale(0.5, 0.5)
+talk.BackgroundColor3 = INK
+talk.BackgroundTransparency = 0.08
+talk.BorderSizePixel = 0
+talk.Visible = false
+talk.ZIndex = 20
+talk.Parent = gui
+
+local talkCorner = Instance.new("UICorner")
+talkCorner.CornerRadius = UDim.new(0, 10)
+talkCorner.Parent = talk
+
+local talkTitle = label(talk, "", 20, BRASS)
+talkTitle.Font = Enum.Font.GothamBlack
+talkTitle.Size = UDim2.new(1, -32, 0, 28)
+talkTitle.Position = UDim2.fromOffset(16, 14)
+talkTitle.TextXAlignment = Enum.TextXAlignment.Left
+talkTitle.ZIndex = 21
+
+local talkBody = label(talk, "", 14, TEXT)
+talkBody.Font = Enum.Font.Gotham
+talkBody.Size = UDim2.new(1, -32, 1, -100)
+talkBody.Position = UDim2.fromOffset(16, 48)
+talkBody.TextXAlignment = Enum.TextXAlignment.Left
+talkBody.TextYAlignment = Enum.TextYAlignment.Top
+talkBody.TextWrapped = true
+talkBody.ZIndex = 21
+
+local talkOk = Instance.new("TextButton")
+talkOk.AnchorPoint = Vector2.new(0.5, 1)
+talkOk.Size = UDim2.fromOffset(120, 34)
+talkOk.Position = UDim2.new(0.5, 0, 1, -12)
+talkOk.BackgroundColor3 = BRASS:Lerp(INK, 0.3)
+talkOk.BorderSizePixel = 0
+talkOk.Font = Enum.Font.GothamBold
+talkOk.TextSize = 14
+talkOk.TextColor3 = TEXT
+talkOk.Text = "OK"
+talkOk.ZIndex = 21
+talkOk.Parent = talk
+
+local talkOkCorner = Instance.new("UICorner")
+talkOkCorner.CornerRadius = UDim.new(0, 6)
+talkOkCorner.Parent = talkOk
+
+local talkedAt: Vector3? = nil
+
+talkOk.Activated:Connect(function()
+	talk.Visible = false
+end)
+
+Remotes.Npc.OnClientEvent:Connect(function(message)
+	if type(message) ~= "table" or type(message.title) ~= "string" or type(message.lines) ~= "table" then
+		return
+	end
+	talkTitle.Text = message.title
+	local lines = {}
+	for _, line in message.lines do
+		if type(line) == "string" then
+			table.insert(lines, "•  " .. line)
+		end
+	end
+	talkBody.Text = table.concat(lines, "\n\n")
+	talk.Visible = true
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	talkedAt = root and root.Position or nil
+end)
+
+-- Afastar-se da mesa fecha a janela.
+RunService.Heartbeat:Connect(function()
+	if not talk.Visible or not talkedAt then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root and (root.Position - talkedAt).Magnitude > 16 then
+		talk.Visible = false
+	end
+end)
+
+--------------------------------------------------------------------------------
 -- Saltar de fase (so admins)
 --------------------------------------------------------------------------------
 

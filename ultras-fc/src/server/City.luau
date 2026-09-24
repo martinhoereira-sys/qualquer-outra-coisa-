@@ -72,6 +72,43 @@ function City.route(teamId: string): { Vector3 }
 	return list
 end
 
+--[[
+	As mesas de uma sede: os modelos "Desk" a menos de 90 studs da porta.
+	Se houver tres, cada uma leva um NPC (Clubhouse.staff), por ordem da
+	esquerda para a direita de quem entra: inscricao, loja, lider. Devolve se
+	ficou com NPCs.
+]]
+local function staffDesks(teamId: string, door: Vector3, parent: Instance): boolean
+	local desks: { Model } = {}
+	for _, d in workspace:GetDescendants() do
+		if d:IsA("Model") and d.Name == "Desk" and (d:GetPivot().Position - door).Magnitude < 90 then
+			table.insert(desks, d)
+		end
+	end
+	if #desks < 3 then
+		return false
+	end
+
+	-- Quem entra vai da porta para as mesas; a direita dele e a direita da fila.
+	local centre = Vector3.zero
+	for _, d in desks do
+		centre += d:GetPivot().Position
+	end
+	centre /= #desks
+	local flat = Vector3.new(centre.X - door.X, 0, centre.Z - door.Z)
+	local inward = if flat.Magnitude > 0.1 then flat.Unit else -Vector3.zAxis
+	local right = inward:Cross(Vector3.yAxis)
+	table.sort(desks, function(a, b)
+		return a:GetPivot().Position:Dot(right) < b:GetPivot().Position:Dot(right)
+	end)
+
+	local folder = Instance.new("Folder")
+	folder.Name = "NPCs"
+	folder.Parent = parent
+	Clubhouse.staff(teamId, { desks[1], desks[2], desks[3] }, inward, folder)
+	return true
+end
+
 function City.build(_parent: Instance)
 	local city = workspace:FindFirstChild("Cidade")
 	if not city then
@@ -113,7 +150,8 @@ function City.build(_parent: Instance)
 			local signFrame = CFrame.lookAt(ground, ground - forward)
 			-- Aparece-se um pouco a frente, para nao nascer em cima da placa.
 			spawnPoints[teamId] = ground + forward * 5 + Vector3.new(0, 3.5, 0)
-			Clubhouse.equip(teamId, signFrame, marker, 0)
+			local staffed = staffDesks(teamId, ground, marker)
+			Clubhouse.equip(teamId, signFrame, marker, 0, staffed)
 			continue
 		end
 		local frame: CFrame
