@@ -122,7 +122,9 @@ end
 	seu +Z: a sede pode estar em qualquer sitio do mapa, virada para qualquer
 	lado, e o recheio vai com ela.
 ]]
-function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance)
+function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance, front: number?)
+	-- A que distancia do centro fica a frente (a porta): depende do tamanho da sede.
+	local reach = front or 17
 	local team = Config.Teams[teamId]
 	local centre = pivot.Position
 
@@ -181,7 +183,7 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance)
 	end)
 
 	-- A porta. So o lider a abre, e so com gente suficiente atras dele.
-	local door = spot("Porta", Vector3.new(12, 6, 1.5), pivot * CFrame.new(0, 3, 17))
+	local door = spot("Porta", Vector3.new(12, 6, 1.5), pivot * CFrame.new(0, 3, reach))
 	local start = prompt(door, "Sair em corteo", "So o lider", 14)
 	marker(door, "SEDE  ·  " .. string.upper(team.name), team.color, 22)
 
@@ -198,7 +200,7 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance)
 	end)
 
 	-- Quadro com a contagem, para se perceber do que se esta a espera.
-	local board = fixture("Board", Vector3.new(9, 3, 0.4), pivot * CFrame.new(0, 8, 16.2), Color3.fromRGB(28, 30, 36), parent)
+	local board = fixture("Board", Vector3.new(9, 3, 0.4), pivot * CFrame.new(0, 8, reach - 0.8), Color3.fromRGB(28, 30, 36), parent)
 	counters[teamId] = board
 
 	local sign = Instance.new("SurfaceGui")

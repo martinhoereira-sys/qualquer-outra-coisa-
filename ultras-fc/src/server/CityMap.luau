@@ -429,6 +429,14 @@ local ROUTES: { [string]: { Vector3 } } = {
 	},
 }
 
+--[[
+	O sitio de sempre da sede, se ela tiver sido apagada do mapa: o chao, com
+	o +Z virado para a rua (onde fica a porta).
+]]
+function CityMap.defaultSede(teamId: string): CFrame?
+	return SEDES[teamId]
+end
+
 local function sedeBuilding(teamId: string, pivot: CFrame, parent: Instance): Model
 	local team = Config.Teams[teamId]
 	local model = Instance.new("Model")
@@ -455,6 +463,9 @@ local function sedeBuilding(teamId: string, pivot: CFrame, parent: Instance): Mo
 	light.Range = 32
 	light.Color = team.color:Lerp(Color3.fromRGB(255, 230, 190), 0.6)
 	light.Parent = glow
+
+	-- A frente do modelo (a seta Front do pivo, no Studio) aponta para a rua.
+	model.PrimaryPart.PivotOffset = CFrame.new(0, -0.5, 0) * CFrame.Angles(0, math.pi, 0)
 
 	model.Parent = parent
 	return model

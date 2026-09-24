@@ -9,7 +9,8 @@
 	A cidade vive no mapa (Workspace.Cidade), feita uma vez pelo CityMap e
 	depois mexida a mao no Studio por quem quiser. Aqui le-se o que la estiver:
 	- Cidade.Sedes.Sede_<equipa>: cada sede, onde quer que esteja e virada
-	  para onde estiver. A porta e o lado +Z do modelo;
+	  para onde estiver, de qualquer tamanho. A frente (a seta Front do pivo)
+	  aponta para a rua: e ai a porta;
 	- Cidade.Chegada: onde aparece quem ainda nao escolheu lado;
 	- Cidade.Rotas.<equipa>: o caminho de sempre do corteo, pontos 1, 2, 3...
 	- Cidade.EstadioArea: so uma marca no Studio de onde o estadio aparece.
@@ -29,8 +30,6 @@ local spawnPoints: { [string]: Vector3 } = {}
 local routes: { [string]: { Vector3 } } = {}
 local neutral: Vector3? = nil
 
--- A porta de uma sede, no chao a frente dela: e ai que se aparece e que o corteo comeca.
-local SEDE_FRONT = 17 + 9
 
 local function hide(part: Instance)
 	if part:IsA("BasePart") then
@@ -84,19 +83,46 @@ function City.build(_parent: Instance)
 		area:Destroy()
 	end
 
-	-- As sedes: onde estiverem no mapa, e o Clubhouse poe-lhes o recheio.
+	--[[
+		As sedes: onde estiverem no mapa, feitas por quem for, de qualquer
+		tamanho. Uma sede e um Model chamado Sede_<equipa> dentro de
+		Cidade.Sedes; a frente dele (a seta Front do pivo) aponta para a rua, e e
+		dai que se sai. Se nao houver, fica no sitio de sempre, so com os botoes,
+		para o jogo nao parar enquanto se constroi uma nova.
+	]]
 	local sedes = city:FindFirstChild("Sedes")
 	for _, teamId in Config.TeamOrder do
 		local sede = sedes and sedes:FindFirstChild("Sede_" .. teamId)
+		local frame: CFrame
+		local front = 17
+		local parent: Instance = city
 		if sede and sede:IsA("Model") then
 			local pivot = sede:GetPivot()
-			-- O pivo e o chao da sede (a peca Base); o recheio assenta no passeio.
-			local flat = CFrame.new(pivot.Position.X, pivot.Position.Y - 0.5, pivot.Position.Z) * pivot.Rotation
-			spawnPoints[teamId] = (flat * CFrame.new(0, 3.5, SEDE_FRONT)).Position
-			Clubhouse.equip(teamId, flat, sede)
+			local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
+			local forward = if look.Magnitude > 0.01 then look.Unit else Vector3.zAxis
+			local box, size = sede:GetBoundingBox()
+			local ground = Vector3.new(pivot.Position.X, box.Position.Y - size.Y / 2, pivot.Position.Z)
+			-- O +Z deste referencial e a frente da sede.
+			frame = CFrame.lookAt(ground, ground - forward)
+			-- Ate onde vai a sede para a frente: e ai que fica a porta.
+			front = 0
+			for _, x in { -0.5, 0.5 } do
+				for _, z in { -0.5, 0.5 } do
+					local corner = (box * CFrame.new(size.X * x, 0, size.Z * z)).Position
+					front = math.max(front, Vector3.new(corner.X - ground.X, 0, corner.Z - ground.Z):Dot(forward))
+				end
+			end
+			parent = sede
 		else
-			warn("[City] falta a sede de " .. teamId .. " no mapa (Cidade.Sedes.Sede_" .. teamId .. ")")
+			frame = CityMap.defaultSede(teamId) or CFrame.new()
+			local holder = Instance.new("Folder")
+			holder.Name = "Sede_" .. teamId .. "_botoes"
+			holder.Parent = city
+			parent = holder
+			warn("[City] nao ha Cidade.Sedes.Sede_" .. teamId .. " no mapa: a claque usa o sitio de sempre")
 		end
+		spawnPoints[teamId] = (frame * CFrame.new(0, 3.5, front + 9)).Position
+		Clubhouse.equip(teamId, frame, parent, front)
 	end
 
 	-- A praca da chegada. (O apito escolhe-se no menu; nao ha cabine na rua.)
