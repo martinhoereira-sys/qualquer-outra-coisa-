@@ -98,7 +98,24 @@ function City.build(_parent: Instance)
 		-- Uma peca chamada Spawn_<equipa>, em qualquer sitio da cidade: manda
 		-- ela. E onde se aparece e de onde sai o corteo; a frente dela (Front)
 		-- aponta para a rua. Serve para sedes feitas a mao, com outros nomes.
-		local marker = city:FindFirstChild("Spawn_" .. teamId, true)
+		-- Tambem serve o nome da sede no mapa (Config.Teams[..].sedeName, ex.
+		-- "sede vermelha"), em qualquer sitio do Workspace.
+		local named = Config.Teams[teamId].sedeName
+		local marker: Instance? = city:FindFirstChild("Spawn_" .. teamId, true)
+			or (named and workspace:FindFirstChild(named, true))
+		-- Um modelo (uma placa, por ex.) conta pelo seu pivo e pela sua caixa.
+		if marker and marker:IsA("Model") then
+			local pivot = marker:GetPivot()
+			local box, size = marker:GetBoundingBox()
+			local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
+			local forward = if look.Magnitude > 0.01 then look.Unit else Vector3.zAxis
+			local ground = Vector3.new(pivot.Position.X, box.Position.Y - size.Y / 2, pivot.Position.Z)
+			local signFrame = CFrame.lookAt(ground, ground - forward)
+			-- Aparece-se um pouco a frente, para nao nascer em cima da placa.
+			spawnPoints[teamId] = ground + forward * 5 + Vector3.new(0, 3.5, 0)
+			Clubhouse.equip(teamId, signFrame, marker, 0)
+			continue
+		end
 		local frame: CFrame
 		local front = 17
 		local parent: Instance = city

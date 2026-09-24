@@ -281,8 +281,28 @@ local swapCorner = Instance.new("UICorner")
 swapCorner.CornerRadius = UDim.new(0, 6)
 swapCorner.Parent = swapButton
 
+-- Segundos que faltam ate se poder trocar outra vez (o servidor decide; isto so mostra).
+local function switchWait(): number
+	local readyAt = player:GetAttribute("SwitchReadyAt")
+	if type(readyAt) ~= "number" then
+		return 0
+	end
+	return math.max(math.ceil(readyAt - workspace:GetServerTimeNow()), 0)
+end
+
 swapButton.Activated:Connect(function()
-	menu.Visible = true
+	if switchWait() == 0 then
+		menu.Visible = true
+	end
+end)
+
+task.spawn(function()
+	while true do
+		local wait = switchWait()
+		swapButton.Text = if wait > 0 then string.format("TROCAR %ds", wait) else "TROCAR"
+		swapButton.TextTransparency = if wait > 0 then 0.45 else 0
+		task.wait(0.5)
+	end
 end)
 
 local closeMenu = Instance.new("TextButton")

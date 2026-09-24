@@ -24,6 +24,7 @@ Config.Teams = {
 		color = Color3.fromRGB(196, 58, 48),
 		side = -1, -- topo poente
 		keeperColor = Color3.fromRGB(46, 160, 82), -- a camisola do guarda-redes, diferente da equipa
+		sedeName = "sede vermelha", -- o nome da sede no mapa (ver City)
 	},
 	away = {
 		id = "away",
@@ -32,6 +33,7 @@ Config.Teams = {
 		color = Color3.fromRGB(46, 98, 178),
 		side = 1, -- topo nascente
 		keeperColor = Color3.fromRGB(236, 176, 40),
+		sedeName = "sede azul",
 	},
 }
 
@@ -95,6 +97,7 @@ Config.Match = {
 	halfTimeLength = 30,
 	fullTimeLength = 120, -- no relvado ou na bancada, antes de voltar a sede
 	celebrationLength = 15, -- do golo ao pontape de saida
+	switchCooldown = 60, -- depois de escolher um papel, segundos ate poder trocar outra vez
 }
 
 --[[

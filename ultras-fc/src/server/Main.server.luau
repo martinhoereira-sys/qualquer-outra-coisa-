@@ -169,14 +169,36 @@ local function sendHome(player: Player)
 	end
 end
 
+--[[
+	Trocar de papel tem espera: depois de escolher (claque, jogador, baliza ou
+	apito), so se volta a trocar passado Config.Match.switchCooldown segundos.
+	Sem isto, saltava-se de papel a meio de um lance para o que dava jeito.
+]]
+local switchedAt: { [Player]: number } = {}
+
+local function canSwitch(player: Player): boolean
+	local last = switchedAt[player]
+	return last == nil or os.clock() - last >= Config.Match.switchCooldown
+end
+
+local function markSwitch(player: Player)
+	switchedAt[player] = os.clock()
+	player:SetAttribute("SwitchReadyAt", workspace:GetServerTimeNow() + Config.Match.switchCooldown)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	switchedAt[player] = nil
+end)
+
 Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
-	if type(teamId) ~= "string" then
+	if type(teamId) ~= "string" or not canSwitch(player) then
 		return
 	end
 
 	-- O apito e um papel como os outros, escolhido a entrada.
 	if teamId == "arbitro" then
 		if Referee.take(player) then
+			markSwitch(player)
 			Squad.leave(player)
 			-- Quem apita nao e de nenhuma claque, nem leva material.
 			Teams.forget(player)
@@ -191,6 +213,7 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	local pitchTeam = goalTeam or string.match(teamId, "^jogador:(%w+)$")
 	if pitchTeam then
 		if Teams.isValid(pitchTeam) and Squad.join(player, pitchTeam, goalTeam ~= nil) then
+			markSwitch(player)
 			Teams.forget(player)
 			Referee.release(player)
 		end
@@ -204,6 +227,7 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	-- Uma vez so: se a pessoa carregar no botao duas vezes, nao fica com duas
 	-- ligacoes a atirarem-na para a bancada a cada respawn.
 	local first = Teams.get(player) == nil
+	markSwitch(player)
 	Squad.leave(player)
 	-- Quem vai para a bancada larga o apito: senao o jogo continuava a
 	-- esperar pelas decisoes de quem ja nao esta a apitar.
