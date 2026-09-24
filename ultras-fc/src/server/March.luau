@@ -7,8 +7,12 @@
 	entra num estadio por magia, e a caminhada e a melhor parte.
 
 	Como funciona: quando a fase do corteo comeca, a faixa de cada claque
-	aparece parada a porta da sede. O lider da a ordem na porta; se ninguem a
-	der, a faixa sai sozinha a meio da fase — um servidor sem lider nao pode
+	aparece parada a porta da sede. O lider da a ordem na porta, e a partir dai
+	e ELE que guia: a faixa vai uns passos a frente dele, para onde ele andar e
+	ao passo dele — se para, o corteo para; se se perde, a claque perde-se com
+	ele. O lider anda a passo de marcha enquanto guia. Sem lider (ou se ele
+	sair), a faixa segue sozinha o caminho de sempre. Se ninguem der a ordem, a
+	faixa sai sozinha a meio da fase — um servidor sem lider nao pode
 	ficar preso. Quem vai perto dela enquanto anda leva a bancada ja quente para
 	o apito inicial; quem la chega sozinho entra na mesma, so sem o bonus.
 
@@ -34,6 +38,9 @@ type Banner = {
 	teamId: string,
 	moving: boolean,
 	seconds: number, -- quanto demora o percurso todo, a passo da faixa
+	leader: Player?, -- quem a guia; sem ninguem, segue os waypoints
+	heading: Vector3, -- para onde o lider vai, alisado
+	lastLeaderAt: Vector3,
 }
 
 local banners: { [string]: Banner } = {}
@@ -157,6 +164,9 @@ function March.arm(parent: Instance)
 				teamId = teamId,
 				moving = false,
 				seconds = length / M.speed,
+				leader = nil,
+				heading = Vector3.new(0, 0, 1),
+				lastLeaderAt = Vector3.zero,
 			}
 		end
 	end
@@ -166,6 +176,39 @@ end
 	A ordem de sair: do lider, na porta da sede, ou do relogio a meio da fase.
 	A faixa comeca a andar; quem for atras dela ganha credito.
 ]]
+local function leaderRoot(player: Player): (Humanoid?, BasePart?)
+	local character = player.Character
+	if not character then
+		return nil, nil
+	end
+	return character:FindFirstChildOfClass("Humanoid"), character:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
+-- O lider deixa de guiar: volta a andar ao seu passo, e a faixa segue sozinha.
+local function releaseLeader(banner: Banner)
+	local leader = banner.leader
+	banner.leader = nil
+	banner.model:SetAttribute("Led", false)
+	if leader then
+		local humanoid = leaderRoot(leader)
+		if humanoid then
+			humanoid.WalkSpeed = 16
+		end
+	end
+
+	-- Retoma o caminho de sempre a partir do ponto mais perto de onde esta.
+	local here = banner.model.Position
+	local nearest, best = banner.leg, math.huge
+	for i, point in banner.waypoints do
+		local d = (point - here).Magnitude
+		if d < best then
+			best = d
+			nearest = i
+		end
+	end
+	banner.leg = math.min(nearest, #banner.waypoints - 1)
+end
+
 function March.launch(teamId: string): boolean
 	local banner = banners[teamId]
 	if not (active and banner) or banner.moving then
@@ -173,11 +216,27 @@ function March.launch(teamId: string): boolean
 	end
 	banner.moving = true
 	banner.model:SetAttribute("Moving", true)
+
+	-- O lider, se estiver junto a faixa, passa a guia-la.
+	local leader = Teams.leader(teamId)
+	local humanoid, hrp = if leader then leaderRoot(leader) else nil, nil
+	if leader and humanoid and hrp and (hrp.Position - banner.model.Position).Magnitude <= M.radius then
+		banner.leader = leader
+		banner.lastLeaderAt = hrp.Position
+		banner.heading = Vector3.new(0, 0, 1)
+		humanoid.WalkSpeed = M.leaderSpeed
+		banner.model:SetAttribute("Led", true)
+	end
 	return true
 end
 
 function March.stop()
 	active = false
+	for _, banner in banners do
+		if banner.leader then
+			releaseLeader(banner)
+		end
+	end
 	table.clear(banners)
 	if root then
 		root:Destroy()
@@ -212,23 +271,57 @@ function March.step(dt: number)
 			continue
 		end
 
-		local target = banner.waypoints[banner.leg + 1]
-		if not target then
-			if not banner.model:GetAttribute("Arrived") then
-				banner.model:SetAttribute("Arrived", true)
+		-- Guiada pelo lider: vai uns passos a frente dele, para onde ele vai.
+		local leader = banner.leader
+		if leader then
+			local humanoid, hrp = leaderRoot(leader)
+			if not humanoid or not hrp or not leader.Parent or Teams.leader(teamId) ~= leader then
+				releaseLeader(banner)
+			else
+				local at = hrp.Position
+				local movedBy = Vector3.new(at.X - banner.lastLeaderAt.X, 0, at.Z - banner.lastLeaderAt.Z)
+				if movedBy.Magnitude > 0.2 then
+					banner.heading = banner.heading:Lerp(movedBy.Unit, 0.25).Unit
+				end
+				banner.lastLeaderAt = at
+
+				local here = banner.model.Position
+				local want = Vector3.new(at.X, 3, at.Z) + banner.heading * M.leadDistance
+				local delta = want - here
+				local stepLength = math.min(delta.Magnitude, (M.leaderSpeed + 6) * dt)
+				local nextAt = if delta.Magnitude > 0.05 then here + delta.Unit * stepLength else here
+				banner.model.CFrame = CFrame.lookAt(nextAt, nextAt + banner.heading)
+
+				-- Chegou a porta da claque: entra.
+				local gate = banner.waypoints[#banner.waypoints]
+				if (Vector3.new(nextAt.X, gate.Y, nextAt.Z) - gate).Magnitude <= M.arriveRadius then
+					banner.model:SetAttribute("Arrived", true)
+					releaseLeader(banner)
+					banner.leg = #banner.waypoints
+				end
 			end
-			continue
 		end
 
-		local here = banner.model.Position
-		local delta = target - here
-		if delta.Magnitude <= M.speed * dt then
-			banner.leg += 1
-			banner.model.CFrame = CFrame.new(target) * banner.model.CFrame.Rotation
-		else
-			-- Atravessada na rua, virada para a frente: toda a gente vem atras dela.
-			local step = delta.Unit * M.speed * dt
-			banner.model.CFrame = CFrame.lookAt(here + step, here + step + delta.Unit)
+		-- Sem lider: o caminho de sempre, ponto a ponto.
+		if not banner.leader then
+			local target = banner.waypoints[banner.leg + 1]
+			if not target then
+				if not banner.model:GetAttribute("Arrived") then
+					banner.model:SetAttribute("Arrived", true)
+				end
+				continue
+			end
+
+			local here = banner.model.Position
+			local delta = target - here
+			if delta.Magnitude <= M.speed * dt then
+				banner.leg += 1
+				banner.model.CFrame = CFrame.new(target) * banner.model.CFrame.Rotation
+			else
+				-- Atravessada na rua, virada para a frente: toda a gente vem atras dela.
+				local step = delta.Unit * M.speed * dt
+				banner.model.CFrame = CFrame.lookAt(here + step, here + step + delta.Unit)
+			end
 		end
 
 		-- Quem vai junto a faixa ganha credito, proporcional ao tempo que a

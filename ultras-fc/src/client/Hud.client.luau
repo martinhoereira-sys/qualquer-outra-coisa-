@@ -813,7 +813,7 @@ end)
 
 local PHASE_TEXT = {
 	clubhouse = { "NA SEDE", "material, lider e a tua claque" },
-	corteo = { "CORTEO", "segue a faixa ate ao estadio" },
+	corteo = { "CORTEO", "o lider guia, a claque vai atras da faixa" },
 	espera = { "A ESPERA DAS BANCADAS", "" },
 	entrada = { "ENTRADA EM CAMPO", "" },
 	first = { "1a PARTE", "" },

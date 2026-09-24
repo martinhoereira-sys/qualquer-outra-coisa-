@@ -32,6 +32,7 @@ type Walker = {
 	side: number, -- quanto para o lado
 	gather: Vector3, -- onde fica a espera, antes de sair
 	holder: number?, -- -1 ou 1: segura a faixa por esta ponta
+	drum: boolean, -- o boneco do tambor: sai quando e o lider a guiar
 	phase: number, -- para o passo nao ser igual em todos
 	at: Vector3, -- onde esta agora (no chao)
 	facing: Vector3,
@@ -122,6 +123,7 @@ local function track(banner: Instance)
 			side = side,
 			gather = gather,
 			holder = holder,
+			drum = drum == true,
 			phase = math.random() * math.pi * 2,
 			at = Vector3.new(start.X, 0, start.Z),
 			facing = Vector3.new(0, 0, -1),
@@ -241,7 +243,17 @@ RunService.RenderStepped:Connect(function(dt)
 			continue
 		end
 
+		-- Com o lider a guiar, e ele que leva o tambor: o boneco do tambor sai.
+		local led = banner:GetAttribute("Led") == true
+
 		for _, w in group.walkers do
+			if w.drum and led then
+				for _, part in w.parts do
+					table.insert(moveParts, part)
+					table.insert(moveFrames, CFrame.new(0, -500, 0))
+				end
+				continue
+			end
 			local target: Vector3
 			if w.holder and not arrived then
 				-- Na ponta da faixa, a segura-la: vai onde ela vai, virado para a frente.
