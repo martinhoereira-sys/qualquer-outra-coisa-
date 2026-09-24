@@ -6,3 +6,6 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Rojo (programa local, nao e codigo do jogo)
+rojo.exe
