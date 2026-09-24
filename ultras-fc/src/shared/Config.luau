@@ -323,6 +323,7 @@ Config.March = {
 	columns = 10, -- quantos lado a lado, da largura da faixa: a rua cheia de parede a parede
 	leaderSpeed = 11, -- o lider a guiar anda a este passo, para o grupo o acompanhar
 	leadDistance = 8, -- a faixa vai estes studs a frente do lider
+	takeRadius = 20, -- o lider a esta distancia da faixa passa a guia-la
 	arriveRadius = 30, -- a esta distancia da porta da claque, o corteo chegou
 	speed = 9, -- passo da faixa, em studs por segundo: o de uma marcha, devagar e em grupo
 	radius = 45, -- a que distancia da faixa ainda se conta como ir no corteo

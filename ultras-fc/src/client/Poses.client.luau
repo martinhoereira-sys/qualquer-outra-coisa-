@@ -7,7 +7,8 @@
 	  "cachecol" (os dois bracos a frente, com o cachecol esticado entre as maos);
 	- "Emote": a animacao de adepto que escolheu no menu.
 
-	Aqui, a cada frame, dobram-se as juntas de cada corpo (Motor6D.Transform)
+	Aqui, a cada frame, dobram-se as juntas de cada corpo (o Transform de cada
+	Motor6D ou AnimationConstraint)
 	depois das animacoes do Roblox, para toda a gente ver o mesmo sem nada
 	passar pela rede alem dos dois atributos. So para avatares R15; num R6 nao
 	acontece nada. Andar para a animacao (a tocha continua no ar).
@@ -25,27 +26,37 @@ local lastStop = 0
 
 local RAISED = math.rad(Config.Poses.raisedArm)
 
+--[[
+	Uma junta do corpo. Os avatares antigos tem Motor6D; os novos (juntas
+	com fisica) tem AnimationConstraint. As duas tem Transform, e e so isso
+	que aqui se mexe.
+]]
+type Joint = any
+
 type Rig = {
 	character: Model,
 	root: BasePart,
-	rightShoulder: Motor6D,
-	leftShoulder: Motor6D,
-	rightElbow: Motor6D?,
-	leftElbow: Motor6D?,
-	waist: Motor6D?,
-	rootJoint: Motor6D?,
-	rightHip: Motor6D?,
-	leftHip: Motor6D?,
-	rightKnee: Motor6D?,
-	leftKnee: Motor6D?,
+	rightShoulder: Joint,
+	leftShoulder: Joint,
+	rightElbow: Joint?,
+	leftElbow: Joint?,
+	waist: Joint?,
+	rootJoint: Joint?,
+	rightHip: Joint?,
+	leftHip: Joint?,
+	rightKnee: Joint?,
+	leftKnee: Joint?,
 }
 
 local rigs: { [Model]: Rig } = {}
 
-local function motor(character: Model, part: string, name: string): Motor6D?
+local function motor(character: Model, part: string, name: string): Joint?
 	local host = character:FindFirstChild(part)
 	local found = host and host:FindFirstChild(name)
-	return if found and found:IsA("Motor6D") then found else nil
+	if found and (found:IsA("Motor6D") or found:IsA("AnimationConstraint")) then
+		return found
+	end
+	return nil
 end
 
 local function rigOf(character: Model): Rig?
@@ -87,13 +98,13 @@ end
 	ar); `out` abre-o para o lado; `turn` roda-o para dentro, a frente do peito.
 	`side` e 1 no direito e -1 no esquerdo, para os dois abrirem para fora.
 ]]
-local function arm(joint: Motor6D, side: number, lift: number, out: number?, turn: number?)
+local function arm(joint: Joint, side: number, lift: number, out: number?, turn: number?)
 	joint.Transform = CFrame.Angles(0, (turn or 0) * side, 0)
 		* CFrame.Angles(0, 0, -(out or 0) * side)
 		* CFrame.Angles(lift, 0, 0)
 end
 
-local function set(joint: Motor6D?, cf: CFrame)
+local function set(joint: Joint?, cf: CFrame)
 	if joint then
 		joint.Transform = cf
 	end

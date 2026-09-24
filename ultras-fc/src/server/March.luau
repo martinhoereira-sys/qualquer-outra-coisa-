@@ -271,6 +271,23 @@ function March.step(dt: number)
 			continue
 		end
 
+		--[[
+			O lider que chega a faixa passa a guia-la, a qualquer altura: se a
+			faixa saiu sozinha, ou se ele se atrasou, basta ir ter com ela.
+		]]
+		if not banner.leader and not banner.model:GetAttribute("Arrived") then
+			local candidate = Teams.leader(teamId)
+			local humanoid, hrp = if candidate then leaderRoot(candidate) else nil, nil
+			if candidate and humanoid and hrp and (hrp.Position - banner.model.Position).Magnitude <= M.takeRadius then
+				banner.leader = candidate
+				banner.lastLeaderAt = hrp.Position
+				local look = banner.model.CFrame.LookVector
+				banner.heading = Vector3.new(look.X, 0, look.Z).Unit
+				humanoid.WalkSpeed = M.leaderSpeed
+				banner.model:SetAttribute("Led", true)
+			end
+		end
+
 		-- Guiada pelo lider: vai uns passos a frente dele, para onde ele vai.
 		local leader = banner.leader
 		if leader then
