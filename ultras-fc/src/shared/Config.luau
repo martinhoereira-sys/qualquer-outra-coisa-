@@ -405,6 +405,13 @@ Config.Performance = {
 	maxLights = 6,
 
 	--[[
+		Bombas de fumo acesas a fundo ao mesmo tempo, no estadio inteiro. Uma
+		nuvem sao umas centenas de particulas grandes; a partir daqui as que se
+		acendem deitam metade, e continuam a ver-se.
+	]]
+	maxSmokes = 8,
+
+	--[[
 		O maximo de pecas de cada parte. Passar daqui e engano num ciclo, nao
 		crescimento normal: a construcao para e escreve no Output. Estao um pouco
 		acima do que cada parte cria hoje.
@@ -420,18 +427,36 @@ Config.Performance = {
 	},
 }
 
+--[[
+	O material de claque. Esta sempre na barra de baixo de quem e de claque,
+	desde que escolhe o lado; quem nao e de claque nao tem nada. Acender gasta
+	um do stock do jogo, e o objecto fica na mao a espera do proximo.
+
+	`GearStock.unlimited`: nos testes o stock nao acaba. Para voltar ao limite
+	por jogo (`perMatch`), poe a false.
+]]
+Config.GearStock = {
+	unlimited = true,
+}
+
 Config.Gear = {
 	tocha = {
 		perMatch = 3,
-		duration = 14,
-		cooldown = 6,
+		duration = 16, -- a arder na mao
+		cooldown = 2, -- depois de apagar, ate se poder acender a seguinte
 		gainPerSecond = 2.4,
 	},
 	fumo = {
 		perMatch = 2,
-		duration = 22, -- dura mais e ve-se melhor de longe, mas aquece menos
-		cooldown = 10,
+		duration = 25, -- dura mais e ve-se melhor de longe, mas aquece menos
+		cooldown = 3,
 		gainPerSecond = 1.5,
+	},
+	cachecol = {
+		perMatch = 1, -- nao se gasta: levanta-se e baixa-se
+		duration = math.huge,
+		cooldown = 0,
+		gainPerSecond = 0.3, -- enquanto roda no ar
 	},
 	tambor = {
 		perMatch = 1, -- so um, e fica para o jogo todo

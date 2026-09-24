@@ -127,7 +127,7 @@ end
 local roleLabel = label(gui, "", 14, MUTED)
 roleLabel.Font = Enum.Font.Gotham
 roleLabel.Size = UDim2.new(1, 0, 0, 20)
-roleLabel.Position = UDim2.new(0, 0, 1, -100)
+roleLabel.Position = UDim2.new(0, 0, 1, -142)
 
 local function refreshRole()
 	local role = myRole()
@@ -333,7 +333,7 @@ end
 local ownTrack = Instance.new("Frame")
 ownTrack.AnchorPoint = Vector2.new(0.5, 1)
 ownTrack.Size = UDim2.fromOffset(240, 6)
-ownTrack.Position = UDim2.new(0.5, 0, 1, -48)
+ownTrack.Position = UDim2.new(0.5, 0, 1, -84)
 ownTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
 ownTrack.BackgroundTransparency = 0.3
 ownTrack.BorderSizePixel = 0
@@ -351,13 +351,13 @@ ownFill.Parent = ownTrack
 
 local gearLabel = label(gui, "", 13, BRASS)
 gearLabel.Size = UDim2.new(1, 0, 0, 18)
-gearLabel.Position = UDim2.new(0.5, 0, 1, -78)
+gearLabel.Position = UDim2.new(0.5, 0, 1, -122)
 gearLabel.AnchorPoint = Vector2.new(0.5, 0)
 
-local hint = label(gui, "material na sede    ·    B  pedir ao arbitro    ·    T  tifo    ·    espaco  saltar", 12, MUTED)
+local hint = label(gui, "1-4 material na barra    ·    clica para acender    ·    B  pedir ao arbitro    ·    T  tifo    ·    espaco  saltar", 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
-hint.Position = UDim2.new(0, 0, 1, -26)
+hint.Position = UDim2.new(0, 0, 1, -104)
 
 --[[
 	Cada um ve so o que e seu. O material, as teclas da bancada e a barra da
@@ -377,23 +377,28 @@ refreshHint()
 local stock = {
 	tocha = Config.Gear.tocha.perMatch,
 	fumo = Config.Gear.fumo.perMatch,
-	tambor = Config.Gear.tambor.perMatch,
+	tambor = 0,
 }
 
+-- -1 quer dizer sem limite (Config.GearStock.unlimited, nos testes).
 local function updateGearLabel()
 	local pieces = {}
-	if stock.tocha > 0 then
-		table.insert(pieces, stock.tocha .. " tochas")
-	end
-	if stock.fumo > 0 then
-		table.insert(pieces, stock.fumo .. " fumos")
+	if stock.tocha < 0 then
+		table.insert(pieces, "tochas e fumo sem limite")
+	else
+		if stock.tocha > 0 then
+			table.insert(pieces, stock.tocha .. " tochas")
+		end
+		if stock.fumo > 0 then
+			table.insert(pieces, stock.fumo .. " fumos")
+		end
 	end
 	if stock.tambor > 0 then
 		table.insert(pieces, "tambor")
 	end
 
 	if #pieces == 0 then
-		gearLabel.Text = "mochila vazia"
+		gearLabel.Text = "sem tochas nem fumo ate ao proximo jogo"
 		gearLabel.TextColor3 = MUTED
 	else
 		gearLabel.Text = table.concat(pieces, "   ·   ")
@@ -798,7 +803,7 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 		if fresh then
 			local team = Config.Teams[snapshot.lastGoal]
 			-- A quem tem tocha ou fumo e e da claque que marcou: e agora.
-			local lightUp = myTeam == snapshot.lastGoal and (stock.tocha > 0 or stock.fumo > 0)
+			local lightUp = myTeam == snapshot.lastGoal and (stock.tocha ~= 0 or stock.fumo ~= 0)
 			showBig("GOLO", team.color, team.name .. "    " .. scoreLine(snapshot.score), if lightUp then "ACENDE AS TOCHAS" else "", 6)
 		end
 	end
@@ -836,7 +841,7 @@ end)
 ]]
 local function refreshLineHint()
 	local line = workspace:GetAttribute("EntranceLine") == true
-	if line and myTeam and (stock.tocha > 0 or stock.fumo > 0) then
+	if line and myTeam and (stock.tocha ~= 0 or stock.fumo ~= 0) then
 		showBig("", TEXT, "", "ACENDE AS TOCHAS", Config.Entrance.lineSeconds)
 		bigTitle.Visible = false
 		bigScore.Visible = false

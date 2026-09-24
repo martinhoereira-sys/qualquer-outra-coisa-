@@ -17,7 +17,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
-local Gear = require(script.Parent:WaitForChild("Gear"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
 
 local Clubhouse = {}
@@ -137,17 +136,8 @@ function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
 		Teams.assign(player, teamId)
 	end)
 
-	-- Caixa de tochas e fumos.
-	local crate = fixture("Crate", Vector3.new(4, 3, 3), CFrame.new(centre.X + 10, 1.5, centre.Z - 6), Color3.fromRGB(96, 74, 48), parent)
-	local supplies = prompt(crate, "Levar", "Tochas e fumos", 10)
-
-	supplies.Triggered:Connect(function(player)
-		if Teams.get(player) ~= teamId then
-			return
-		end
-		Gear.issue(player, "tocha")
-		Gear.issue(player, "fumo")
-	end)
+	-- Tochas e fumos nao se vao buscar: estao na barra desde que se entra na
+	-- claque (Gear).
 
 	--[[
 		O tambor, no seu suporte. Quem o tira fica lider — e enquanto nao o
@@ -161,8 +151,8 @@ function Clubhouse.equip(teamId: string, centre: Vector3, parent: Instance)
 		if Teams.get(player) ~= teamId then
 			return
 		end
+		-- Passar a lider poe o tambor na barra (Gear ouve o Teams).
 		if Teams.claimLeader(player) then
-			Gear.issue(player, "tambor")
 			takeDrum.Enabled = false
 		end
 	end)

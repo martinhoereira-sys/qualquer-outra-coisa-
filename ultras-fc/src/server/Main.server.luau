@@ -177,6 +177,8 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 	if teamId == "arbitro" then
 		if Referee.take(player) then
 			Squad.leave(player)
+			-- Quem apita nao e de nenhuma claque, nem leva material.
+			Teams.forget(player)
 			task.spawn(sendToPitch, player)
 		end
 		return
@@ -279,11 +281,7 @@ end)
 
 -- O que resta a cada um na mochila, para o rodape do ecra.
 local function sendGearCount(player: Player)
-	Remotes.GearCount:FireClient(player, {
-		tocha = Gear.remaining(player, "tocha"),
-		fumo = Gear.remaining(player, "fumo"),
-		tambor = Gear.remaining(player, "tambor"),
-	})
+	Remotes.GearCount:FireClient(player, Gear.counts(player))
 end
 
 Gear.onCountChanged(function(player, counts)

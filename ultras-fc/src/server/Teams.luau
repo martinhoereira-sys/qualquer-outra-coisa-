@@ -14,6 +14,19 @@ local Teams = {}
 -- player -> teamId
 local membership: { [Player]: string } = {}
 
+-- Quem quer saber quando alguem entra, sai ou passa a lider (o material).
+local listeners: { (Player) -> () } = {}
+
+function Teams.onChanged(fn: (Player) -> ())
+	table.insert(listeners, fn)
+end
+
+local function changed(player: Player)
+	for _, fn in listeners do
+		task.spawn(fn, player)
+	end
+end
+
 function Teams.isValid(teamId: string): boolean
 	return Config.Teams[teamId] ~= nil
 end
@@ -25,6 +38,7 @@ function Teams.assign(player: Player, teamId: string)
 	membership[player] = teamId
 	-- Atributo so para se ver de relance no Explorer durante os testes.
 	player:SetAttribute("Team", teamId)
+	changed(player)
 end
 
 function Teams.get(player: Player): string?
@@ -54,6 +68,7 @@ function Teams.claimLeader(player: Player): boolean
 	end
 	leaders[teamId] = player
 	player:SetAttribute("Leader", true)
+	changed(player)
 	return true
 end
 
@@ -68,6 +83,8 @@ function Teams.forget(player: Player)
 		leaders[teamId] = nil
 	end
 	membership[player] = nil
+	player:SetAttribute("Leader", nil)
+	changed(player)
 end
 
 function Teams.count(teamId: string): number
