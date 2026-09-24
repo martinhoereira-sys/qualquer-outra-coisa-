@@ -22,6 +22,7 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
@@ -146,6 +147,51 @@ function Crowd.build(parent: Instance)
 				local z = -spread + (i - 1) * (spread * 2 / (perRow - 1))
 				local at = Vector3.new(x, topY + 2.6, z + math.random() * 0.5 - 0.25)
 				table.insert(people, buildSupporter(teamId, at, made % C.flagEvery == 0, folder))
+			end
+		end
+	end
+end
+
+--[[
+	Os bonecos dao lugar a gente a serio: por cada pessoa na claque saem
+	Config.Crowd.botsPerPlayer bonecos dessa bancada, os mais perto do meio,
+	que e onde as pessoas aparecem. Voltam quando as pessoas saem. Quem sai
+	vai para o ServerStorage, que nao chega aos ecras: la desaparecem, e
+	voltam a aparecer quando o boneco volta a bancada.
+]]
+local benched: Folder? = nil
+local order: { [string]: { Supporter } } = {}
+
+function Crowd.makeRoom(members: { [string]: number })
+	local folder = root
+	if not folder then
+		return
+	end
+	if not benched then
+		local made = Instance.new("Folder")
+		made.Name = "AdeptosForaDaBancada"
+		made.Parent = ServerStorage
+		benched = made
+	end
+	if next(order) == nil then
+		-- Por equipa, do meio do bloco para as pontas.
+		for _, person in people do
+			order[person.teamId] = order[person.teamId] or {}
+			table.insert(order[person.teamId], person)
+		end
+		for teamId, list in order do
+			local middle = Stadium.spawnPoint(teamId) or Vector3.zero
+			table.sort(list, function(a, b)
+				return (a.model:GetPivot().Position - middle).Magnitude < (b.model:GetPivot().Position - middle).Magnitude
+			end)
+		end
+	end
+	for teamId, list in order do
+		local out = math.min((members[teamId] or 0) * C.botsPerPlayer, #list)
+		for i, person in list do
+			local target = if i <= out then benched else folder
+			if person.model.Parent ~= target then
+				person.model.Parent = target
 			end
 		end
 	end

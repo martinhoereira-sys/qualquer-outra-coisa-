@@ -58,6 +58,7 @@ Config.Crowd = {
 	flagEvery = 6, -- de quantos em quantos leva bandeira
 	partyHeight = 1.8, -- no golo, quantas vezes mais alto do que o salto normal
 	sitDrop = 1.1, -- quanto descem os que se sentam, calados
+	botsPerPlayer = 2, -- bonecos que saem da bancada por cada pessoa na claque
 }
 
 --[[

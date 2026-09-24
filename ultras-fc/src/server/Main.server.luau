@@ -508,6 +508,18 @@ MatchLoop.readyWhen(function()
 	return ready >= total
 end)
 
+-- Os bonecos da bancada dao lugar as pessoas de cada claque.
+task.spawn(function()
+	while true do
+		local members: { [string]: number } = {}
+		for _, teamId in Config.TeamOrder do
+			members[teamId] = Teams.count(teamId)
+		end
+		Crowd.makeRoom(members)
+		task.wait(1)
+	end
+end)
+
 -- Quantos ja estao na bancada, para o ecra da espera.
 task.spawn(function()
 	while true do
