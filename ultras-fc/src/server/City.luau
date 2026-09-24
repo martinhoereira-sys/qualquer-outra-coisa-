@@ -11,6 +11,8 @@
 	- Cidade.Sedes.Sede_<equipa>: cada sede, onde quer que esteja e virada
 	  para onde estiver, de qualquer tamanho. A frente (a seta Front do pivo)
 	  aponta para a rua: e ai a porta;
+	- Spawn_<equipa>: uma peca em qualquer sitio da cidade, se houver, manda
+	  mais do que a sede: e ai que se aparece e que o corteo comeca;
 	- Cidade.Chegada: onde aparece quem ainda nao escolheu lado;
 	- Cidade.Rotas.<equipa>: o caminho de sempre do corteo, pontos 1, 2, 3...
 	- Cidade.EstadioArea: so uma marca no Studio de onde o estadio aparece.
@@ -93,10 +95,26 @@ function City.build(_parent: Instance)
 	local sedes = city:FindFirstChild("Sedes")
 	for _, teamId in Config.TeamOrder do
 		local sede = sedes and sedes:FindFirstChild("Sede_" .. teamId)
+		-- Uma peca chamada Spawn_<equipa>, em qualquer sitio da cidade: manda
+		-- ela. E onde se aparece e de onde sai o corteo; a frente dela (Front)
+		-- aponta para a rua. Serve para sedes feitas a mao, com outros nomes.
+		local marker = city:FindFirstChild("Spawn_" .. teamId, true)
 		local frame: CFrame
 		local front = 17
 		local parent: Instance = city
-		if sede and sede:IsA("Model") then
+		if marker and marker:IsA("BasePart") then
+			local look = Vector3.new(marker.CFrame.LookVector.X, 0, marker.CFrame.LookVector.Z)
+			local forward = if look.Magnitude > 0.01 then look.Unit else Vector3.zAxis
+			local ground = Vector3.new(marker.Position.X, marker.Position.Y - marker.Size.Y / 2, marker.Position.Z)
+			-- A porta e a peca: os botoes ficam logo atras dela, dentro da sede.
+			frame = CFrame.lookAt(ground, ground - forward)
+			front = 0
+			parent = marker:FindFirstAncestorOfClass("Model") or city
+			hide(marker)
+			spawnPoints[teamId] = ground + Vector3.new(0, 3.5, 0)
+			Clubhouse.equip(teamId, frame, parent, front)
+			continue
+		elseif sede and sede:IsA("Model") then
 			local pivot = sede:GetPivot()
 			local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
 			local forward = if look.Magnitude > 0.01 then look.Unit else Vector3.zAxis
