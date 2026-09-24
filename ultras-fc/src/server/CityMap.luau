@@ -646,7 +646,23 @@ function CityMap.generate(parent: Instance): Model
 		end
 	end
 
-	-- Candeeiros ao longo das ruas, um lado e outro alternados.
+	-- Esta ponto cai numa rua (a atravessar), e nao num passeio?
+	local function onStreet(x: number, z: number): boolean
+		for i, lx in XS do
+			if not isEdge(XS, i) and math.abs(x - lx) < streetWidth("x", lx) / 2 + 1.5 then
+				return true
+			end
+		end
+		for i, lz in ZS do
+			if not isEdge(ZS, i) and math.abs(z - lz) < streetWidth("z", lz) / 2 + 1.5 then
+				return true
+			end
+		end
+		-- A celula do estadio nao tem passeio: e a explanada.
+		return math.abs(x) < 200 and math.abs(z) < 165
+	end
+
+	-- Candeeiros no passeio, ao longo das ruas, um lado e outro alternados.
 	local lamps = Instance.new("Folder")
 	lamps.Name = "Candeeiros"
 	lamps.Parent = props
@@ -656,9 +672,9 @@ function CityMap.generate(parent: Instance): Model
 			local off = streetWidth("x", x) / 2 + 2.5
 			local z = minZ + 40
 			while z < maxZ - 40 do
-				local inStadium = math.abs(x) < OUT_X + 30 and math.abs(z) < OUT_Z + 30
-				if not inStadium then
-					lamp(Vector3.new(x + off * toggle, 0, z), Vector3.new(-toggle, 0, 0), lamps)
+				local at = Vector3.new(x + off * toggle, 0, z)
+				if not onStreet(at.X, at.Z) then
+					lamp(at, Vector3.new(-toggle, 0, 0), lamps)
 				end
 				toggle = -toggle
 				z += 110
@@ -670,9 +686,9 @@ function CityMap.generate(parent: Instance): Model
 			local off = streetWidth("z", z) / 2 + 2.5
 			local x = minX + 40
 			while x < maxX - 40 do
-				local inStadium = math.abs(x) < OUT_X + 30 and math.abs(z) < OUT_Z + 30
-				if not inStadium then
-					lamp(Vector3.new(x, 0, z + off * toggle), Vector3.new(0, 0, -toggle), lamps)
+				local at = Vector3.new(x, 0, z + off * toggle)
+				if not onStreet(at.X, at.Z) then
+					lamp(at, Vector3.new(0, 0, -toggle), lamps)
 				end
 				toggle = -toggle
 				x += 110
@@ -710,13 +726,10 @@ function CityMap.generate(parent: Instance): Model
 		sedeBuilding(teamId, pivot, sedes)
 	end
 
-	-- A praca: onde se chega quando ainda nao se e de ninguem, e o posto do arbitro.
+	-- A praca: onde se chega quando ainda nao se e de ninguem.
 	local arrival = detail(block("Chegada", Vector3.new(6, 1, 6), CFrame.new(0, PAD_TOP + 0.5, 232), Color3.fromRGB(236, 200, 96), Enum.Material.Neon, city))
 	arrival.Transparency = 0.5
 	arrival:SetAttribute("Nota", "Onde aparece quem ainda nao escolheu lado. So se ve no Studio.")
-	local post = detail(block("PostoArbitragem", Vector3.new(8, 1, 6), CFrame.new(34, PAD_TOP + 0.5, 240), Color3.fromRGB(236, 200, 96), Enum.Material.Neon, city))
-	post.Transparency = 0.5
-	post:SetAttribute("Nota", "Onde fica a cabine do arbitro. So se ve no Studio.")
 
 	routeMarkers(city)
 

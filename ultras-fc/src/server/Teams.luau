@@ -14,6 +14,9 @@ local Teams = {}
 -- player -> teamId
 local membership: { [Player]: string } = {}
 
+-- teamId -> o lider dessa claque (ver Teams.leader).
+local leaders: { [string]: Player } = {}
+
 -- Quem quer saber quando alguem entra, sai ou passa a lider (o material).
 local listeners: { (Player) -> () } = {}
 
@@ -35,6 +38,12 @@ function Teams.assign(player: Player, teamId: string)
 	if not Teams.isValid(teamId) then
 		return
 	end
+	-- Um lider que muda de lado deixa de o ser na claque que deixou.
+	local previous = membership[player]
+	if previous and previous ~= teamId and leaders[previous] == player then
+		leaders[previous] = nil
+		player:SetAttribute("Leader", nil)
+	end
 	membership[player] = teamId
 	-- Atributo so para se ver de relance no Explorer durante os testes.
 	player:SetAttribute("Team", teamId)
@@ -50,7 +59,6 @@ end
 	de sair. Se toda a gente pudesse ter tambor nao havia lider nenhum, havia
 	barulho — o tambor so manda porque so ha um.
 ]]
-local leaders: { [string]: Player } = {}
 
 function Teams.leader(teamId: string): Player?
 	local leader = leaders[teamId]

@@ -11,7 +11,6 @@
 	- Cidade.Sedes.Sede_<equipa>: cada sede, onde quer que esteja e virada
 	  para onde estiver. A porta e o lado +Z do modelo;
 	- Cidade.Chegada: onde aparece quem ainda nao escolheu lado;
-	- Cidade.PostoArbitragem: onde fica a cabine do arbitro;
 	- Cidade.Rotas.<equipa>: o caminho de sempre do corteo, pontos 1, 2, 3...
 	- Cidade.EstadioArea: so uma marca no Studio de onde o estadio aparece.
 	Os marcadores ficam invisiveis quando o jogo arranca. Se nao houver cidade
@@ -100,16 +99,15 @@ function City.build(_parent: Instance)
 		end
 	end
 
-	-- A praca da chegada e o posto do arbitro.
+	-- A praca da chegada. (O apito escolhe-se no menu; nao ha cabine na rua.)
 	local arrival = city:FindFirstChild("Chegada")
 	if arrival and arrival:IsA("BasePart") then
 		neutral = Vector3.new(arrival.Position.X, 3.5, arrival.Position.Z)
 		hide(arrival)
 	end
 	local post = city:FindFirstChild("PostoArbitragem")
-	if post and post:IsA("BasePart") then
-		Clubhouse.refereePost(Vector3.new(post.Position.X, 0, post.Position.Z), city)
-		hide(post)
+	if post then
+		post:Destroy()
 	end
 
 	-- Os caminhos do corteo, pela ordem dos numeros.

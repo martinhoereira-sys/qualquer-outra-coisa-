@@ -107,6 +107,7 @@ Config.DayNight = {
 	dayMinutes = 30,
 	startHour = 15,
 	lampLightEvery = 3,
+	windowsLit = 0.2, -- das faixas de janelas, quantas se acendem a noite
 }
 
 --[[

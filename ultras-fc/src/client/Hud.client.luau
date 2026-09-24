@@ -262,6 +262,50 @@ homeButton.Activated:Connect(function()
 end)
 
 --[[
+	Trocar de equipa ou de papel a qualquer altura: claque, jogador, baliza ou
+	apito. Abre o mesmo menu da entrada; o X fecha-o sem mudar nada.
+]]
+local swapButton = Instance.new("TextButton")
+swapButton.Size = UDim2.fromOffset(84, 28)
+swapButton.Position = UDim2.fromOffset(16, 170)
+swapButton.BackgroundColor3 = BRASS:Lerp(INK, 0.35)
+swapButton.BackgroundTransparency = 0.1
+swapButton.BorderSizePixel = 0
+swapButton.Font = Enum.Font.GothamBold
+swapButton.TextSize = 12
+swapButton.TextColor3 = TEXT
+swapButton.Text = "TROCAR"
+swapButton.Parent = gui
+
+local swapCorner = Instance.new("UICorner")
+swapCorner.CornerRadius = UDim.new(0, 6)
+swapCorner.Parent = swapButton
+
+swapButton.Activated:Connect(function()
+	menu.Visible = true
+end)
+
+local closeMenu = Instance.new("TextButton")
+closeMenu.AnchorPoint = Vector2.new(1, 0)
+closeMenu.Size = UDim2.fromOffset(44, 44)
+closeMenu.Position = UDim2.new(1, -24, 0, 70)
+closeMenu.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
+closeMenu.BorderSizePixel = 0
+closeMenu.Font = Enum.Font.GothamBlack
+closeMenu.TextSize = 22
+closeMenu.TextColor3 = TEXT
+closeMenu.Text = "X"
+closeMenu.Parent = menu
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 8)
+closeCorner.Parent = closeMenu
+
+closeMenu.Activated:Connect(function()
+	menu.Visible = false
+end)
+
+--[[
 	O menu de animacoes de adepto (G, ou o botao). Escolher uma poe-na a
 	andar; escolher a mesma outra vez, ou mexer-se, para-a. Toda a gente a ve:
 	o servidor guarda qual e, e cada ecra anima-a (Poses.client).
