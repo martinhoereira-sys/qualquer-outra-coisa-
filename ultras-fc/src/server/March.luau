@@ -219,7 +219,11 @@ function March.launch(teamId: string): boolean
 
 	-- O lider, se estiver junto a faixa, passa a guia-la.
 	local leader = Teams.leader(teamId)
-	local humanoid, hrp = if leader then leaderRoot(leader) else nil, nil
+	-- Os dois valores: um "if" numa so linha ficava so com o primeiro.
+	local humanoid, hrp
+	if leader then
+		humanoid, hrp = leaderRoot(leader)
+	end
 	if leader and humanoid and hrp and (hrp.Position - banner.model.Position).Magnitude <= M.radius then
 		banner.leader = leader
 		banner.lastLeaderAt = hrp.Position
@@ -277,7 +281,10 @@ function March.step(dt: number)
 		]]
 		if not banner.leader and not banner.model:GetAttribute("Arrived") then
 			local candidate = Teams.leader(teamId)
-			local humanoid, hrp = if candidate then leaderRoot(candidate) else nil, nil
+			local humanoid, hrp
+			if candidate then
+				humanoid, hrp = leaderRoot(candidate)
+			end
 			if candidate and humanoid and hrp and (hrp.Position - banner.model.Position).Magnitude <= M.takeRadius then
 				banner.leader = candidate
 				banner.lastLeaderAt = hrp.Position
