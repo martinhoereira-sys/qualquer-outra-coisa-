@@ -162,41 +162,84 @@ refreshRole()
 -- Marcador
 --------------------------------------------------------------------------------
 
-local scoreLabel = label(gui, "0 - 0", 40, TEXT)
-scoreLabel.Size = UDim2.new(1, 0, 0, 46)
-scoreLabel.Position = UDim2.new(0, 0, 0, 16)
-
 --[[
-	A fase do dia de jogo e o tempo que falta, num canto: e o relogio que diz
-	a toda a gente o que vem a seguir.
+	O marcador, num canto, sempre: na rua, na sede, na bancada ou no relvado.
+	O jogo acontece com ou sem quem o ve, e toda a gente quer saber como vai.
+	Em cima o resultado e o relogio; em baixo a fase e o que vem a seguir.
 ]]
 local phaseBox = Instance.new("Frame")
-phaseBox.Size = UDim2.fromOffset(230, 52)
-phaseBox.Position = UDim2.fromOffset(16, 64)
+phaseBox.Size = UDim2.fromOffset(300, 70)
+phaseBox.Position = UDim2.fromOffset(16, 60)
 phaseBox.BackgroundColor3 = INK
-phaseBox.BackgroundTransparency = 0.25
+phaseBox.BackgroundTransparency = 0.2
 phaseBox.BorderSizePixel = 0
+phaseBox.ZIndex = 5
 phaseBox.Parent = gui
 
 local phaseBoxCorner = Instance.new("UICorner")
 phaseBoxCorner.CornerRadius = UDim.new(0, 8)
 phaseBoxCorner.Parent = phaseBox
 
-local phaseLabel = label(phaseBox, "", 14, TEXT)
+-- As cores das duas equipas, uma risca de cada lado do marcador.
+for index, teamId in Config.TeamOrder do
+	local stripe = Instance.new("Frame")
+	stripe.Size = UDim2.fromOffset(4, 26)
+	stripe.Position = if index == 1 then UDim2.fromOffset(6, 7) else UDim2.fromOffset(204, 7)
+	stripe.BackgroundColor3 = Config.Teams[teamId].color
+	stripe.BorderSizePixel = 0
+	stripe.ZIndex = 6
+	stripe.Parent = phaseBox
+end
+
+local scoreLabel = label(phaseBox, "", 18, TEXT)
+scoreLabel.Font = Enum.Font.GothamBlack
+scoreLabel.Size = UDim2.fromOffset(188, 30)
+scoreLabel.Position = UDim2.fromOffset(14, 5)
+scoreLabel.ZIndex = 6
+
+local phaseClock = label(phaseBox, "", 22, TEXT)
+phaseClock.Font = Enum.Font.GothamBlack
+phaseClock.TextXAlignment = Enum.TextXAlignment.Right
+phaseClock.Size = UDim2.fromOffset(80, 30)
+phaseClock.Position = UDim2.new(1, -90, 0, 5)
+phaseClock.ZIndex = 6
+
+local phaseLabel = label(phaseBox, "", 12, BRASS)
 phaseLabel.TextXAlignment = Enum.TextXAlignment.Left
-phaseLabel.Size = UDim2.new(1, -24, 0, 20)
-phaseLabel.Position = UDim2.fromOffset(12, 7)
+phaseLabel.Size = UDim2.new(1, -24, 0, 14)
+phaseLabel.Position = UDim2.fromOffset(12, 37)
+phaseLabel.ZIndex = 6
 
 local phaseNote = label(phaseBox, "", 12, MUTED)
 phaseNote.Font = Enum.Font.Gotham
 phaseNote.TextXAlignment = Enum.TextXAlignment.Left
-phaseNote.Size = UDim2.new(1, -70, 0, 16)
-phaseNote.Position = UDim2.fromOffset(12, 28)
+phaseNote.Size = UDim2.new(1, -24, 0, 14)
+phaseNote.Position = UDim2.fromOffset(12, 52)
+phaseNote.ZIndex = 6
 
-local phaseClock = label(phaseBox, "", 20, TEXT)
-phaseClock.TextXAlignment = Enum.TextXAlignment.Right
-phaseClock.Size = UDim2.fromOffset(70, 24)
-phaseClock.Position = UDim2.new(1, -82, 0, 20)
+--[[
+	Voltar a sede quando se quer. Ninguem e mandado para casa a forca: o dia de
+	jogo recomeca la, e quem quiser ir carrega aqui.
+]]
+local homeButton = Instance.new("TextButton")
+homeButton.Size = UDim2.fromOffset(84, 28)
+homeButton.Position = UDim2.fromOffset(16, 136)
+homeButton.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
+homeButton.BackgroundTransparency = 0.15
+homeButton.BorderSizePixel = 0
+homeButton.Font = Enum.Font.GothamBold
+homeButton.TextSize = 12
+homeButton.TextColor3 = TEXT
+homeButton.Text = "SEDE"
+homeButton.Parent = gui
+
+local homeCorner = Instance.new("UICorner")
+homeCorner.CornerRadius = UDim.new(0, 6)
+homeCorner.Parent = homeButton
+
+homeButton.Activated:Connect(function()
+	Remotes.Home:FireServer()
+end)
 
 local goalLabel = label(gui, "", 30, TEXT)
 goalLabel.Size = UDim2.new(1, 0, 0, 36)
@@ -712,7 +755,7 @@ local PHASE_TEXT = {
 	first = { "1a PARTE", "" },
 	halftime = { "INTERVALO", "" },
 	second = { "2a PARTE", "" },
-	fulltime = { "FIM DO JOGO", "a seguir, de volta a sede" },
+	fulltime = { "FIM DO JOGO", "a seguir, novo dia na sede" },
 }
 
 local function scoreLine(score: { [string]: number }): string
@@ -736,7 +779,7 @@ local function showBig(title: string, colour: Color3, score: string, note: strin
 end
 
 Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
-	scoreLabel.Text = string.format("%d - %d", snapshot.score.home, snapshot.score.away)
+	scoreLabel.Text = scoreLine(snapshot.score)
 
 	local text = PHASE_TEXT[snapshot.phase] or { "", "" }
 	phaseLabel.Text = text[1]
@@ -815,7 +858,7 @@ workspace:GetAttributeChangedSignal("EntranceLine"):Connect(refreshLineHint)
 if table.find(Config.Admins, player.UserId) then
 	local skip = Instance.new("TextButton")
 	skip.Size = UDim2.fromOffset(120, 28)
-	skip.Position = UDim2.fromOffset(16, 122)
+	skip.Position = UDim2.fromOffset(108, 136)
 	skip.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
 	skip.BackgroundTransparency = 0.15
 	skip.BorderSizePixel = 0

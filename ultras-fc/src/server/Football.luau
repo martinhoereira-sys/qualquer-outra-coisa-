@@ -81,6 +81,10 @@ local state = {
 	piece = nil :: SetPiece?, -- a reposicao a espera de ser batida
 	liveTime = 0, -- segundos de bola viva e parada nas partes, para medir o ritmo
 	deadTime = 0,
+	lastFoulAt = -math.huge, -- a ultima entrada que foi falta (os.clock)
+	steals = 0, -- roubos e faltas nas partes, para o Output dizer o ritmo
+	fouls = 0,
+	reportedAt = 0, -- minuto de bola viva do ultimo relatorio
 }
 
 local onGoal: ((string, Footballer?) -> ())? = nil
@@ -711,10 +715,14 @@ local function checkFoul(fouled: Footballer, fouler: Footballer, at: Vector3, lo
 	local facing = Vector3.new(look.X, 0, look.Z)
 	local behind = toTackler.Magnitude > 0.1 and facing.Magnitude > 0.1
 		and toTackler.Unit:Dot(facing.Unit) < RULES.behindDot
+	state.steals += 1
 	local chance = if behind then RULES.foulBehind else RULES.foulFront
-	if math.random() >= chance then
+	-- Depois de uma falta ha um intervalo sem nenhuma: o jogo tem de correr.
+	if os.clock() - state.lastFoulAt < RULES.foulGap or math.random() >= chance then
 		return
 	end
+	state.lastFoulAt = os.clock()
+	state.fouls += 1
 
 	local card = "nada"
 	local roll = math.random()
@@ -874,11 +882,27 @@ local function measure(dt: number)
 	end
 	workspace:SetAttribute("LiveTime", math.floor(state.liveTime))
 	workspace:SetAttribute("DeadTime", math.floor(state.deadTime))
+
+	-- A cada minuto de jogo, o ritmo no Output: para afinar as faltas a olho.
+	local minutes = (state.liveTime + state.deadTime) / 60
+	if minutes - state.reportedAt >= 1 then
+		state.reportedAt = math.floor(minutes)
+		print(string.format(
+			"[Ultras FC] %d min: %.1f roubos/min, %.1f faltas/min, bola viva %d%%",
+			state.reportedAt,
+			state.steals / minutes,
+			state.fouls / minutes,
+			math.floor(100 * state.liveTime / math.max(state.liveTime + state.deadTime, 1))
+		))
+	end
 end
 
 function Football.resetClock()
 	state.liveTime = 0
 	state.deadTime = 0
+	state.steals = 0
+	state.fouls = 0
+	state.reportedAt = 0
 end
 
 function Football.step(dt: number)

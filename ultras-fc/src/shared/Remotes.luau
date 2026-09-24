@@ -26,6 +26,7 @@ local NAMES = {
 	"Celebrate", -- servidor -> quem marcou: corre para a tua claque
 	"Admin", -- admin -> servidor: saltar de fase
 	"Escort", -- servidor -> quem sai do tunel: este e o teu caminho ate a fila
+	"Home", -- cliente -> servidor: leva-me a minha sede
 }
 
 local folder: Folder

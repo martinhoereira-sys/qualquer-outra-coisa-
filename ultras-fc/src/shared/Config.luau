@@ -86,7 +86,7 @@ Config.Atmosphere = {
 ]]
 Config.Match = {
 	clubhouseLength = 180, -- na sede: material, lider, e esperar pelos outros
-	corteoLength = 120, -- a caminhada ate ao estadio
+	corteoLength = 180, -- a caminhada ate ao estadio: ~900 studs a passo de marcha, mais a espera pela ordem
 	waitLength = 60, -- no maximo, a espera de que as bancadas estejam nos seus lugares
 	entranceLength = 40, -- do tunel ao apito: saida, fila e cada um ao seu lugar
 	halfLength = 450, -- cada parte: 7 min e meio
@@ -295,9 +295,9 @@ Config.Football = {
 ]]
 Config.March = {
 	readyNeeded = 3, -- quantos tem de estar na sede para o lider poder sair (ou todos, se forem menos)
-	autoStartAfter = 40, -- sem lider a dar a ordem, a faixa sai sozinha, com folga para chegar
+	autoStartAfter = 30, -- sem lider a dar a ordem, a faixa sai sozinha, com folga para chegar
 	bots = 16, -- bonecos que marcham atras de cada faixa
-	speed = 17, -- passo da faixa, em studs por segundo
+	speed = 9, -- passo da faixa, em studs por segundo: o de uma marcha, devagar e em grupo
 	radius = 45, -- a que distancia da faixa ainda se conta como ir no corteo
 	atmosphereBonus = 55, -- ambiente de partida para uma claque que fez o caminho
 }
@@ -349,13 +349,17 @@ Config.Rules = {
 	penaltyTime = 4, -- o penalti espera mais: apontar leva tempo
 
 	--[[
-		As faltas. Nem todo o roubo e falta, senao o jogo nunca andava: decide-se
-		no momento do roubo, e por tras e muito mais provavel do que de frente.
+		As faltas. A maior parte do contacto e so contacto: decide-se no momento
+		do roubo, e por tras e mais provavel do que de frente, mas mesmo por
+		tras a maioria nao e falta. Depois de uma, ha `foulGap` segundos sem
+		nenhuma. O alvo e uma falta a cada 30 a 40 segundos; o Output diz a
+		cada minuto quantas houve.
 		O arbitro automatico marca o que aqui sai; uma pessoa com o apito pode
 		marcar outra coisa.
 	]]
-	foulBehind = 0.35, -- roubos por tras que sao falta
-	foulFront = 0.05, -- roubos de frente que sao falta
+	foulBehind = 0.12, -- roubos por tras que sao falta
+	foulFront = 0.02, -- roubos de frente que sao falta
+	foulGap = 25, -- segundos depois de uma falta em que nenhuma entrada o e
 	behindDot = -0.2, -- abaixo disto (olhar de quem leva a bola vs. de onde vem quem rouba) e por tras
 	boxLineMargin = 3, -- a esta distancia da linha da area, fica em duvida: penalti ou livre
 

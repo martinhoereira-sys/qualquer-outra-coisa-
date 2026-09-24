@@ -148,10 +148,26 @@ function MatchLoop.winner(): string?
 	return if home > away then "home" else "away"
 end
 
+--[[
+	Para onde salta o botao. Do corteo em diante, tudo o que e esperar pelo
+	jogo — a espera das bancadas, a entrada em campo — salta-se de uma vez:
+	carrega-se uma vez e ja se esta a jogar.
+]]
+local SKIP_TO: { [string]: Phase } = {
+	clubhouse = "corteo",
+	corteo = "first",
+	espera = "first",
+	entrada = "first",
+	first = "halftime",
+	halftime = "second",
+	second = "fulltime",
+	fulltime = "clubhouse",
+}
+
 -- Salta ja para a fase seguinte. So para testes: quem pode chamar isto e o Main
 -- decide, pela lista de admins.
 function MatchLoop.skip()
-	enterPhase(NEXT_PHASE[state.phase])
+	enterPhase(SKIP_TO[state.phase])
 end
 
 function MatchLoop.start()

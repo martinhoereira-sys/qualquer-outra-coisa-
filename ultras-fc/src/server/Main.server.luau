@@ -152,8 +152,11 @@ local function standsCount(): (number, number)
 end
 
 --[[
-	Acabou o jogo: toda a gente volta a sede. Os adeptos e os jogadores a da
-	sua equipa; o arbitro, e quem nao e de ninguem, a praca.
+	Voltar a sede, a pedido (o botao "SEDE" no ecra). Os adeptos e os
+	jogadores a da sua equipa; o arbitro, e quem nao e de ninguem, a praca.
+
+	Ninguem e mandado para casa a forca: o dia de jogo recomeca na sede, mas
+	quem quiser ficar na rua ou no estadio fica.
 ]]
 local function sendHome(player: Player)
 	local teamId = Teams.get(player)
@@ -325,9 +328,6 @@ MatchLoop.onChange(function(snapshot)
 		end
 		for _, player in Players:GetPlayers() do
 			sendGearCount(player)
-			if lastPhase ~= "" then
-				task.spawn(sendHome, player)
-			end
 		end
 	end
 
@@ -349,19 +349,11 @@ MatchLoop.onChange(function(snapshot)
 	end
 
 	--[[
-		A entrada em campo. Quem ainda esta fora do estadio vai ja para a sua
-		bancada: a fila sai com as bancadas cheias, e ninguem fica de fora do
-		jogo por ter chegado tarde.
+		A entrada em campo. Quem ainda esta na rua fica na rua: o jogo acontece
+		com ou sem ele, e o botao "SEDE" ou as pernas levam-no quando quiser.
 	]]
 	if entered and snapshot.phase == "entrada" then
 		March.stop()
-		for _, player in Players:GetPlayers() do
-			local teamId = Teams.get(player)
-			local root = rootOf(player)
-			if teamId and root and not insideGround(root.Position) then
-				task.spawn(sendToClaque, player, teamId)
-			end
-		end
 		Entrance.start()
 	end
 
@@ -377,16 +369,6 @@ MatchLoop.onChange(function(snapshot)
 		end
 		Atmosphere.kickOff(bonus)
 		March.stop()
-
-		-- Quem nao marchou entra na mesma, so sem o bonus: ninguem fica de fora
-		-- do jogo por ter chegado tarde.
-		for _, player in Players:GetPlayers() do
-			local teamId = Teams.get(player)
-			local root = rootOf(player)
-			if teamId and root and not insideGround(root.Position) then
-				task.spawn(sendToClaque, player, teamId)
-			end
-		end
 	end
 
 	-- Intervalo e fim: o apito comprido.
@@ -611,6 +593,32 @@ Remotes.Admin.OnServerEvent:Connect(function(player, action)
 	lastSkip = os.clock()
 	print(string.format("[Ultras FC] %s saltou a fase %s", player.Name, MatchLoop.phase()))
 	MatchLoop.skip()
+
+	-- Saltar a fase e ficar para tras nao serve de nada: cada um vai para onde
+	-- devia estar agora. Quem joga, o campo ja o pos no lugar (balneario ou
+	-- pontape de saida).
+	for _, other in Players:GetPlayers() do
+		local teamId = Teams.get(other)
+		if Referee.current() == other then
+			task.spawn(sendToPitch, other)
+		elseif teamId then
+			task.spawn(sendToClaque, other, teamId)
+		end
+	end
+end)
+
+-- O botao "SEDE": volta-se quando se quer, nunca a forca.
+local lastHome: { [Player]: number } = {}
+Remotes.Home.OnServerEvent:Connect(function(player)
+	local now = os.clock()
+	if (lastHome[player] or 0) + 3 > now then
+		return
+	end
+	lastHome[player] = now
+	task.spawn(sendHome, player)
+end)
+Players.PlayerRemoving:Connect(function(player)
+	lastHome[player] = nil
 end)
 
 Gear.start()

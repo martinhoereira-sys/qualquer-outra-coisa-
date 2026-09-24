@@ -242,7 +242,7 @@ RunService.RenderStepped:Connect(function(dt)
 
 			-- O passo sobe e desce; parados, saltam no sitio como na bancada.
 			local bob = if walking
-				then math.abs(math.sin(now * 9 + w.phase)) * 0.35
+				then math.abs(math.sin(now * 5.5 + w.phase)) * 0.3
 				else math.abs(math.sin(now * 5 + w.phase)) * 0.8
 			local body = Vector3.new(w.at.X, w.ground + 2.6 + bob, w.at.Z)
 			local cf = CFrame.lookAt(body, body + w.facing)
