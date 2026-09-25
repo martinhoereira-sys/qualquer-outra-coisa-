@@ -158,6 +158,12 @@ local function spend(player: Player, kind: string)
 end
 
 -- O que o rodape do ecra mostra: o stock de cada um, e se tem tambor.
+-- A cor escolhida no dealer para este material, ou a da claque.
+function Gear.colourFor(player: Player, kind: string, teamId: string): Color3
+	local chosen = player:GetAttribute("Cor_" .. kind)
+	return if typeof(chosen) == "Color3" then chosen else Config.Teams[teamId].color
+end
+
 function Gear.counts(player: Player): { [string]: number }
 	local counts: { [string]: number } = {
 		tambor = if Teams.isLeader(player) then 1 else 0,
@@ -597,7 +603,7 @@ local function ignite(player: Player, tool: Tool, kind: string, teamId: string)
 		return
 	end
 
-	local colour = Config.Teams[teamId].color
+	local colour = Gear.colourFor(player, kind, teamId)
 	h.tip.Color = colour
 	h.tip.Transparency = 0
 	-- Acesa, sobe com o braco e fica de pe.

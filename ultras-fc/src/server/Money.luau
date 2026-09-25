@@ -37,8 +37,14 @@ local function key(player: Player): string
 	return "u_" .. player.UserId
 end
 
+-- Os admins (Config.Admins) tem moedas sem fim, para testar a loja.
+local function unlimited(player: Player): boolean
+	return table.find(Config.Admins, player.UserId) ~= nil
+end
+
 local function publish(player: Player)
 	player:SetAttribute("Moedas", balance[player] or 0)
+	player:SetAttribute("MoedasInfinitas", if unlimited(player) then true else nil)
 end
 
 function Money.get(player: Player): number
@@ -56,6 +62,9 @@ end
 
 -- Paga, se chegar. Devolve se pagou.
 function Money.spend(player: Player, amount: number): boolean
+	if unlimited(player) then
+		return true
+	end
 	local have = balance[player] or 0
 	if have < amount then
 		return false

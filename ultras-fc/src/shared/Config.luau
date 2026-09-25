@@ -532,10 +532,32 @@ Config.Dealers = {
 
 -- O que os dealers vendem, e quanto custa cada um.
 Config.Shop = {
-	{ kind = "tocha", label = "Tocha", price = 10 },
-	{ kind = "fumo", label = "Bomba de fumo", price = 15 },
-	{ kind = "estrobo", label = "Estrobo (pisca-pisca)", price = 12 },
-	{ kind = "vela", label = "Vela romana", price = 25 },
+	{ kind = "tocha", label = "Tocha", price = 10, about = "Chama viva e fumo. Arde 16 segundos." },
+	{ kind = "fumo", label = "Bomba de fumo", price = 15, about = "Nuvem grossa que se ve do outro lado." },
+	{ kind = "estrobo", label = "Estrobo", price = 12, about = "Pisca-pisca branco, ofusca a bancada." },
+	{ kind = "vela", label = "Vela romana", price = 25, about = "Dez bolas de fogo, uma por clique." },
+}
+
+-- Quantas de uma vez: o pack de 5 sai mais barato (paga-se 4).
+Config.ShopPacks = {
+	{ amount = 1, pay = 1 },
+	{ amount = 5, pay = 4 },
+}
+
+--[[
+	As cores a escolher no dealer. "Equipa" e a cor da claque; as outras
+	ficam a valer para esse material ate se escolher outra.
+]]
+Config.PyroColours = {
+	{ name = "Equipa", color = nil :: Color3? },
+	{ name = "Vermelho", color = Color3.fromRGB(226, 36, 36) :: Color3? },
+	{ name = "Laranja", color = Color3.fromRGB(255, 122, 20) :: Color3? },
+	{ name = "Amarelo", color = Color3.fromRGB(255, 214, 40) :: Color3? },
+	{ name = "Verde", color = Color3.fromRGB(40, 196, 80) :: Color3? },
+	{ name = "Azul", color = Color3.fromRGB(40, 110, 240) :: Color3? },
+	{ name = "Roxo", color = Color3.fromRGB(150, 60, 220) :: Color3? },
+	{ name = "Rosa", color = Color3.fromRGB(255, 90, 170) :: Color3? },
+	{ name = "Branco", color = Color3.fromRGB(245, 245, 245) :: Color3? },
 }
 
 Config.Gear = {

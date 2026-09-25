@@ -684,13 +684,14 @@ local function updateGearLabel()
 	if stock.tambor > 0 then
 		table.insert(pieces, "tambor")
 	end
-	table.insert(pieces, coins() .. " moedas")
+	table.insert(pieces, (if player:GetAttribute("MoedasInfinitas") then "∞" else tostring(coins())) .. " moedas")
 	gearLabel.Text = table.concat(pieces, "   ·   ")
 	gearLabel.TextColor3 = BRASS
 end
 
 updateGearLabel()
 player:GetAttributeChangedSignal("Moedas"):Connect(updateGearLabel)
+player:GetAttributeChangedSignal("MoedasInfinitas"):Connect(updateGearLabel)
 
 Remotes.GearCount.OnClientEvent:Connect(function(counts)
 	for kind, value in counts do
@@ -708,89 +709,438 @@ end)
 	tem, e um botao por cada coisa. Quem decide se a compra passa e o
 	servidor; aqui so se pede. Fecha-se no X, ou ao afastar-se dele.
 ]]
+local SHOP_PANEL = Color3.fromRGB(22, 20, 18)
+local SHOP_CARD = Color3.fromRGB(38, 34, 30)
+local SHOP_CARD_ON = Color3.fromRGB(64, 52, 36)
+local SHOP_GOOD = Color3.fromRGB(96, 196, 110)
+local SHOP_BAD = Color3.fromRGB(226, 92, 80)
+
+local function corner(parent: Instance, radius: number)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = parent
+end
+
+local function outline(parent: Instance, colour: Color3, thickness: number): UIStroke
+	local s = Instance.new("UIStroke")
+	s.Color = colour
+	s.Thickness = thickness
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Parent = parent
+	return s
+end
+
+local function textButton(parent: Instance, text: string, size: number, colour: Color3, fill: Color3): TextButton
+	local b = Instance.new("TextButton")
+	b.AutoButtonColor = true
+	b.BackgroundColor3 = fill
+	b.BorderSizePixel = 0
+	b.Font = Enum.Font.GothamBold
+	b.Text = text
+	b.TextSize = size
+	b.TextColor3 = colour
+	b.ZIndex = 22
+	b.Parent = parent
+	return b
+end
+
+-- Moedas sem fim (admins, para testar): mostra-se o simbolo e nunca faltam.
+local function rich(): boolean
+	return player:GetAttribute("MoedasInfinitas") == true
+end
+
+local function coinsText(): string
+	return if rich() then "∞" else tostring(coins())
+end
+
 local shop = Instance.new("Frame")
 shop.AnchorPoint = Vector2.new(0.5, 0.5)
-shop.Size = UDim2.fromOffset(380, 90 + #Config.Shop * 52)
+shop.Size = UDim2.fromOffset(640, 440)
 shop.Position = UDim2.fromScale(0.5, 0.5)
-shop.BackgroundColor3 = INK
-shop.BackgroundTransparency = 0.08
+shop.BackgroundColor3 = SHOP_PANEL
 shop.BorderSizePixel = 0
 shop.Visible = false
 shop.ZIndex = 20
 shop.Parent = gui
+corner(shop, 12)
+outline(shop, Color3.fromRGB(90, 70, 40), 2)
+local shopShade = Instance.new("UIGradient")
+shopShade.Rotation = 90
+shopShade.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 140, 130))
+shopShade.Parent = shop
 
-local shopCorner = Instance.new("UICorner")
-shopCorner.CornerRadius = UDim.new(0, 10)
-shopCorner.Parent = shop
+-- A faixa de cima: o nome, a frase e as moedas.
+local shopStripe = Instance.new("Frame")
+shopStripe.Size = UDim2.new(1, 0, 0, 4)
+shopStripe.BackgroundColor3 = BRASS
+shopStripe.BorderSizePixel = 0
+shopStripe.ZIndex = 21
+shopStripe.Parent = shop
+corner(shopStripe, 2)
 
-local shopTitle = label(shop, "DEALER", 20, BRASS)
+local shopTitle = label(shop, "DEALER", 26, BRASS)
 shopTitle.Font = Enum.Font.GothamBlack
 shopTitle.TextXAlignment = Enum.TextXAlignment.Left
-shopTitle.Size = UDim2.new(1, -80, 0, 28)
-shopTitle.Position = UDim2.fromOffset(16, 12)
+shopTitle.Size = UDim2.fromOffset(300, 30)
+shopTitle.Position = UDim2.fromOffset(20, 16)
 shopTitle.ZIndex = 21
 
-local shopCoins = label(shop, "", 14, TEXT)
-shopCoins.TextXAlignment = Enum.TextXAlignment.Left
-shopCoins.Size = UDim2.new(1, -32, 0, 18)
-shopCoins.Position = UDim2.fromOffset(16, 44)
-shopCoins.ZIndex = 21
+local shopSub = label(shop, "material da rua · paga-se em moedas do jogo", 13, MUTED)
+shopSub.Font = Enum.Font.Gotham
+shopSub.TextXAlignment = Enum.TextXAlignment.Left
+shopSub.Size = UDim2.fromOffset(340, 16)
+shopSub.Position = UDim2.fromOffset(20, 46)
+shopSub.ZIndex = 21
 
-local shopClose = Instance.new("TextButton")
+local shopCoins = label(shop, "", 16, INK)
+shopCoins.Font = Enum.Font.GothamBlack
+shopCoins.AnchorPoint = Vector2.new(1, 0)
+shopCoins.Size = UDim2.fromOffset(130, 32)
+shopCoins.Position = UDim2.new(1, -62, 0, 18)
+shopCoins.BackgroundTransparency = 0
+shopCoins.BackgroundColor3 = BRASS
+shopCoins.ZIndex = 21
+corner(shopCoins, 16)
+
+local shopClose = textButton(shop, "X", 18, TEXT, Color3.fromRGB(70, 60, 52))
+shopClose.Font = Enum.Font.GothamBlack
 shopClose.AnchorPoint = Vector2.new(1, 0)
 shopClose.Size = UDim2.fromOffset(36, 36)
-shopClose.Position = UDim2.new(1, -10, 0, 10)
-shopClose.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
-shopClose.BorderSizePixel = 0
-shopClose.Font = Enum.Font.GothamBlack
-shopClose.TextSize = 18
-shopClose.TextColor3 = TEXT
-shopClose.Text = "X"
-shopClose.ZIndex = 21
-shopClose.Parent = shop
-local shopCloseCorner = Instance.new("UICorner")
-shopCloseCorner.CornerRadius = UDim.new(0, 8)
-shopCloseCorner.Parent = shopClose
+shopClose.Position = UDim2.new(1, -16, 0, 16)
+corner(shopClose, 8)
 shopClose.Activated:Connect(function()
 	shop.Visible = false
 end)
 
+-- A esquerda, a lista; a direita, o que esta escolhido.
+local list = Instance.new("Frame")
+list.BackgroundTransparency = 1
+list.Size = UDim2.fromOffset(230, 350)
+list.Position = UDim2.fromOffset(20, 76)
+list.ZIndex = 21
+list.Parent = shop
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 8)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = list
+
+local detail = Instance.new("Frame")
+detail.BackgroundColor3 = SHOP_CARD
+detail.BorderSizePixel = 0
+detail.Size = UDim2.fromOffset(366, 350)
+detail.Position = UDim2.fromOffset(258, 76)
+detail.ZIndex = 21
+detail.Parent = shop
+corner(detail, 10)
+
+-- A montra: o material a rodar, com a ponta na cor escolhida.
+local view = Instance.new("ViewportFrame")
+view.Size = UDim2.fromOffset(120, 150)
+view.Position = UDim2.fromOffset(12, 12)
+view.BackgroundColor3 = Color3.fromRGB(16, 14, 12)
+view.BorderSizePixel = 0
+view.Ambient = Color3.fromRGB(150, 140, 130)
+view.LightColor = Color3.fromRGB(255, 240, 220)
+view.LightDirection = Vector3.new(-1, -1, -1)
+view.ZIndex = 22
+view.Parent = detail
+corner(view, 8)
+local viewCamera = Instance.new("Camera")
+viewCamera.FieldOfView = 30
+viewCamera.Parent = view
+view.CurrentCamera = viewCamera
+
+local itemName = label(detail, "", 22, TEXT)
+itemName.Font = Enum.Font.GothamBlack
+itemName.TextXAlignment = Enum.TextXAlignment.Left
+itemName.Size = UDim2.fromOffset(210, 26)
+itemName.Position = UDim2.fromOffset(144, 14)
+itemName.ZIndex = 22
+
+local itemAbout = label(detail, "", 13, MUTED)
+itemAbout.Font = Enum.Font.Gotham
+itemAbout.TextWrapped = true
+itemAbout.TextXAlignment = Enum.TextXAlignment.Left
+itemAbout.TextYAlignment = Enum.TextYAlignment.Top
+itemAbout.Size = UDim2.fromOffset(210, 50)
+itemAbout.Position = UDim2.fromOffset(144, 44)
+itemAbout.ZIndex = 22
+
+local itemOwned = label(detail, "", 14, BRASS)
+itemOwned.TextXAlignment = Enum.TextXAlignment.Left
+itemOwned.Size = UDim2.fromOffset(210, 18)
+itemOwned.Position = UDim2.fromOffset(144, 100)
+itemOwned.ZIndex = 22
+
+local colourTitle = label(detail, "COR", 12, MUTED)
+colourTitle.TextXAlignment = Enum.TextXAlignment.Left
+colourTitle.Size = UDim2.fromOffset(200, 14)
+colourTitle.Position = UDim2.fromOffset(14, 174)
+colourTitle.ZIndex = 22
+
+local colourName = label(detail, "", 12, TEXT)
+colourName.TextXAlignment = Enum.TextXAlignment.Right
+colourName.Size = UDim2.fromOffset(200, 14)
+colourName.Position = UDim2.fromOffset(152, 174)
+colourName.ZIndex = 22
+
+local feedback = label(detail, "", 14, SHOP_GOOD)
+feedback.Size = UDim2.new(1, -28, 0, 18)
+feedback.Position = UDim2.fromOffset(14, 322)
+feedback.ZIndex = 22
+
+local selectedKind = Config.Shop[1].kind
+local cards: { [string]: { frame: TextButton, stroke: UIStroke, owned: TextLabel } } = {}
+local swatches: { { button: TextButton, stroke: UIStroke } } = {}
+local packButtons: { TextButton } = {}
+local refreshShop: () -> ()
+
+local function itemFor(kind: string)
+	for _, item in Config.Shop do
+		if item.kind == kind then
+			return item
+		end
+	end
+	return Config.Shop[1]
+end
+
+local function teamColour(): Color3
+	local team = Config.Teams[player:GetAttribute("Team") or ""]
+	return if team then team.color else BRASS
+end
+
+-- A cor em uso para um material: a escolhida, ou a da claque.
+local function chosenIndex(kind: string): number
+	local chosen = player:GetAttribute("Cor_" .. kind)
+	if typeof(chosen) == "Color3" then
+		for i, entry in Config.PyroColours do
+			if entry.color and entry.color == chosen then
+				return i
+			end
+		end
+	end
+	return 1
+end
+
+local function colourAt(index: number): Color3
+	return Config.PyroColours[index].color or teamColour()
+end
+
+local function ownedText(kind: string): string
+	local n = stock[kind] or 0
+	return if n < 0 then "sem limite" else "tens " .. n
+end
+
+-- O modelo da montra: parecido ao que se leva na mao (Gear.buildHeld).
+local function showcase(kind: string, colour: Color3)
+	view:ClearAllChildren()
+	viewCamera.Parent = view
+	local model = Instance.new("Model")
+	local function part(size: Vector3, cf: CFrame, c: Color3, neon: boolean?)
+		local p = Instance.new("Part")
+		p.Anchored = true
+		p.Size = size
+		p.CFrame = cf
+		p.Color = c
+		p.Material = if neon then Enum.Material.Neon else Enum.Material.SmoothPlastic
+		p.Parent = model
+	end
+	local length = if kind == "vela" then 3.2 else 2
+	if kind == "tocha" then
+		part(Vector3.new(0.3, length, 0.3), CFrame.new(), Color3.fromRGB(196, 38, 34))
+		part(Vector3.new(0.34, 0.4, 0.34), CFrame.new(0, -length / 2 + 0.2, 0), Color3.fromRGB(40, 40, 44))
+	elseif kind == "vela" then
+		part(Vector3.new(0.4, length, 0.4), CFrame.new(), colour:Lerp(Color3.fromRGB(30, 30, 30), 0.35))
+		part(Vector3.new(0.42, 0.3, 0.42), CFrame.new(0, 0.6, 0), Color3.fromRGB(240, 240, 240))
+		part(Vector3.new(0.42, 0.3, 0.42), CFrame.new(0, -0.4, 0), Color3.fromRGB(240, 240, 240))
+	elseif kind == "estrobo" then
+		part(Vector3.new(0.7, length, 0.7), CFrame.new(), Color3.fromRGB(220, 220, 216))
+	else
+		part(Vector3.new(0.7, length, 0.7), CFrame.new(), Color3.fromRGB(46, 48, 54))
+		part(Vector3.new(0.72, 0.4, 0.72), CFrame.new(0, 0.2, 0), colour)
+	end
+	local tipColour = if kind == "estrobo" then Color3.new(1, 1, 1) else colour
+	part(Vector3.new(0.36, 0.2, 0.36), CFrame.new(0, length / 2 + 0.1, 0), tipColour, true)
+	-- O brilho da ponta acesa.
+	local glow = Instance.new("Part")
+	glow.Shape = Enum.PartType.Ball
+	glow.Anchored = true
+	glow.Size = Vector3.new(0.9, 0.9, 0.9)
+	glow.CFrame = CFrame.new(0, length / 2 + 0.35, 0)
+	glow.Color = tipColour
+	glow.Material = Enum.Material.Neon
+	glow.Transparency = 0.35
+	glow.Parent = model
+	model.Parent = view
+	viewCamera.CFrame = CFrame.lookAt(Vector3.new(0, 0.3, 9), Vector3.new(0, 0.3, 0))
+end
+
+local spin = 0
+RunService.RenderStepped:Connect(function(dt)
+	if not shop.Visible then
+		return
+	end
+	spin += dt * 0.8
+	viewCamera.CFrame = CFrame.lookAt(Vector3.new(math.sin(spin) * 9, 1.2, math.cos(spin) * 9), Vector3.new(0, 0.3, 0))
+end)
+
+local function selectItem(kind: string)
+	selectedKind = kind
+	feedback.Text = ""
+	refreshShop()
+end
+
+-- Os cartoes da lista, um por material.
 for index, item in Config.Shop do
-	local row = Instance.new("TextButton")
-	row.Size = UDim2.new(1, -32, 0, 44)
-	row.Position = UDim2.fromOffset(16, 72 + (index - 1) * 52)
-	row.BackgroundColor3 = Color3.fromRGB(40, 44, 52)
-	row.BorderSizePixel = 0
-	row.Font = Enum.Font.GothamBold
-	row.TextSize = 15
-	row.TextColor3 = TEXT
-	row.TextXAlignment = Enum.TextXAlignment.Left
-	row.Text = "   " .. item.label
-	row.ZIndex = 21
-	row.Parent = shop
-	local rowCorner = Instance.new("UICorner")
-	rowCorner.CornerRadius = UDim.new(0, 6)
-	rowCorner.Parent = row
-	local price = label(row, item.price .. " moedas", 14, BRASS)
-	price.TextXAlignment = Enum.TextXAlignment.Right
-	price.Size = UDim2.new(1, -16, 1, 0)
+	local card = textButton(list, "", 1, TEXT, SHOP_CARD)
+	card.LayoutOrder = index
+	card.Size = UDim2.new(1, 0, 0, 80)
+	card.ZIndex = 21
+	corner(card, 10)
+	local stroke = outline(card, BRASS, 0)
+
+	local chip = Instance.new("Frame")
+	chip.Name = "Cor"
+	chip.Size = UDim2.fromOffset(10, 56)
+	chip.Position = UDim2.fromOffset(12, 12)
+	chip.BorderSizePixel = 0
+	chip.ZIndex = 22
+	chip.Parent = card
+	corner(chip, 5)
+
+	local name = label(card, item.label, 17, TEXT)
+	name.Font = Enum.Font.GothamBlack
+	name.TextXAlignment = Enum.TextXAlignment.Left
+	name.Size = UDim2.fromOffset(190, 22)
+	name.Position = UDim2.fromOffset(32, 12)
+	name.ZIndex = 22
+
+	local price = label(card, item.price .. " moedas", 14, BRASS)
+	price.TextXAlignment = Enum.TextXAlignment.Left
+	price.Size = UDim2.fromOffset(120, 18)
+	price.Position = UDim2.fromOffset(32, 38)
 	price.ZIndex = 22
-	row.Activated:Connect(function()
-		Remotes.Shop:FireServer("buy", item.kind)
+
+	local owned = label(card, "", 12, MUTED)
+	owned.Font = Enum.Font.Gotham
+	owned.TextXAlignment = Enum.TextXAlignment.Left
+	owned.Size = UDim2.fromOffset(160, 14)
+	owned.Position = UDim2.fromOffset(32, 58)
+	owned.ZIndex = 22
+
+	card.Activated:Connect(function()
+		selectItem(item.kind)
 	end)
+	cards[item.kind] = { frame = card, stroke = stroke, owned = owned }
+end
+
+-- As cores: um circulo por cor, a escolhida com aro.
+for index, entry in Config.PyroColours do
+	local col = (index - 1) % 9
+	local swatch = textButton(detail, if entry.color then "" else "EQ", 11, INK, Color3.new(1, 1, 1))
+	swatch.Font = Enum.Font.GothamBlack
+	swatch.Size = UDim2.fromOffset(30, 30)
+	swatch.Position = UDim2.fromOffset(14 + col * 38, 194)
+	corner(swatch, 15)
+	local stroke = outline(swatch, Color3.new(1, 1, 1), 0)
+	swatch.Activated:Connect(function()
+		Remotes.Shop:FireServer("cor", selectedKind, index)
+		feedback.TextColor3 = TEXT
+		feedback.Text = "cor escolhida: " .. entry.name
+	end)
+	swatches[index] = { button = swatch, stroke = stroke }
+end
+
+-- Comprar: um, ou o pack de cinco.
+for index, pack in Config.ShopPacks do
+	local b = textButton(detail, "", 15, INK, BRASS)
+	b.Font = Enum.Font.GothamBlack
+	b.Size = UDim2.fromOffset(162, 54)
+	b.Position = UDim2.fromOffset(14 + (index - 1) * 176, 250)
+	corner(b, 10)
+	b.Activated:Connect(function()
+		local item = itemFor(selectedKind)
+		local cost = item.price * pack.pay
+		if not rich() and coins() < cost then
+			feedback.TextColor3 = SHOP_BAD
+			feedback.Text = "faltam " .. (cost - coins()) .. " moedas"
+			return
+		end
+		Remotes.Shop:FireServer("buy", selectedKind, index)
+		feedback.TextColor3 = SHOP_GOOD
+		feedback.Text = "comprado: " .. pack.amount .. "x " .. item.label
+	end)
+	packButtons[index] = b
+end
+
+refreshShop = function()
+	shopCoins.Text = coinsText() .. " moedas"
+	local item = itemFor(selectedKind)
+	local chosen = chosenIndex(selectedKind)
+	local colour = colourAt(chosen)
+
+	for _, entry in Config.Shop do
+		local card = cards[entry.kind]
+		local on = entry.kind == selectedKind
+		card.frame.BackgroundColor3 = if on then SHOP_CARD_ON else SHOP_CARD
+		card.stroke.Thickness = if on then 2 else 0
+		card.owned.Text = ownedText(entry.kind)
+		local chip = card.frame:FindFirstChild("Cor") :: Frame
+		chip.BackgroundColor3 = if entry.kind == "estrobo" then Color3.new(1, 1, 1) else colourAt(chosenIndex(entry.kind))
+	end
+
+	itemName.Text = item.label
+	itemAbout.Text = item.about or ""
+	itemOwned.Text = ownedText(selectedKind)
+
+	-- O estrobo pisca sempre branco: nao ha cor a escolher.
+	local hasColour = selectedKind ~= "estrobo"
+	colourTitle.Visible = hasColour
+	colourName.Visible = hasColour
+	colourName.Text = Config.PyroColours[chosen].name
+	for index, swatch in swatches do
+		swatch.button.Visible = hasColour
+		swatch.button.BackgroundColor3 = colourAt(index)
+		swatch.stroke.Thickness = if index == chosen then 3 else 0
+	end
+
+	for index, pack in Config.ShopPacks do
+		local cost = item.price * pack.pay
+		local b = packButtons[index]
+		b.Text = if pack.amount == 1 then "1x  ·  " .. cost else pack.amount .. "x  ·  " .. cost .. "  (poupas " .. (item.price * pack.amount - cost) .. ")"
+		local can = rich() or coins() >= cost
+		b.BackgroundColor3 = if can then BRASS else Color3.fromRGB(90, 80, 66)
+	end
+
+	showcase(selectedKind, colour)
 end
 
 local shopAt: Vector3? = nil
 
-local function refreshShop()
-	shopCoins.Text = "tens " .. coins() .. " moedas"
-end
-player:GetAttributeChangedSignal("Moedas"):Connect(refreshShop)
+player:GetAttributeChangedSignal("Moedas"):Connect(function()
+	if shop.Visible then
+		refreshShop()
+	end
+end)
+player.AttributeChanged:Connect(function(name)
+	if shop.Visible and (string.sub(name, 1, 4) == "Cor_" or name == "MoedasInfinitas") then
+		refreshShop()
+	end
+end)
+Remotes.GearCount.OnClientEvent:Connect(function()
+	-- Depois de o rodape ter atualizado o stock.
+	task.defer(function()
+		if shop.Visible then
+			refreshShop()
+		end
+	end)
+end)
 
 Remotes.Shop.OnClientEvent:Connect(function(action)
 	if action ~= "open" then
 		return
 	end
+	feedback.Text = ""
 	refreshShop()
 	shop.Visible = true
 	local character = player.Character

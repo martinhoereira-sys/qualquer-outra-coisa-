@@ -697,20 +697,33 @@ end)
 	Comprar a um dealer: so quem e de claque, so ao pe de um dealer, e so com
 	moedas que cheguem. O preco e o do Config.Shop, nunca o que o cliente diz.
 ]]
-Remotes.Shop.OnServerEvent:Connect(function(player, action, kind)
-	if action ~= "buy" or type(kind) ~= "string" or not Teams.get(player) then
+Remotes.Shop.OnServerEvent:Connect(function(player, action, kind, choice)
+	if type(kind) ~= "string" or type(choice) ~= "number" or not Teams.get(player) then
 		return
 	end
 	local root = rootOf(player)
 	if not root or not Clubhouse.nearDealer(root.Position) then
 		return
 	end
-	for _, item in Config.Shop do
-		if item.kind == kind then
-			if Money.spend(player, item.price) then
-				Gear.give(player, kind, 1)
-			end
-			return
+	local item
+	for _, entry in Config.Shop do
+		if entry.kind == kind then
+			item = entry
+		end
+	end
+	if not item then
+		return
+	end
+	if action == "cor" then
+		-- A cor fica a valer para esse material (Gear le o atributo ao acender).
+		local colour = Config.PyroColours[choice]
+		if colour then
+			player:SetAttribute("Cor_" .. kind, colour.color)
+		end
+	elseif action == "buy" then
+		local pack = Config.ShopPacks[choice]
+		if pack and Money.spend(player, item.price * pack.pay) then
+			Gear.give(player, kind, pack.amount)
 		end
 	end
 end)

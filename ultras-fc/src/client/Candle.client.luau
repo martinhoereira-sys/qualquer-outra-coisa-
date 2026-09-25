@@ -156,13 +156,16 @@ Remotes.Candle.OnClientEvent:Connect(function(shooter)
 	if not tip or not team then
 		return
 	end
+	-- A cor escolhida no dealer, se houver; senao a da claque.
+	local chosen = shooter:GetAttribute("Cor_vela")
+	local colour = if typeof(chosen) == "Color3" then chosen else team.color
 	-- Pela boca da vela, para onde ela aponta (quase sempre para o ceu).
 	local up = tip.CFrame.UpVector
 	local aim = if up.Y > 0.3 then up else Vector3.yAxis
 	local wobble = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5) * 0.08
 	local mouth = tip.Position + aim * 0.3
-	muzzle(mouth, team.color)
-	fireball(mouth, (aim + wobble).Unit, team.color)
+	muzzle(mouth, colour)
+	fireball(mouth, (aim + wobble).Unit, colour)
 end)
 
 -- Cada bola sobe, abranda, e apaga-se la em cima.
