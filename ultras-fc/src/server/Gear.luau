@@ -699,7 +699,8 @@ end
 
 local function activate(player: Player, tool: Tool, kind: string)
 	local teamId = Teams.get(player)
-	if not teamId then
+	-- De bicicleta as maos estao no guiador: nada se acende nem se bate.
+	if not teamId or player:GetAttribute("Riding") then
 		return
 	end
 

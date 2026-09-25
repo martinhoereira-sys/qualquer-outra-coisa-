@@ -777,6 +777,26 @@ function Football.dive(f: Footballer): boolean
 		root.AssemblyLinearVelocity = toBall * F.keeperDiveSpeed + Vector3.new(0, 10, 0)
 	end
 	local model = f.model
+	if f.player then
+		-- Numa pessoa, a queda de lado e o levantar ja os faz o ecra dela; aqui so
+		-- fica no chao (sem chutar) ate se levantar. So depois do voo: durante
+		-- ele ainda pode agarrar a bola.
+		local AIR = 0.45
+		-- Os bracos esticados, em todos os ecras (Poses.client).
+		local who = f.player
+		who:SetAttribute("Diving", true)
+		task.delay(F.keeperDiveTime, function()
+			if who.Parent then
+				who:SetAttribute("Diving", nil)
+			end
+		end)
+		task.delay(AIR, function()
+			if f.model == model and state.carrier ~= f then
+				f.downUntil = os.clock() + F.keeperDiveTime - AIR
+			end
+		end)
+		return true
+	end
 	task.delay(F.keeperDiveTime, function()
 		if f.model == model and state.carrier ~= f then
 			Squad.fall(f, os.clock())

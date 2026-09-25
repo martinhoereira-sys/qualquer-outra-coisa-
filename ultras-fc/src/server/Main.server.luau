@@ -58,6 +58,8 @@ local function placeAt(player: Player, point: Vector3, lookAt: Vector3?)
 	if not root then
 		return
 	end
+	-- Quem vai de bicicleta desce antes: ela fica onde estava, nao vem junto.
+	Bikes.dismount(player)
 	root.CFrame = lookAt and CFrame.lookAt(point, lookAt) or CFrame.new(point)
 end
 
@@ -687,7 +689,7 @@ for _, emote in Config.Emotes do
 	EMOTE_IDS[emote.id] = true
 end
 Remotes.Emote.OnServerEvent:Connect(function(player, id)
-	if type(id) ~= "string" then
+	if type(id) ~= "string" or player:GetAttribute("Riding") then
 		return
 	end
 	player:SetAttribute("Emote", if EMOTE_IDS[id] then id else nil)

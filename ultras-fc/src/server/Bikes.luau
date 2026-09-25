@@ -68,7 +68,9 @@ function Bikes.build(colour: Color3, base: CFrame, parent: Instance): Model
 	local model = Instance.new("Model")
 	model.Name = "Bicicleta"
 
-	local frame = piece("Quadro", Vector3.new(0.25, 0.25, 3.2), colour, model)
+	-- O centro invisivel onde tudo se prende (e onde se solda a quem pedala).
+	local frame = piece("Quadro", Vector3.new(0.2, 0.2, 0.2), colour, model)
+	frame.Transparency = 1
 	frame.CFrame = base * CFrame.new(0, 0.9, 0)
 	model.PrimaryPart = frame
 
@@ -80,15 +82,47 @@ function Bikes.build(colour: Color3, base: CFrame, parent: Instance): Model
 		weld.Parent = p
 	end
 
-	for _, z in { -1.6, 1.6 } do
-		-- Roda: um cilindro deitado, pneu escuro com o aro claro por dentro.
-		add(piece("Roda", Vector3.new(0.2, 2.4, 2.4), TYRE, model, Enum.PartType.Cylinder), CFrame.new(0, 0, z))
-		add(piece("Aro", Vector3.new(0.22, 1.9, 1.9), Color3.fromRGB(170, 172, 176), model, Enum.PartType.Cylinder), CFrame.new(0, 0, z))
+	local METAL = Color3.fromRGB(170, 172, 176)
+	-- Um tubo entre dois pontos (em coordenadas da bicicleta).
+	local function tube(name: string, from: Vector3, to: Vector3, thick: number, c: Color3)
+		local mid = (from + to) / 2
+		local p = piece(name, Vector3.new(thick, thick, (to - from).Magnitude), c, model)
+		add(p, CFrame.lookAt(mid, to))
 	end
-	add(piece("Tubo", Vector3.new(0.22, 1.6, 0.22), colour, model), CFrame.new(0, 0.5, 0.4) * CFrame.Angles(math.rad(-25), 0, 0))
-	add(piece("Garfo", Vector3.new(0.2, 1.4, 0.2), FRAME_DARK, model), CFrame.new(0, 0.7, -1.4) * CFrame.Angles(math.rad(15), 0, 0))
-	add(piece("Selim", Vector3.new(0.5, 0.2, 0.9), FRAME_DARK, model), CFrame.new(0, 1.35, 0.7))
-	add(piece("Guiador", Vector3.new(1.6, 0.18, 0.18), FRAME_DARK, model), CFrame.new(0, 1.45, -1.3))
+
+	for _, z in { -1.6, 1.6 } do
+		-- Roda: pneu escuro, aro claro e o cubo ao meio.
+		add(piece("Roda", Vector3.new(0.22, 2.4, 2.4), TYRE, model, Enum.PartType.Cylinder), CFrame.new(0, 0, z))
+		add(piece("Aro", Vector3.new(0.24, 1.95, 1.95), METAL, model, Enum.PartType.Cylinder), CFrame.new(0, 0, z))
+		add(piece("Raios", Vector3.new(0.26, 1.7, 1.7), Color3.fromRGB(58, 60, 64), model, Enum.PartType.Cylinder), CFrame.new(0, 0, z))
+		add(piece("Cubo", Vector3.new(0.4, 0.35, 0.35), METAL, model, Enum.PartType.Cylinder), CFrame.new(0, 0, z))
+	end
+
+	-- O quadro em diamante, da cor da claque.
+	local crank = Vector3.new(0, 0.1, 0.2)
+	local seatTop = Vector3.new(0, 1.25, 0.55)
+	local head = Vector3.new(0, 1.15, -1.05)
+	tube("TuboSelim", crank, seatTop, 0.2, colour)
+	tube("TuboCima", seatTop + Vector3.new(0, -0.1, 0), head, 0.2, colour)
+	tube("TuboBaixo", crank, head + Vector3.new(0, -0.25, 0), 0.24, colour)
+	tube("Escora", crank, Vector3.new(0, 0, 1.6), 0.14, colour)
+	tube("EscoraCima", seatTop + Vector3.new(0, -0.15, 0), Vector3.new(0, 0, 1.6), 0.12, colour)
+	tube("Garfo", head, Vector3.new(0, 0, -1.6), 0.16, FRAME_DARK)
+	tube("Avanco", head, head + Vector3.new(0, 0.35, 0.1), 0.16, FRAME_DARK)
+
+	-- Selim, guiador com punhos, e os pedais.
+	add(piece("Selim", Vector3.new(0.45, 0.18, 0.85), FRAME_DARK, model), CFrame.new(seatTop + Vector3.new(0, 0.12, 0.05)))
+	local bar = head + Vector3.new(0, 0.4, 0.1)
+	add(piece("Guiador", Vector3.new(1.5, 0.14, 0.14), FRAME_DARK, model), CFrame.new(bar))
+	for _, x in { -0.68, 0.68 } do
+		add(piece("Punho", Vector3.new(0.25, 0.2, 0.2), TYRE, model), CFrame.new(bar + Vector3.new(x, 0, 0)))
+	end
+	add(piece("Pedaleiro", Vector3.new(0.3, 0.5, 0.5), METAL, model, Enum.PartType.Cylinder), CFrame.new(crank))
+	for _, side in { -1, 1 } do
+		local arm = crank + Vector3.new(side * 0.25, side * 0.35, 0)
+		tube("Biela", crank + Vector3.new(side * 0.25, 0, 0), arm, 0.1, METAL)
+		add(piece("Pedal", Vector3.new(0.4, 0.08, 0.3), TYRE, model), CFrame.new(arm + Vector3.new(side * 0.2, 0, 0)))
+	end
 
 	model.Parent = parent
 	return model
@@ -187,7 +221,8 @@ end
 
 -- Pega numa bicicleta da claque: vai por baixo de quem pedala, e anda mais.
 function Bikes.mount(player: Player, colour: Color3): boolean
-	if riding[player] or player:GetAttribute("Team") == "jogador" then
+	local role = player:GetAttribute("Team")
+	if riding[player] or role == "jogador" or role == "arbitro" then
 		return false
 	end
 	local character = player.Character
@@ -206,6 +241,9 @@ function Bikes.mount(player: Player, colour: Color3): boolean
 	weld.Parent = bike
 
 	humanoid.WalkSpeed = B.speed
+	-- Ninguem pedala de emote, nem de tocha na mao.
+	player:SetAttribute("Emote", nil)
+	humanoid:UnequipTools()
 	riding[player] = { bike = bike, humanoid = humanoid, colour = colour }
 	player:SetAttribute("Riding", true)
 
@@ -213,6 +251,32 @@ function Bikes.mount(player: Player, colour: Color3): boolean
 	humanoid.Died:Once(function()
 		Bikes.dismount(player, false)
 	end)
+
+	local watching: { RBXScriptConnection } = {}
+	local function stopWatching()
+		for _, c in watching do
+			c:Disconnect()
+		end
+	end
+	-- Mudar de papel (jogador, guarda-redes, arbitro) desce logo da bicicleta.
+	for _, attribute in { "Team", "Keeper" } do
+		table.insert(watching, player:GetAttributeChangedSignal(attribute):Connect(function()
+			Bikes.dismount(player)
+		end))
+	end
+	-- De bicicleta as maos estao no guiador: pegar numa ferramenta arruma-a logo.
+	table.insert(watching, character.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then
+			task.defer(function()
+				humanoid:UnequipTools()
+			end)
+		end
+	end))
+	table.insert(watching, bike.AncestryChanged:Connect(function()
+		if not bike.Parent then
+			stopWatching()
+		end
+	end))
 	return true
 end
 
@@ -226,7 +290,8 @@ function Bikes.start()
 		while true do
 			task.wait(1)
 			for player in riding do
-				if player:GetAttribute("Team") == "jogador" or not player.Character then
+				local team = player:GetAttribute("Team")
+				if team == "jogador" or team == "arbitro" or not player.Character then
 					Bikes.dismount(player)
 				end
 			end

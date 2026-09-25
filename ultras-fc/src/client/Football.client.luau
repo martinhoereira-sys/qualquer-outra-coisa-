@@ -188,34 +188,111 @@ player:GetAttributeChangedSignal("Keeper"):Connect(refresh)
 refresh()
 
 local lastDive = 0
+local diving = false
+
+--[[
+	O mergulho, desenhado aqui porque o corpo e desta pessoa: um salto em arco
+	para o lado, o corpo deitado de lado no ar com os bracos esticados, a
+	queda de lado no relvado, e levantar. Nada de empurrar o boneco e deixar a
+	fisica decidir — assim rebolava, travava na relva e caia de cara.
+
+	Tempos (somam F.keeperDiveTime): voo, deitado, levantar.
+]]
+local AIR = 0.42
+local DOWN = 0.38
+local DIVE_DISTANCE = 9 -- studs de lado (o servidor da alcance F.keeperDiveReach)
+local ARC = 2.2
+
+local function ease(t: number): number
+	return 1 - (1 - t) * (1 - t)
+end
+
 local function dive()
-	if not isKeeper() or os.clock() - lastDive < F.keeperDiveCooldown then
+	if diving or not isKeeper() or os.clock() - lastDive < F.keeperDiveCooldown then
 		return
 	end
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local ball = workspace:FindFirstChild("Ball", true) :: BasePart?
-	if not root then
+	if not character or not root or not humanoid then
 		return
 	end
 	lastDive = os.clock()
-	-- O corpo e desta pessoa: o impulso da-se aqui, e o servidor so regista.
-	-- Para onde: as teclas de andar (W frente, S tras, A/D lados, e as
-	-- diagonais), vistas da camara; sem nenhuma carregada, para a bola.
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local moving = if humanoid then Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z) else Vector3.zero
+	diving = true
+
+	-- Para onde: as teclas de andar (vistas da camara); sem nenhuma, para a bola.
+	local moving = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
 	local towards = if ball then ball.Position - root.Position else root.CFrame.LookVector
 	local flat = if moving.Magnitude > 0.1 then moving else Vector3.new(towards.X, 0, towards.Z)
 	local dir = if flat.Magnitude > 0.1 then flat.Unit else root.CFrame.LookVector
-	-- Solto das pernas durante o voo, senao o boneco travava o mergulho a andar.
-	if humanoid then
-		humanoid.PlatformStand = true
-		task.delay(F.keeperDiveTime, function()
-			humanoid.PlatformStand = false
-		end)
+
+	-- Continua virado para o jogo; o corpo deita-se para o lado do mergulho.
+	local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
+	local right = look:Cross(Vector3.yAxis)
+	local side = dir:Dot(right)
+	local ahead = dir:Dot(look)
+	local roll = -math.sign(side) * math.rad(85) * math.min(1, math.abs(side) * 1.4)
+	local pitch = if math.abs(side) < 0.5 then -math.rad(80) * math.sign(ahead) * (1 - math.abs(side)) else 0
+
+	-- Nao atravessa postes nem paredes: o voo para onde bater.
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore: { Instance } = { character }
+	if ball then
+		table.insert(ignore, ball)
 	end
-	root.AssemblyLinearVelocity = dir * F.keeperDiveSpeed + Vector3.new(0, 10, 0)
+	params.FilterDescendantsInstances = ignore
+	local start = root.Position
+	local distance = DIVE_DISTANCE
+	local hit = workspace:Raycast(start, dir * (DIVE_DISTANCE + 1.5), params)
+	if hit then
+		distance = math.max(0, (hit.Position - start).Magnitude - 1.5)
+	end
+	local standY = start.Y
+	local lyingY = start.Y - humanoid.HipHeight - root.Size.Y / 2 + 0.9
+
+	humanoid.PlatformStand = true
+	humanoid.AutoRotate = false
+	player:SetAttribute("Diving", true)
 	Remotes.Football:FireServer("dive")
+
+	local began = os.clock()
+	local connection: RBXScriptConnection
+	connection = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - began
+		if not root.Parent or humanoid.Health <= 0 then
+			connection:Disconnect()
+			diving = false
+			return
+		end
+		local pos, lie
+		if t < AIR then
+			local k = t / AIR
+			local along = distance * ease(k)
+			local y = standY + (lyingY - standY) * k + ARC * math.sin(math.pi * k)
+			pos = Vector3.new(start.X, 0, start.Z) + dir * along + Vector3.new(0, y, 0)
+			lie = math.min(1, k * 2.2)
+		elseif t < AIR + DOWN then
+			pos = Vector3.new(start.X, lyingY, start.Z) + dir * distance
+			lie = 1
+		else
+			-- Levanta-se onde caiu.
+			connection:Disconnect()
+			local at = Vector3.new(start.X, standY, start.Z) + dir * distance
+			root.CFrame = CFrame.lookAt(at, at + look)
+			root.AssemblyLinearVelocity = Vector3.zero
+			humanoid.PlatformStand = false
+			humanoid.AutoRotate = true
+			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+			player:SetAttribute("Diving", nil)
+			diving = false
+			return
+		end
+		root.CFrame = CFrame.lookAt(pos, pos + look) * CFrame.Angles(pitch * lie, 0, roll * lie)
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
+	end)
 end
 diveButton.Activated:Connect(dive)
 

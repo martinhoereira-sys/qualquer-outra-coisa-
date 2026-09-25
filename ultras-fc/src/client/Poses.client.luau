@@ -252,7 +252,8 @@ RunService.Stepped:Connect(function()
 		local hold = player:GetAttribute("Hold")
 		local emote = player:GetAttribute("Emote")
 		local riding = player:GetAttribute("Riding") == true
-		if not character or (hold == nil and emote == nil and not riding) then
+		local diving = player:GetAttribute("Diving") == true
+		if not character or (hold == nil and emote == nil and not riding and not diving) then
 			dropScarf(player)
 			continue
 		end
@@ -273,6 +274,20 @@ RunService.Stepped:Connect(function()
 		end
 		if play then
 			play(rig, t)
+		end
+
+		-- O guarda-redes a atirar-se: os dois bracos esticados por cima da cabeca,
+		-- as pernas juntas e direitas.
+		if diving then
+			arm(rig.rightShoulder, 1, math.rad(170), math.rad(10))
+			arm(rig.leftShoulder, -1, math.rad(170), math.rad(10))
+			set(rig.rightElbow, CFrame.identity)
+			set(rig.leftElbow, CFrame.identity)
+			set(rig.rightHip, CFrame.Angles(math.rad(-10), 0, 0))
+			set(rig.leftHip, CFrame.Angles(math.rad(10), 0, 0))
+			set(rig.rightKnee, CFrame.identity)
+			set(rig.leftKnee, CFrame.identity)
+			continue
 		end
 
 		-- De bicicleta: sentado, as pernas a pedalar e as maos no guiador.
