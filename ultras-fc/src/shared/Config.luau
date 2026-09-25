@@ -520,6 +520,11 @@ Config.Money = {
 	perGoal = 5, -- cada golo da propria equipa
 }
 
+-- As bicicletas das sedes: a velocidade de quem pedala (a pe e 16).
+Config.Bikes = {
+	speed = 34,
+}
+
 -- Quantos dealers ha na rua, se o mapa nao tiver pecas "Dealer" a dizer onde.
 Config.Dealers = {
 	count = 6,

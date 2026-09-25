@@ -424,6 +424,35 @@ ContextActionService:BindAction("Animacoes", function(_, inputState)
 	return Enum.ContextActionResult.Pass
 end, false, Enum.KeyCode.G)
 
+-- De bicicleta: um botao (ou F) para descer.
+local bikeButton = Instance.new("TextButton")
+bikeButton.AnchorPoint = Vector2.new(1, 1)
+bikeButton.Size = UDim2.fromOffset(130, 30)
+bikeButton.Position = UDim2.new(1, -20, 1, -132)
+bikeButton.BackgroundColor3 = BRASS:Lerp(INK, 0.35)
+bikeButton.BorderSizePixel = 0
+bikeButton.Font = Enum.Font.GothamBold
+bikeButton.TextSize = 12
+bikeButton.TextColor3 = TEXT
+bikeButton.Text = "F  DESCER"
+bikeButton.Visible = false
+bikeButton.Parent = gui
+local bikeCorner = Instance.new("UICorner")
+bikeCorner.CornerRadius = UDim.new(0, 6)
+bikeCorner.Parent = bikeButton
+bikeButton.Activated:Connect(function()
+	Remotes.Bike:FireServer("descer")
+end)
+player:GetAttributeChangedSignal("Riding"):Connect(function()
+	bikeButton.Visible = player:GetAttribute("Riding") == true
+end)
+ContextActionService:BindAction("Descer", function(_, inputState)
+	if inputState == Enum.UserInputState.Begin and player:GetAttribute("Riding") == true then
+		Remotes.Bike:FireServer("descer")
+	end
+	return Enum.ContextActionResult.Pass
+end, false, Enum.KeyCode.F)
+
 local goalLabel = label(gui, "", 30, TEXT)
 goalLabel.Size = UDim2.new(1, 0, 0, 36)
 goalLabel.Position = UDim2.new(0, 0, 0, 88)

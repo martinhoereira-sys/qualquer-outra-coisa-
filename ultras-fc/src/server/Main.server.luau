@@ -30,6 +30,7 @@ local Budget = require(script.Parent:WaitForChild("Budget"))
 local Entrance = require(script.Parent:WaitForChild("Entrance"))
 local DayNight = require(script.Parent:WaitForChild("DayNight"))
 local Money = require(script.Parent:WaitForChild("Money"))
+local Bikes = require(script.Parent:WaitForChild("Bikes"))
 
 --[[
 	A forca do tambor de cada bancada, de 0 a 1.
@@ -730,6 +731,14 @@ end)
 
 Gear.start()
 Money.start()
+Bikes.start()
+
+-- Descer da bicicleta (botao DESCER, ou F).
+Remotes.Bike.OnServerEvent:Connect(function(player, action)
+	if action == "descer" then
+		Bikes.dismount(player)
+	end
+end)
 MatchLoop.start()
 
 print("[Ultras FC] Servidor a postos.")

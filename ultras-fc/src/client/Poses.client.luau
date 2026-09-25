@@ -251,7 +251,8 @@ RunService.Stepped:Connect(function()
 		local character = player.Character
 		local hold = player:GetAttribute("Hold")
 		local emote = player:GetAttribute("Emote")
-		if not character or (hold == nil and emote == nil) then
+		local riding = player:GetAttribute("Riding") == true
+		if not character or (hold == nil and emote == nil and not riding) then
 			dropScarf(player)
 			continue
 		end
@@ -266,12 +267,27 @@ RunService.Stepped:Connect(function()
 		local walking = Vector3.new(v.X, 0, v.Z).Magnitude > 2
 		local play = if type(emote) == "string" and not walking then EMOTES[emote] else nil
 		-- Quem se mexe acaba a sua animacao (so o proprio a pode parar).
-		if player == me and walking and emote ~= nil and now - lastStop > 1 then
+		if player == me and walking and emote ~= nil and not riding and now - lastStop > 1 then
 			lastStop = now
 			Remotes.Emote:FireServer("")
 		end
 		if play then
 			play(rig, t)
+		end
+
+		-- De bicicleta: sentado, as pernas a pedalar e as maos no guiador.
+		if riding then
+			local speed = Vector3.new(v.X, 0, v.Z).Magnitude
+			local crank = now * (2 + speed * 0.25)
+			set(rig.rightHip, CFrame.Angles(math.rad(70) + math.sin(crank) * 0.45, 0, 0))
+			set(rig.leftHip, CFrame.Angles(math.rad(70) - math.sin(crank) * 0.45, 0, 0))
+			set(rig.rightKnee, CFrame.Angles(math.rad(-80) - math.cos(crank) * 0.4, 0, 0))
+			set(rig.leftKnee, CFrame.Angles(math.rad(-80) + math.cos(crank) * 0.4, 0, 0))
+			set(rig.waist, CFrame.Angles(math.rad(-15), 0, 0))
+			if hold == nil then
+				arm(rig.rightShoulder, 1, math.rad(70), 0, 0.15)
+				arm(rig.leftShoulder, -1, math.rad(70), 0, 0.15)
+			end
 		end
 
 		if hold == "tocha" or hold == "fumo" or hold == "vela" or hold == "estrobo" then

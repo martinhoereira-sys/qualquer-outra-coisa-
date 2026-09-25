@@ -499,9 +499,10 @@ local function overlaps(a: Rect, b: Rect): boolean
 	return a.x0 < b.x1 and b.x0 < a.x1 and a.z0 < b.z1 and b.z0 < a.z1
 end
 
-function CityMap.generate(parent: Instance): Model
+function CityMap.generate(parent: Instance): Folder
 	local rng = Random.new(2026)
-	local city = Instance.new("Model")
+	-- Uma pasta e nao um modelo: no Studio um clique escolhe so a casa, nao a cidade toda.
+	local city = Instance.new("Folder")
 	city.Name = "Cidade"
 
 	local ground = Instance.new("Folder")

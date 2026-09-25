@@ -18,6 +18,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local Budget = require(script.Parent:WaitForChild("Budget"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
+local Bikes = require(script.Parent:WaitForChild("Bikes"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 
 local Clubhouse = {}
@@ -315,6 +316,12 @@ function Clubhouse.dealer(at: CFrame, parent: Instance)
 		return
 	end
 	table.insert(dealers, root)
+	-- O letreiro do dealer ve-se de longe, para se dar com ele de bicicleta.
+	local tag = root:FindFirstChildOfClass("BillboardGui")
+	if tag then
+		tag.MaxDistance = 700
+		tag.Size = UDim2.fromOffset(160, 34)
+	end
 	local p = prompt(root, "Comprar", "Tochas, fumos, velas, estrobos", 10)
 	p.Triggered:Connect(function(player)
 		Remotes.Shop:FireClient(player, "open")
@@ -402,6 +409,34 @@ function Clubhouse.staff(teamId: string, desks: { Model }, inward: Vector3, pare
 			end)
 		end
 	end
+end
+
+--[[
+	O suporte das bicicletas, a porta da sede: tres bicicletas da cor da
+	claque paradas, e um botao para levar uma. Quem pega, anda de bicicleta
+	pela cidade (Bikes).
+]]
+function Clubhouse.bikeRack(teamId: string, at: CFrame, parent: Instance)
+	local team = Config.Teams[teamId]
+	local folder = Instance.new("Folder")
+	folder.Name = "Bicicletas"
+	folder.Parent = parent
+
+	local bar = fixture("Suporte", Vector3.new(8, 0.3, 0.3), at * CFrame.new(0, 1.5, 0), Color3.fromRGB(60, 62, 68), folder)
+	bar.Material = Enum.Material.Metal
+	for i = -1, 1 do
+		local bike = Bikes.build(team.color, at * CFrame.new(i * 2.6, 1.2, 0) * CFrame.Angles(0, math.rad(90), 0), folder)
+		for _, d in bike:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+			end
+		end
+	end
+
+	local take = prompt(bar, "Pegar bicicleta", "Para andar pela cidade", 10)
+	take.Triggered:Connect(function(player)
+		Bikes.mount(player, team.color)
+	end)
 end
 
 --[[

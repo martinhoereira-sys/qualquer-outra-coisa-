@@ -173,9 +173,9 @@ local function setAfternoon()
 
 	-- Um bloom discreto, so para o sol rasante ter peso.
 	local bloom = Lighting:FindFirstChildOfClass("BloomEffect") or Instance.new("BloomEffect")
-	bloom.Intensity = 0.35
-	bloom.Size = 18
-	bloom.Threshold = 1.4
+	bloom.Intensity = 0.5
+	bloom.Size = 24
+	bloom.Threshold = 1.25
 	bloom.Parent = Lighting
 
 	--[[
@@ -186,9 +186,9 @@ local function setAfternoon()
 	local grade = Lighting:FindFirstChild("Filme") or Instance.new("ColorCorrectionEffect")
 	grade.Name = "Filme"
 	grade.Brightness = 0.02
-	grade.Contrast = 0.14
-	grade.Saturation = -0.22
-	grade.TintColor = Color3.fromRGB(255, 238, 216)
+	grade.Contrast = 0.2
+	grade.Saturation = -0.3
+	grade.TintColor = Color3.fromRGB(255, 234, 208)
 	grade.Parent = Lighting
 
 	-- Raios de sol discretos a atravessar a bruma.
@@ -196,6 +196,21 @@ local function setAfternoon()
 	rays.Intensity = 0.05
 	rays.Spread = 0.7
 	rays.Parent = Lighting
+
+	-- Ao longe, um pouco desfocado, como numa lente de cinema. O perto fica nitido.
+	local focus = Lighting:FindFirstChildOfClass("DepthOfFieldEffect") or Instance.new("DepthOfFieldEffect")
+	focus.FarIntensity = 0.14
+	focus.NearIntensity = 0
+	focus.FocusDistance = 60
+	focus.InFocusRadius = 90
+	focus.Parent = Lighting
+
+	-- Nuvens a serio no ceu, em vez do azul liso.
+	local clouds = workspace.Terrain:FindFirstChildOfClass("Clouds") or Instance.new("Clouds")
+	clouds.Cover = 0.62
+	clouds.Density = 0.6
+	clouds.Color = Color3.fromRGB(246, 238, 226)
+	clouds.Parent = workspace.Terrain
 end
 
 --------------------------------------------------------------------------------

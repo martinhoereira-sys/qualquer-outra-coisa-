@@ -152,6 +152,8 @@ function City.build(_parent: Instance)
 			spawnPoints[teamId] = ground + forward * 5 + Vector3.new(0, 3.5, 0)
 			local staffed = staffDesks(teamId, ground, marker)
 			Clubhouse.equip(teamId, signFrame, marker, 0, staffed)
+			-- As bicicletas ao lado da porta.
+			Clubhouse.bikeRack(teamId, signFrame * CFrame.new(10, 0, 4), marker)
 			continue
 		end
 		local frame: CFrame
@@ -168,6 +170,7 @@ function City.build(_parent: Instance)
 			hide(marker)
 			spawnPoints[teamId] = ground + Vector3.new(0, 3.5, 0)
 			Clubhouse.equip(teamId, frame, parent, front)
+			Clubhouse.bikeRack(teamId, frame * CFrame.new(10, 0, 4), parent)
 			continue
 		elseif sede and sede:IsA("Model") then
 			local pivot = sede:GetPivot()
@@ -196,6 +199,7 @@ function City.build(_parent: Instance)
 		end
 		spawnPoints[teamId] = (frame * CFrame.new(0, 3.5, front + 9)).Position
 		Clubhouse.equip(teamId, frame, parent, front)
+		Clubhouse.bikeRack(teamId, frame * CFrame.new(14, 0, front + 5), parent)
 	end
 
 	-- A praca da chegada. (O apito escolhe-se no menu; nao ha cabine na rua.)
