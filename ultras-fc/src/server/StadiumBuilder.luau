@@ -339,14 +339,15 @@ local function buildPitch(parent: Instance)
 		local boardZ = (S.pitchWidth / 2 + 3) * side
 		if side == MAIN_SIDE then
 			local gap = TUNNEL_HALF + 1
-			local length = (S.pitchLength + 6) / 2 - gap
+			local length = (S.pitchLength + 2 * (G.goalDepth + 3)) / 2 - gap
 			for _, s in { -1, 1 } do
 				part("Placard", Vector3.new(length, 2.6, 0.5), CFrame.new(s * (gap + length / 2), 1.3, boardZ), BOARD, folder, boardOpts)
 			end
 		else
-			part("Placard", Vector3.new(S.pitchLength + 6, 2.6, 0.5), CFrame.new(0, 1.3, boardZ), BOARD, folder, boardOpts)
+			part("Placard", Vector3.new(S.pitchLength + 2 * (G.goalDepth + 3), 2.6, 0.5), CFrame.new(0, 1.3, boardZ), BOARD, folder, boardOpts)
 		end
-		part("Placard", Vector3.new(0.5, 2.6, S.pitchWidth + 6), CFrame.new((S.pitchLength / 2 + 3) * side, 1.3, 0), BOARD, folder, boardOpts)
+		-- Nos topos, os placards ficam atras da baliza, nao a atravessa-la.
+		part("Placard", Vector3.new(0.5, 2.6, S.pitchWidth + 6), CFrame.new((S.pitchLength / 2 + G.goalDepth + 3) * side, 1.3, 0), BOARD, folder, boardOpts)
 	end
 
 	-- Bancos de suplentes, com cobertura de vidro, na principal.

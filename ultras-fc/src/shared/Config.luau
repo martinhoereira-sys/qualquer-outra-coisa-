@@ -335,7 +335,7 @@ Config.Football = {
 	-- A baliza
 	goalHalfWidth = 10.5, -- maiores do que eram (8 x 8): 21 de largo
 	goalHeight = 9.6,
-	goalDepth = 5,
+	goalDepth = 8, -- funda: a rede fica bem atras da linha, como as de verdade
 
 	-- Os bonecos
 	botThink = 0.35, -- de quanto em quanto tempo quem tem a bola decide
