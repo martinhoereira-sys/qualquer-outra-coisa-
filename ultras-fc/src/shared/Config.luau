@@ -216,6 +216,7 @@ Config.Stadium = {
 		opostas, na diagonal; a bancada principal tem dois andares, com os
 		camarotes e a tribuna presidencial entre eles.
 	]]
+	endGap = 20, -- da linha de golo a primeira fila dos topos (a baliza precisa de espaco atras)
 	cornerRadius = 20, -- raio da frente das curvas (a primeira fila)
 	curveSegments = 7, -- pedacos de cada fila de uma curva (mais = mais redondo, mais pecas)
 	boxDepth = 8, -- os camarotes, atras do primeiro andar da principal
@@ -332,8 +333,8 @@ Config.Football = {
 	goalPause = 2.5, -- a bola na rede antes do pontape de saida
 
 	-- A baliza
-	goalHalfWidth = 9, -- um pouco maiores do que eram (8 x 8)
-	goalHeight = 8.8,
+	goalHalfWidth = 10.5, -- maiores do que eram (8 x 8): 21 de largo
+	goalHeight = 9.6,
 	goalDepth = 5,
 
 	-- Os bonecos
@@ -686,6 +687,11 @@ Config.Tifo = {
 				"EEBBBBEEBBBBEE",
 				"EBBBEEEEEEBBBE",
 			},
+		},
+		{
+			id = "emblema",
+			name = "Emblema", -- a aguia (AGN) ou o leao (LES)
+			emblem = true,
 		},
 		-- Frases: a cor da equipa, e a frase por cima em letras gigantes.
 		{

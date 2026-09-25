@@ -1882,7 +1882,7 @@ local function paintPreviews()
 		for r = 1, TIFO.rows do
 			for c = 1, TIFO.columns do
 				preview.cells[(r - 1) * TIFO.columns + c].BackgroundColor3 =
-					TifoDesigns.colour(string.sub(rows[r] or "", c, c), myTeam)
+					TifoDesigns.colour(TifoDesigns.sample(rows, r, c, TIFO.rows, TIFO.columns), myTeam)
 			end
 		end
 	end

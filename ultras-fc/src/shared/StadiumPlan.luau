@@ -28,7 +28,7 @@ Plan.rowDepth = S.rowDepth
 Plan.rowHeight = S.rowHeight
 Plan.standDepth = S.rows * S.rowDepth
 Plan.topY = S.rows * S.rowHeight
-Plan.innerX = S.pitchLength / 2 + S.standGap -- frente dos topos
+Plan.innerX = S.pitchLength / 2 + S.endGap -- frente dos topos (mais longe: ha a baliza)
 Plan.innerZ = S.pitchWidth / 2 + S.standGap -- frente das laterais
 Plan.cornerRadius = S.cornerRadius
 -- As rectas acabam onde comecam as curvas.

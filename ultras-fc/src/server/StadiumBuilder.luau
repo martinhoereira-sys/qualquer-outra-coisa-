@@ -201,7 +201,7 @@ local function buildPitch(parent: Instance)
 	end
 	-- A relva continua ate as bancadas, nos topos.
 	for _, sign in { -1, 1 } do
-		part("RelvaFundo", Vector3.new(16, 1, S.pitchWidth + 16), CFrame.new(sign * (S.pitchLength / 2 + 8), -0.5, 0), GRASS_A, folder, {
+		part("RelvaFundo", Vector3.new(S.endGap + 1, 1, S.pitchWidth + 16), CFrame.new(sign * (S.pitchLength / 2 + S.endGap / 2), -0.5, 0), GRASS_A, folder, {
 			material = Enum.Material.Grass,
 		})
 	end
@@ -241,11 +241,13 @@ local function buildPitch(parent: Instance)
 		line("LinhaGolo", Vector3.new(0.5, 1.04, S.pitchWidth), CFrame.new(goalLine, -0.48, 0))
 		line("MarcaPenalti", Vector3.new(1, 1.05, 1), CFrame.new(goalLine - spot * sign, -0.48, 0))
 		-- A meia-lua da area.
-		for i = -3, 3 do
-			local a = i * math.rad(14)
+		-- So o pedaco do circulo (centrado no penalti) que fica fora da area.
+		local stepAngle = math.rad(6)
+		for i = -9, 9 do
+			local a = i * stepAngle
 			local x = goalLine - spot * sign - math.cos(a) * radius * sign
-			if math.abs(x) < math.abs(boxX) then
-				line("MeiaLua", Vector3.new(0.5, 1.04, radius * math.rad(14) + 0.2), CFrame.new(x, -0.48, math.sin(a) * radius) * CFrame.Angles(0, -a * sign, 0))
+			if math.abs(x) < math.abs(boxX) - 0.2 then
+				line("MeiaLua", Vector3.new(0.5, 1.04, radius * stepAngle + 0.15), CFrame.new(x, -0.48, math.sin(a) * radius) * CFrame.Angles(0, a * sign, 0))
 			end
 		end
 

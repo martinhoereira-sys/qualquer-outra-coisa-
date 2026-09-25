@@ -54,6 +54,50 @@ local function initials(short: string): { string }
 	return out
 end
 
+--[[
+	Os emblemas das claques, para a tela: uma aguia de asas abertas e uma
+	cabeca de leao. Mais finos do que a grelha das cartolinas (28 x 16), porque
+	a tela e pintada e nao feita de quadrados de cartao.
+]]
+local EMBLEMS: { [string]: { string } } = {
+	AGN = {
+		"EEEEEEEEEEEEEBBEEEEEEEEEEEEE",
+		"EEEEEEEEEEEEBBBBEEEEEEEEEEEE",
+		"BEEEEEEEEEEEBPBBBEEEEEEEEEEB",
+		"BBEEEEEEEEEEBBBBBBEEEEEEEEBB",
+		"BBBEEEEEEEEEEBBBEEEEEEEEEBBB",
+		"BBBBBEEEEEEEBBBBBEEEEEEBBBBB",
+		"EBBBBBBBEEEBBBBBBBEEEBBBBBBE",
+		"EEBBBBBBBBBBBBBBBBBBBBBBBBEE",
+		"EEEBBBBBBBBBBBBBBBBBBBBBBEEE",
+		"EEEEBBBBBBBBBBBBBBBBBBBBEEEE",
+		"EEEEEEBBBBBBBBBBBBBBBBEEEEEE",
+		"EEEEEEEEEEBBBBBBBBEEEEEEEEEE",
+		"EEEEEEEEEEEBBBBBBEEEEEEEEEEE",
+		"EEEEEEEEEEBBEBBEBBEEEEEEEEEE",
+		"EEEEEEEEEBBEEBBEEBBEEEEEEEEE",
+		"EEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+	},
+	LES = {
+		"EEEEEEEEEBBBBBBBBBBEEEEEEEEE",
+		"EEEEEEEBBBBBBBBBBBBBBEEEEEEE",
+		"EEEEEEBBBBEEEEEEEEBBBBEEEEEE",
+		"EEEEEBBBBEEEEEEEEEEBBBBEEEEE",
+		"EEEEBBBBEEPPEEEEPPEEBBBBEEEE",
+		"EEEEBBBBEEPPEEEEPPEEBBBBEEEE",
+		"EEEEBBBBEEEEEEEEEEEEBBBBEEEE",
+		"EEEEBBBBEEEEEPPEEEEEBBBBEEEE",
+		"EEEEBBBBEEEEPPPPEEEEBBBBEEEE",
+		"EEEEBBBBEEEEEBBEEEEEBBBBEEEE",
+		"EEEEEBBBBEEEBEEBEEEBBBBEEEEE",
+		"EEEEEEBBBBEEEEEEEEBBBBEEEEEE",
+		"EEEEEEEBBBBEEEEEEBBBBEEEEEEE",
+		"EEEEEEEEBBBBBBBBBBBBEEEEEEEE",
+		"EEEEEEEEEEBBBBBBBBEEEEEEEEEE",
+		"EEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+	},
+}
+
 function TifoDesigns.byId(id: string): any
 	for _, design in T.designs do
 		if design.id == id then
@@ -68,7 +112,26 @@ function TifoDesigns.rows(design: any, teamId: string): { string }
 	if design.initials then
 		return initials(Config.Teams[teamId].short)
 	end
+	if design.emblem then
+		return EMBLEMS[Config.Teams[teamId].short] or initials(Config.Teams[teamId].short)
+	end
 	return design.rows
+end
+
+--[[
+	A letra do desenho numa grelha de `rows` x `columns`, seja qual for o
+	tamanho do desenho: os emblemas sao mais finos do que a grelha das
+	cartolinas e das previsoes, e ai tira-se uma amostra.
+]]
+function TifoDesigns.sample(lines: { string }, row: number, col: number, rows: number, columns: number): string
+	local height = #lines
+	local width = if height > 0 then #lines[1] else 0
+	if height == 0 or width == 0 then
+		return "E"
+	end
+	local r = math.clamp(math.floor((row - 0.5) * height / rows) + 1, 1, height)
+	local c = math.clamp(math.floor((col - 0.5) * width / columns) + 1, 1, width)
+	return string.sub(lines[r], c, c)
 end
 
 -- A cor de uma letra do desenho.
