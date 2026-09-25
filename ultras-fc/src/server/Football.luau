@@ -585,7 +585,8 @@ function Football.startSetPiece(kind: string, team: string, spot: Vector3, aim: 
 	end
 
 	if chosen and chosen.player then
-		seconds = math.max(seconds, Config.Rules.humanRestartTime)
+		local foul = kind == "livre" or kind == "penalti"
+		seconds = math.max(seconds, if foul then Config.Rules.freeKickTime else Config.Rules.humanRestartTime)
 	end
 	piece.deadline = now + seconds
 	workspace:SetAttribute("Restart", kind .. ":" .. team)
@@ -599,6 +600,18 @@ function Football.startSetPiece(kind: string, team: string, spot: Vector3, aim: 
 		state.carrier = chosen
 		state.lastTouch = team
 	end
+end
+
+--[[
+	O relogio do jogo esta parado? Desde o apito de uma falta ate o livre (ou
+	o penalti) ser batido: quem ganha nao ganha nada a demorar.
+]]
+function Football.clockStopped(): boolean
+	if state.halted then
+		return true
+	end
+	local piece = state.piece
+	return piece ~= nil and (piece.kind == "livre" or piece.kind == "penalti")
 end
 
 function Football.setPiece(): SetPiece?

@@ -255,8 +255,19 @@ local function raise(a: Active)
 		local last = cellCFrame(a.teamId, { col = T.columns, row = T.rows })
 		local banner = Instance.new("Part")
 		banner.Name = "Frase"
-		banner.Size = Vector3.new(columnWidth() * T.columns, 0.1, RAKE * T.rows)
-		banner.CFrame = CFrame.new((first.Position + last.Position) / 2) * first.Rotation * CFrame.new(0, 0.2, 0)
+		--[[
+			A face da frente do painel olha para o relvado, com o "cima" das letras
+			pela bancada acima: le-se direito de la. (Na face de cima as letras
+			saiam deitadas de lado.)
+		]]
+		local width = columnWidth() * T.columns
+		local height = RAKE * T.rows
+		local normal = first.UpVector -- para fora da bancada, para o campo
+		local upslope = first.LookVector -- pela bancada acima
+		local viewerRight = upslope:Cross(normal)
+		local centre = (first.Position + last.Position) / 2 + normal * 0.2
+		banner.Size = Vector3.new(width, height, 0.1)
+		banner.CFrame = CFrame.fromMatrix(centre, -viewerRight, upslope, -normal)
 		banner.Transparency = 1
 		banner.Anchored = true
 		banner.CanCollide = false
@@ -264,8 +275,9 @@ local function raise(a: Active)
 		banner.CastShadow = false
 		banner.Parent = folder
 		local gui = Instance.new("SurfaceGui")
-		gui.Face = Enum.NormalId.Top
-		gui.CanvasSize = Vector2.new(1400, 800)
+		gui.Face = Enum.NormalId.Front
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+		gui.CanvasSize = Vector2.new(1400, math.floor(1400 * height / width))
 		gui.LightInfluence = 0
 		gui.Parent = banner
 		local text = Instance.new("TextLabel")

@@ -31,6 +31,7 @@ local Entrance = require(script.Parent:WaitForChild("Entrance"))
 local DayNight = require(script.Parent:WaitForChild("DayNight"))
 local Money = require(script.Parent:WaitForChild("Money"))
 local Bikes = require(script.Parent:WaitForChild("Bikes"))
+local Shops = require(script.Parent:WaitForChild("Shops"))
 
 --[[
 	A forca do tambor de cada bancada, de 0 a 1.
@@ -532,6 +533,7 @@ end)
 
 -- Enquanto se festeja, a parte nao acaba: o intervalo espera pelo fim da festa.
 MatchLoop.holdWhile(Football.celebrating)
+MatchLoop.pauseWhile(Football.clockStopped)
 
 --[[
 	A espera pelas bancadas acaba quando todas as pessoas de claque estao no
@@ -747,6 +749,7 @@ end)
 Gear.start()
 Money.start()
 Bikes.start()
+Shops.start()
 
 -- Descer da bicicleta (botao DESCER, ou F).
 Remotes.Bike.OnServerEvent:Connect(function(player, action)

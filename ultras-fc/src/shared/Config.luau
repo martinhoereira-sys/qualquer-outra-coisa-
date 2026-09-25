@@ -386,6 +386,7 @@ Config.Rules = {
 	outDelay = 0.5, -- a bola fora ve-se sair antes de ser reposta
 	restartTime = 3, -- quanto se espera por quem repoe; depois a bola fica viva ali
 	humanRestartTime = 6, -- uma pessoa a bater tem mais tempo: apontar e dosear demora
+	freeKickTime = 15, -- um livre (ou penalti) marcado por uma pessoa; o relogio do jogo para ate ser batido
 	restartEdge = 0.5, -- acabado o tempo, a equipa que repunha ainda tem este avanco
 	botTakerDelay = 0.6, -- um boneco na bola bate ao fim disto
 

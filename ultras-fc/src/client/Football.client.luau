@@ -221,15 +221,58 @@ local function dive()
 	lastDive = os.clock()
 	diving = true
 
-	-- Para onde: as teclas de andar (vistas da camara); sem nenhuma, para a bola.
+	--[[
+		Para onde, com as teclas vistas de quem esta na baliza a olhar para o
+		campo (nao da camara): A e D atiram-se para os lados, W para a frente
+		(a sair aos pes), S salta a direito para cima (bolas altas). Sem
+		nenhuma, para o lado da bola.
+	]]
+	local team = Config.Teams[player:GetAttribute("PitchTeam") or ""]
+	local look = if team then Vector3.new(team.side, 0, 0) else Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
+	local right = look:Cross(Vector3.yAxis)
+	local keys = Vector3.zero
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+		keys -= right
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+		keys += right
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+		keys += look
+	end
+	local upward = UserInputService:IsKeyDown(Enum.KeyCode.S) and keys.Magnitude < 0.1
+	-- No telemovel nao ha teclas: o analogico, como estiver.
 	local moving = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
-	local towards = if ball then ball.Position - root.Position else root.CFrame.LookVector
-	local flat = if moving.Magnitude > 0.1 then moving else Vector3.new(towards.X, 0, towards.Z)
-	local dir = if flat.Magnitude > 0.1 then flat.Unit else root.CFrame.LookVector
+	local towards = if ball then ball.Position - root.Position else look
+	local lateral = right * math.sign(Vector3.new(towards.X, 0, towards.Z):Dot(right))
+	local flat = if keys.Magnitude > 0.1 then keys elseif moving.Magnitude > 0.1 then moving else lateral
+	local dir = if flat.Magnitude > 0.1 then flat.Unit else right
+
+	if upward then
+		-- O salto para cima: sobe de bracos esticados e cai de pe onde estava.
+		humanoid.AutoRotate = false
+		player:SetAttribute("Diving", true)
+		Remotes.Football:FireServer("dive")
+		local start = root.Position
+		local began = os.clock()
+		local connection: RBXScriptConnection
+		connection = RunService.Heartbeat:Connect(function()
+			local k = (os.clock() - began) / (AIR + 0.15)
+			if k >= 1 or not root.Parent then
+				connection:Disconnect()
+				humanoid.AutoRotate = true
+				player:SetAttribute("Diving", nil)
+				diving = false
+				return
+			end
+			local pos = start + Vector3.new(0, 4.5 * math.sin(math.pi * k), 0)
+			root.CFrame = CFrame.lookAt(pos, pos + look)
+			root.AssemblyLinearVelocity = Vector3.zero
+		end)
+		return
+	end
 
 	-- Continua virado para o jogo; o corpo deita-se para o lado do mergulho.
-	local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
-	local right = look:Cross(Vector3.yAxis)
 	local side = dir:Dot(right)
 	local ahead = dir:Dot(look)
 	local roll = -math.sign(side) * math.rad(85) * math.min(1, math.abs(side) * 1.4)

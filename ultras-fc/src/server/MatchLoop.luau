@@ -106,6 +106,12 @@ end
 	mesma ate ao fim, e so depois se apita para o intervalo.
 ]]
 local holdWhile: (() -> boolean)? = nil
+local pauseWhile: (() -> boolean)? = nil
+
+-- Enquanto isto for verdade, o relogio da parte nao anda (faltas: nada de antijogo).
+function MatchLoop.pauseWhile(fn: () -> boolean)
+	pauseWhile = fn
+end
 
 function MatchLoop.holdWhile(fn: () -> boolean)
 	holdWhile = fn
@@ -176,9 +182,10 @@ function MatchLoop.start()
 	task.spawn(function()
 		while true do
 			local dt = task.wait(0.25)
-			state.clock -= dt
-
 			local halfEnding = state.phase == "first" or state.phase == "second"
+			if not (halfEnding and pauseWhile ~= nil and pauseWhile()) then
+				state.clock -= dt
+			end
 			local held = halfEnding and holdWhile ~= nil and holdWhile()
 			local ready = state.phase == "espera" and readyWhen ~= nil and readyWhen()
 			if (state.clock <= 0 and not held) or ready then
