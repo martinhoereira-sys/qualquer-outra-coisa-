@@ -274,7 +274,7 @@ RunService.Stepped:Connect(function()
 			play(rig, t)
 		end
 
-		if hold == "tocha" or hold == "fumo" then
+		if hold == "tocha" or hold == "fumo" or hold == "vela" or hold == "estrobo" then
 			-- O braco direito no ar, a agitar a tocha: para a frente e para tras,
 			-- para cima e para baixo, como se faz numa bancada.
 			local wave = math.sin(t * 4.5) * math.rad(18)

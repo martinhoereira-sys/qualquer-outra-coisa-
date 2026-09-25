@@ -33,9 +33,9 @@ local WINDOW_LIT = Color3.fromRGB(196, 150, 92) -- uma janela acesa, vista de fo
 local DAY = {
 	ambient = Color3.fromRGB(138, 134, 126),
 	outdoor = Color3.fromRGB(176, 172, 162),
-	fog = Color3.fromRGB(214, 212, 204),
-	air = Color3.fromRGB(210, 200, 186),
-	decay = Color3.fromRGB(128, 122, 116),
+	fog = Color3.fromRGB(220, 206, 184), -- quente, de fim de tarde
+	air = Color3.fromRGB(216, 196, 168),
+	decay = Color3.fromRGB(136, 118, 100),
 	brightness = 3,
 }
 local NIGHT = {

@@ -499,27 +499,64 @@ Config.Emotes = {
 --[[
 	O material de claque. Esta sempre na barra de baixo de quem e de claque,
 	desde que escolhe o lado; quem nao e de claque nao tem nada. Acender gasta
-	um do stock do jogo, e o objecto fica na mao a espera do proximo.
+	um do stock, e o objecto fica na mao a espera do proximo.
 
-	`GearStock.unlimited`: nos testes o stock nao acaba. Para voltar ao limite
-	por jogo (`perMatch`), poe a false.
+	A sede da, a cada dia de jogo, `perMatch` de cada (a racao da claque); o
+	resto compra-se aos dealers na rua, com o dinheiro do jogo (Config.Money).
+	`GearStock.unlimited` = true poe tudo sem limite, para testes.
 ]]
 Config.GearStock = {
-	unlimited = true,
+	unlimited = false,
+}
+
+--[[
+	O dinheiro do jogo (moedas). Ganha-se a jogar e gasta-se nos dealers da
+	rua. Nao se compra com Robux.
+]]
+Config.Money = {
+	start = 50, -- quem entra pela primeira vez
+	perMatch = 20, -- cada pessoa de claque no apito inicial
+	perCorteo = 30, -- a mais, por ter feito o corteo inteiro (proporcional)
+	perGoal = 5, -- cada golo da propria equipa
+}
+
+-- Quantos dealers ha na rua, se o mapa nao tiver pecas "Dealer" a dizer onde.
+Config.Dealers = {
+	count = 6,
+}
+
+-- O que os dealers vendem, e quanto custa cada um.
+Config.Shop = {
+	{ kind = "tocha", label = "Tocha", price = 10 },
+	{ kind = "fumo", label = "Bomba de fumo", price = 15 },
+	{ kind = "estrobo", label = "Estrobo (pisca-pisca)", price = 12 },
+	{ kind = "vela", label = "Vela romana", price = 25 },
 }
 
 Config.Gear = {
 	tocha = {
-		perMatch = 3,
+		perMatch = 2,
 		duration = 16, -- a arder na mao
 		cooldown = 2, -- depois de apagar, ate se poder acender a seguinte
 		gainPerSecond = 2.4,
 	},
 	fumo = {
-		perMatch = 2,
+		perMatch = 1,
 		duration = 25, -- dura mais e ve-se melhor de longe, mas aquece menos
 		cooldown = 3,
 		gainPerSecond = 1.5,
+	},
+	vela = {
+		perMatch = 0, -- a sede nao da: so os dealers
+		duration = 12, -- dispara bolas de luz para o ar
+		cooldown = 3,
+		gainPerSecond = 3,
+	},
+	estrobo = {
+		perMatch = 1,
+		duration = 15, -- pisca-pisca branco
+		cooldown = 2,
+		gainPerSecond = 1.8,
 	},
 	cachecol = {
 		perMatch = 1, -- nao se gasta: levanta-se e baixa-se

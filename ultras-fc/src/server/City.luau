@@ -231,6 +231,47 @@ function City.build(_parent: Instance)
 			table.insert(routes[teamId], point.at)
 		end
 	end
+	--[[
+		Os dealers, a vender pirotecnia na rua. Onde houver pecas chamadas
+		"Dealer" no mapa (postas a mao, viradas para onde o dealer olha), e ai;
+		sem nenhuma, espalham-se junto a uns candeeiros da cidade.
+	]]
+	local spots: { CFrame } = {}
+	for _, d in city:GetDescendants() do
+		if d:IsA("BasePart") and d.Name == "Dealer" then
+			table.insert(spots, CFrame.new(d.Position.X, d.Position.Y - d.Size.Y / 2, d.Position.Z) * d.CFrame.Rotation)
+			hide(d)
+		end
+	end
+	if #spots == 0 then
+		local lamps: { Model } = {}
+		for _, m in city:GetDescendants() do
+			if m:IsA("Model") and m.Name == "Candeeiro" and m:FindFirstChild("Poste") and m:FindFirstChild("Luz") then
+				table.insert(lamps, m)
+			end
+		end
+		table.sort(lamps, function(a, b)
+			local pa, pb = a:GetPivot().Position, b:GetPivot().Position
+			return if pa.X == pb.X then pa.Z < pb.Z else pa.X < pb.X
+		end)
+		local count = math.min(Config.Dealers.count, #lamps)
+		for i = 1, count do
+			local lamp = lamps[math.floor((i - 0.5) * #lamps / count) + 1]
+			local pole = lamp:FindFirstChild("Poste") :: BasePart
+			local glow = lamp:FindFirstChild("Luz") :: BasePart
+			local toStreet = Vector3.new(glow.Position.X - pole.Position.X, 0, glow.Position.Z - pole.Position.Z)
+			local street = if toStreet.Magnitude > 0.1 then toStreet.Unit else Vector3.zAxis
+			local along = street:Cross(Vector3.yAxis)
+			local ground = Vector3.new(pole.Position.X, pole.Position.Y - pole.Size.Y / 2, pole.Position.Z) + along * 3
+			table.insert(spots, CFrame.lookAt(ground, ground + street))
+		end
+	end
+	local dealers = Instance.new("Folder")
+	dealers.Name = "Dealers"
+	dealers.Parent = city
+	for _, spot in spots do
+		Clubhouse.dealer(spot, dealers)
+	end
 end
 
 return City

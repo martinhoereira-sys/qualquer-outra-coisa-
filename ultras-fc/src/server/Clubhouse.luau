@@ -253,13 +253,13 @@ local function say(player: Player, title: string, lines: { string })
 	Remotes.Npc:FireClient(player, { title = title, lines = lines })
 end
 
-local function staffMember(teamId: string, name: string, title: string, at: CFrame, parent: Instance): BasePart?
-	local team = Config.Teams[teamId]
+-- Uma pessoa parada, com o titulo por cima: os NPCs das mesas e os dealers.
+local function person(shirt: Color3, name: string, title: string, at: CFrame, parent: Instance): BasePart?
 	local description = Instance.new("HumanoidDescription")
 	description.HeadColor = SKIN
-	description.TorsoColor = team.color
-	description.LeftArmColor = team.color
-	description.RightArmColor = team.color
+	description.TorsoColor = shirt
+	description.LeftArmColor = shirt
+	description.RightArmColor = shirt
 	description.LeftLegColor = Color3.fromRGB(28, 30, 36)
 	description.RightLegColor = Color3.fromRGB(28, 30, 36)
 	local ok, result = pcall(function()
@@ -296,6 +296,38 @@ local function staffMember(teamId: string, name: string, title: string, at: CFra
 	text.Text = title
 	text.Parent = tag
 	return root
+end
+
+local function staffMember(teamId: string, name: string, title: string, at: CFrame, parent: Instance): BasePart?
+	return person(Config.Teams[teamId].color, name, title, at, parent)
+end
+
+--[[
+	Os dealers: vendem pirotecnia na rua, a troco de moedas do jogo. Quem
+	compra e o Main (Remotes.Shop); aqui so ha a pessoa e o botao, e a lista
+	de onde estao, para o servidor confirmar que quem compra esta ao pe de um.
+]]
+local dealers: { BasePart } = {}
+
+function Clubhouse.dealer(at: CFrame, parent: Instance)
+	local root = person(Color3.fromRGB(38, 40, 46), "Dealer", "DEALER", at, parent)
+	if not root then
+		return
+	end
+	table.insert(dealers, root)
+	local p = prompt(root, "Comprar", "Tochas, fumos, velas, estrobos", 10)
+	p.Triggered:Connect(function(player)
+		Remotes.Shop:FireClient(player, "open")
+	end)
+end
+
+function Clubhouse.nearDealer(at: Vector3): boolean
+	for _, root in dealers do
+		if root.Parent and (root.Position - at).Magnitude <= 16 then
+			return true
+		end
+	end
+	return false
 end
 
 --[[
@@ -342,9 +374,9 @@ function Clubhouse.staff(teamId: string, desks: { Model }, inward: Vector3, pare
 			local p = prompt(root, "Ver a loja", "Tochas, fumos, cachecois, bandeiras", 10)
 			p.Triggered:Connect(function(player)
 				say(player, "Loja da claque", {
-					"Tochas, bombas de fumo, cachecois e bandeiras, em varias cores.",
-					"Em breve com o dinheiro do jogo, ganho a ir aos jogos e ao corteo.",
-					"Por agora o material e de graca e ja esta na tua barra.",
+					"A claque da-te a racao de cada jogo: 2 tochas, 1 fumo e 1 estrobo, que ja estao na tua barra.",
+					"Mais do que isso, e as velas romanas, compra-se aos dealers na rua, com moedas.",
+					"Ganhas moedas a ir aos jogos com a claque, a fazer o corteo e com cada golo da equipa.",
 				})
 			end)
 		else

@@ -29,6 +29,7 @@ local Tifo = require(script.Parent:WaitForChild("Tifo"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
 local Entrance = require(script.Parent:WaitForChild("Entrance"))
 local DayNight = require(script.Parent:WaitForChild("DayNight"))
+local Money = require(script.Parent:WaitForChild("Money"))
 
 --[[
 	A forca do tambor de cada bancada, de 0 a 1.
@@ -393,6 +394,13 @@ MatchLoop.onChange(function(snapshot)
 			end
 		end
 		Atmosphere.kickOff(bonus)
+
+		-- Moedas para quem veio com a claque: o jogo, e mais o corteo que fez.
+		for _, player in Players:GetPlayers() do
+			if Teams.get(player) then
+				Money.add(player, Config.Money.perMatch + Config.Money.perCorteo * March.creditFor(player))
+			end
+		end
 		March.stop()
 	end
 
@@ -475,6 +483,13 @@ Football.onGoal(function(teamId, scorer)
 	-- Uma entrada ainda em aberto ja nao se apita: o golo conta.
 	Whistle.cancel()
 	MatchLoop.scoreGoal(teamId)
+
+	-- Cada golo da equipa vale umas moedas a sua claque.
+	for _, player in Players:GetPlayers() do
+		if Teams.get(player) == teamId then
+			Money.add(player, Config.Money.perGoal)
+		end
+	end
 
 	-- A bancada de quem marcou vai ao ar; a de quem sofreu senta-se e cala-se.
 	for _, id in Config.TeamOrder do
@@ -660,6 +675,28 @@ Remotes.Emote.OnServerEvent:Connect(function(player, id)
 	player:SetAttribute("Emote", if EMOTE_IDS[id] then id else nil)
 end)
 
+--[[
+	Comprar a um dealer: so quem e de claque, so ao pe de um dealer, e so com
+	moedas que cheguem. O preco e o do Config.Shop, nunca o que o cliente diz.
+]]
+Remotes.Shop.OnServerEvent:Connect(function(player, action, kind)
+	if action ~= "buy" or type(kind) ~= "string" or not Teams.get(player) then
+		return
+	end
+	local root = rootOf(player)
+	if not root or not Clubhouse.nearDealer(root.Position) then
+		return
+	end
+	for _, item in Config.Shop do
+		if item.kind == kind then
+			if Money.spend(player, item.price) then
+				Gear.give(player, kind, 1)
+			end
+			return
+		end
+	end
+end)
+
 -- O botao "SEDE": volta-se quando se quer, nunca a forca.
 local lastHome: { [Player]: number } = {}
 Remotes.Home.OnServerEvent:Connect(function(player)
@@ -675,6 +712,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 Gear.start()
+Money.start()
 MatchLoop.start()
 
 print("[Ultras FC] Servidor a postos.")

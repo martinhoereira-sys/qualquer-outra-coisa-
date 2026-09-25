@@ -165,10 +165,10 @@ local function setAfternoon()
 	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
 	atmosphere.Density = 0.28
 	atmosphere.Offset = 0.1
-	atmosphere.Color = Color3.fromRGB(210, 200, 186)
-	atmosphere.Decay = Color3.fromRGB(128, 122, 116)
-	atmosphere.Glare = 0.35
-	atmosphere.Haze = 1.1
+	atmosphere.Color = Color3.fromRGB(216, 196, 168)
+	atmosphere.Decay = Color3.fromRGB(136, 118, 100)
+	atmosphere.Glare = 0.45
+	atmosphere.Haze = 1.5
 	atmosphere.Parent = Lighting
 
 	-- Um bloom discreto, so para o sol rasante ter peso.
@@ -177,6 +177,25 @@ local function setAfternoon()
 	bloom.Size = 18
 	bloom.Threshold = 1.4
 	bloom.Parent = Lighting
+
+	--[[
+		O ar de filme: cores quentes e um pouco lavadas, contraste suave, como
+		pelicula antiga. E o que tira o aspeto de plastico de cores vivas do
+		Roblox e da ao jogo o ar de uma cidade velha ao fim da tarde.
+	]]
+	local grade = Lighting:FindFirstChild("Filme") or Instance.new("ColorCorrectionEffect")
+	grade.Name = "Filme"
+	grade.Brightness = 0.02
+	grade.Contrast = 0.14
+	grade.Saturation = -0.22
+	grade.TintColor = Color3.fromRGB(255, 238, 216)
+	grade.Parent = Lighting
+
+	-- Raios de sol discretos a atravessar a bruma.
+	local rays = Lighting:FindFirstChildOfClass("SunRaysEffect") or Instance.new("SunRaysEffect")
+	rays.Intensity = 0.05
+	rays.Spread = 0.7
+	rays.Parent = Lighting
 end
 
 --------------------------------------------------------------------------------

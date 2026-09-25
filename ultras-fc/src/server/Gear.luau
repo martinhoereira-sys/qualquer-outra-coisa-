@@ -40,20 +40,31 @@ local Gear = {}
 
 local KINDS = Config.Gear
 
--- A ordem na barra: 1 tocha, 2 fumo, 3 cachecol, 4 tambor.
-local ORDER = { "tocha", "fumo", "cachecol", "tambor" }
+-- A ordem na barra: tocha, fumo, vela romana, estrobo, cachecol e (lider) tambor.
+local ORDER = { "tocha", "fumo", "vela", "estrobo", "cachecol", "tambor" }
+
+-- O que se acende e se segura no ar.
+local PYRO: { [string]: boolean } = { tocha = true, fumo = true, vela = true, estrobo = true }
 
 local LABEL: { [string]: string } = {
 	tocha = "Tocha",
 	fumo = "Fumo",
+	vela = "Vela",
+	estrobo = "Estrobo",
 	cachecol = "Cachecol",
 	tambor = "Tambor",
 }
 
--- As texturas de fogo, fumo e faiscas que vem com o proprio Roblox.
-local FIRE = "rbxasset://textures/particles/fire_main.dds"
-local SMOKE = "rbxasset://textures/particles/smoke_main.dds"
-local SPARK = "rbxasset://textures/particles/sparkles_main.dds"
+--[[
+	As texturas. Tiradas de pirotecnia da Toolbox (bengalas e velas romanas
+	feitas para claques): so as imagens, nunca os scripts desses modelos. A
+	chama de bengala, o fogo, o brilho, as faiscas e um fumo realista.
+]]
+local FLARE = "rbxassetid://3959152627"
+local FIRE = "rbxassetid://4753372559"
+local GLOW = "rbxassetid://6673021984"
+local SPARK = "rbxassetid://10822615828"
+local SMOKE = "rbxassetid://9013694245"
 
 local HOT = Color3.fromRGB(255, 244, 214) -- o branco do centro de uma chama
 local WHITE = Color3.fromRGB(240, 240, 240)
@@ -132,17 +143,29 @@ end
 
 -- O que o rodape do ecra mostra: o stock de cada um, e se tem tambor.
 function Gear.counts(player: Player): { [string]: number }
-	return {
-		tocha = if Teams.get(player) then Gear.remaining(player, "tocha") else 0,
-		fumo = if Teams.get(player) then Gear.remaining(player, "fumo") else 0,
+	local counts: { [string]: number } = {
 		tambor = if Teams.isLeader(player) then 1 else 0,
 	}
+	for kind in PYRO do
+		counts[kind] = if Teams.get(player) then Gear.remaining(player, kind) else 0
+	end
+	return counts
 end
 
 local function announce(player: Player)
 	if onCountChanged then
 		onCountChanged(player, Gear.counts(player))
 	end
+end
+
+-- Mais stock deste material (comprado a um dealer, por exemplo).
+function Gear.give(player: Player, kind: string, amount: number)
+	if not PYRO[kind] or Config.GearStock.unlimited then
+		return
+	end
+	remaining[player] = remaining[player] or {}
+	remaining[player][kind] = Gear.remaining(player, kind) + amount
+	announce(player)
 end
 
 -- Quanto e que o material aceso desta bancada empurra o ambiente por segundo.
@@ -216,59 +239,135 @@ end
 	qual for o angulo da mao, o fogo vai sempre para cima.
 ]]
 local function flareEffects(at: Attachment, colour: Color3)
-	local flame = emitter("Chama", FIRE, at)
+	-- A chama da bengala: viva, a tremer, branca no meio e da cor da equipa.
+	local flame = emitter("Chama", FLARE, at)
 	flame.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, HOT),
-		ColorSequenceKeypoint.new(0.3, colour:Lerp(HOT, 0.45)),
+		ColorSequenceKeypoint.new(0.35, colour:Lerp(HOT, 0.4)),
 		ColorSequenceKeypoint.new(1, colour),
 	})
-	flame.LightEmission = 1
+	flame.LightEmission = 0.85
 	flame.LightInfluence = 0
-	flame.Size = curve({ { 0, 0.9 }, { 0.5, 0.6 }, { 1, 0.1 } })
-	flame.Transparency = curve({ { 0, 0 }, { 0.7, 0.35 }, { 1, 1 } })
-	flame.Lifetime = NumberRange.new(0.2, 0.4)
-	flame.Rate = 45
+	flame.Size = curve({ { 0, 1.3 }, { 0.5, 0.9 }, { 1, 0.2 } })
+	flame.Transparency = curve({ { 0, 0 }, { 0.7, 0.3 }, { 1, 1 } })
+	flame.Lifetime = NumberRange.new(0.3, 0.55)
+	flame.Rate = 70
 	flame.Speed = NumberRange.new(0.5, 2)
-	flame.SpreadAngle = Vector2.new(20, 20)
-	flame.Acceleration = Vector3.new(0, 12, 0)
-	flame.RotSpeed = NumberRange.new(-140, 140)
+	flame.SpreadAngle = Vector2.new(15, 15)
+	flame.Acceleration = Vector3.new(0, 10, 0)
+	flame.RotSpeed = NumberRange.new(-120, 120)
 
-	-- Um halo discreto, para a tocha se distinguir de longe.
-	local glow = emitter("Halo", FIRE, at)
-	glow.Color = ColorSequence.new(colour:Lerp(HOT, 0.2))
+	-- O nucleo, quase branco, colado a ponta.
+	local core = emitter("Nucleo", FIRE, at)
+	core.Color = ColorSequence.new(HOT)
+	core.LightEmission = 1
+	core.LightInfluence = 0
+	core.Size = curve({ { 0, 0.6 }, { 1, 0.2 } })
+	core.Transparency = curve({ { 0, 0 }, { 1, 1 } })
+	core.Lifetime = NumberRange.new(0.08, 0.14)
+	core.Rate = 60
+	core.Speed = NumberRange.new(0, 0.5)
+
+	-- O brilho a volta, que se ve do outro lado do estadio.
+	local glow = emitter("Halo", GLOW, at)
+	glow.Color = ColorSequence.new(colour:Lerp(HOT, 0.25))
 	glow.LightEmission = 1
 	glow.LightInfluence = 0
-	glow.Size = curve({ { 0, 2.4 }, { 1, 3 } })
-	glow.Transparency = curve({ { 0, 0.75 }, { 1, 1 } })
-	glow.Lifetime = NumberRange.new(0.12, 0.2)
-	glow.Rate = 18
+	glow.Size = curve({ { 0, 3.5 }, { 1, 4.5 } })
+	glow.Transparency = curve({ { 0, 0.72 }, { 1, 1 } })
+	glow.Lifetime = NumberRange.new(0.15, 0.25)
+	glow.Rate = 16
 	glow.Speed = NumberRange.new(0, 0)
 
 	local sparks = emitter("Faiscas", SPARK, at)
 	sparks.Color = ColorSequence.new(HOT, colour:Lerp(HOT, 0.5))
 	sparks.LightEmission = 1
 	sparks.LightInfluence = 0
-	sparks.Size = curve({ { 0, 0.2 }, { 1, 0 } })
-	sparks.Lifetime = NumberRange.new(0.3, 0.7)
-	sparks.Rate = 18
-	sparks.Speed = NumberRange.new(4, 9)
-	sparks.SpreadAngle = Vector2.new(60, 60)
-	sparks.Acceleration = Vector3.new(0, -22, 0)
+	sparks.Size = curve({ { 0, 0.08 }, { 1, 0 } })
+	sparks.Lifetime = NumberRange.new(0.4, 0.9)
+	sparks.Rate = 30
+	sparks.Speed = NumberRange.new(6, 12)
+	sparks.SpreadAngle = Vector2.new(70, 70)
+	sparks.Acceleration = Vector3.new(0, -24, 0)
 	sparks.Drag = 1
 
 	local smoke = emitter("Fumo", SMOKE, at)
-	smoke.Color = ColorSequence.new(colour:Lerp(Color3.fromRGB(210, 210, 210), 0.5), Color3.fromRGB(170, 170, 175))
+	smoke.Color = ColorSequence.new(colour:Lerp(Color3.fromRGB(215, 210, 205), 0.55), Color3.fromRGB(170, 166, 162))
 	smoke.LightEmission = 0.1
 	smoke.LightInfluence = 0.6
-	smoke.Size = curve({ { 0, 0.8 }, { 0.3, 3.5 }, { 1, 7 } })
-	smoke.Transparency = curve({ { 0, 0.45 }, { 0.5, 0.6 }, { 1, 1 } })
-	smoke.Lifetime = NumberRange.new(3.5, 5.5)
-	smoke.Rate = 9
+	smoke.Size = curve({ { 0, 1 }, { 0.3, 4 }, { 1, 8 } })
+	smoke.Transparency = curve({ { 0, 0.5 }, { 0.5, 0.65 }, { 1, 1 } })
+	smoke.Lifetime = NumberRange.new(4, 6)
+	smoke.Rate = 8
 	smoke.Speed = NumberRange.new(2, 4)
 	smoke.SpreadAngle = Vector2.new(20, 20)
 	smoke.Acceleration = Vector3.new(0, 3, 0)
 	smoke.Drag = 0.5
 	smoke.RotSpeed = NumberRange.new(-30, 30)
+end
+
+--[[
+	A vela romana: dispara bolas de luz da cor da equipa, uma de cada vez, bem
+	alto, com faiscas e um rasto de fumo. A mao aponta-a para o ceu.
+]]
+local function candleEffects(at: Attachment, colour: Color3)
+	local shots = emitter("Tiros", GLOW, at)
+	shots.Color = ColorSequence.new(colour:Lerp(HOT, 0.3))
+	shots.LightEmission = 1
+	shots.LightInfluence = 0
+	shots.Size = curve({ { 0, 1.6 }, { 1, 1.1 } })
+	shots.Transparency = curve({ { 0, 0 }, { 0.8, 0.2 }, { 1, 1 } })
+	shots.Lifetime = NumberRange.new(1.4, 1.8)
+	shots.Rate = 1.4
+	shots.Speed = NumberRange.new(48, 58)
+	shots.SpreadAngle = Vector2.new(6, 6)
+	shots.Acceleration = Vector3.new(0, -12, 0)
+
+	local trail = emitter("Rasto", SPARK, at)
+	trail.Color = ColorSequence.new(HOT, colour)
+	trail.LightEmission = 1
+	trail.LightInfluence = 0
+	trail.Size = curve({ { 0, 0.12 }, { 1, 0 } })
+	trail.Lifetime = NumberRange.new(0.3, 0.6)
+	trail.Rate = 40
+	trail.Speed = NumberRange.new(8, 16)
+	trail.SpreadAngle = Vector2.new(12, 12)
+	trail.Acceleration = Vector3.new(0, -20, 0)
+
+	local smoke = emitter("Fumo", SMOKE, at)
+	smoke.Color = ColorSequence.new(Color3.fromRGB(200, 196, 190))
+	smoke.LightInfluence = 0.7
+	smoke.Size = curve({ { 0, 0.6 }, { 1, 5 } })
+	smoke.Transparency = curve({ { 0, 0.55 }, { 1, 1 } })
+	smoke.Lifetime = NumberRange.new(3, 5)
+	smoke.Rate = 6
+	smoke.Speed = NumberRange.new(2, 4)
+	smoke.Acceleration = Vector3.new(0, 2, 0)
+end
+
+--[[
+	O estrobo (o pisca-pisca): claroes brancos secos e rapidos. Nao ilumina,
+	pisca: e o que faz a bancada parecer uma trovoada a noite.
+]]
+local function strobeEffects(at: Attachment)
+	local flash = emitter("Clarao", GLOW, at)
+	flash.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	flash.LightEmission = 1
+	flash.LightInfluence = 0
+	flash.Size = curve({ { 0, 7 }, { 1, 7 } })
+	flash.Transparency = curve({ { 0, 0 }, { 1, 0.4 } })
+	flash.Lifetime = NumberRange.new(0.05, 0.07)
+	flash.Rate = 7
+	flash.Speed = NumberRange.new(0, 0)
+
+	local spark = emitter("Faisca", SPARK, at)
+	spark.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	spark.LightEmission = 1
+	spark.Size = curve({ { 0, 0.3 }, { 1, 0 } })
+	spark.Lifetime = NumberRange.new(0.1, 0.2)
+	spark.Rate = 20
+	spark.Speed = NumberRange.new(1, 3)
+	spark.SpreadAngle = Vector2.new(180, 180)
 end
 
 --[[
@@ -362,7 +461,17 @@ local function buildHeld(kind: string, colour: Color3): Held
 
 	local body: BasePart
 	local length: number
-	if kind == "tocha" then
+	if kind == "vela" then
+		-- Um tubo comprido e grosso, de cartao pintado.
+		length = 2.6
+		body = loosePart("Vela", Vector3.new(0.34, length, 0.34), colour:Lerp(Color3.fromRGB(30, 30, 30), 0.35), model)
+		local band = loosePart("Banda", Vector3.new(0.36, 0.3, 0.36), Color3.fromRGB(240, 240, 240), model)
+		weldTo(body, band, CFrame.new(0, 0.5, 0))
+	elseif kind == "estrobo" then
+		-- Uma caixinha branca, com a lente em cima.
+		length = 0.8
+		body = loosePart("Estrobo", Vector3.new(0.5, length, 0.5), Color3.fromRGB(220, 220, 216), model)
+	elseif kind == "tocha" then
 		length = 1.7
 		body = loosePart("Tocha", Vector3.new(0.2, length, 0.2), Color3.fromRGB(196, 38, 34), model)
 		local cap = loosePart("Tampa", Vector3.new(0.22, 0.28, 0.22), Color3.fromRGB(40, 40, 44), model)
@@ -482,6 +591,10 @@ local function ignite(player: Player, tool: Tool, kind: string, teamId: string)
 
 	if kind == "tocha" then
 		flareEffects(effects, colour)
+	elseif kind == "vela" then
+		candleEffects(effects, colour)
+	elseif kind == "estrobo" then
+		strobeEffects(effects)
 	else
 		smokeEffects(effects, colour)
 	end
@@ -500,12 +613,12 @@ local function ignite(player: Player, tool: Tool, kind: string, teamId: string)
 		uma com a sua luz, deitava abaixo um telemovel; a partir dai a chama e o
 		fumo chegam para se ver a tocha.
 	]]
-	if litCount() >= Config.Performance.maxLights then
+	if kind == "estrobo" or litCount() >= Config.Performance.maxLights then
 		return
 	end
 	local light = Instance.new("PointLight")
-	light.Brightness = if kind == "tocha" then 4 else 1.5
-	light.Range = if kind == "tocha" then 22 else 16
+	light.Brightness = if kind == "tocha" or kind == "vela" then 4 else 1.5
+	light.Range = if kind == "tocha" or kind == "vela" then 22 else 16
 	light.Color = colour:Lerp(HOT, 0.2)
 	-- Sombras de uma luz pequena sao das coisas mais caras que ha.
 	light.Shadows = false
@@ -631,7 +744,7 @@ local function buildTool(player: Player, kind: string, teamId: string): Tool
 		tool.RequiresHandle = false
 	end
 
-	if kind == "tocha" or kind == "fumo" then
+	if PYRO[kind] then
 		tool.Equipped:Connect(function()
 			equip(tool, kind, teamId)
 		end)

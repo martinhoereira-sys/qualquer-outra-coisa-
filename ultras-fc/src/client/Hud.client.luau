@@ -614,45 +614,170 @@ end
 player:GetAttributeChangedSignal("Team"):Connect(refreshHint)
 refreshHint()
 
-local stock = {
-	tocha = Config.Gear.tocha.perMatch,
-	fumo = Config.Gear.fumo.perMatch,
+local stock: { [string]: number } = {
+	tocha = 0,
+	fumo = 0,
+	vela = 0,
+	estrobo = 0,
 	tambor = 0,
 }
+
+-- Os nomes no rodape, pela ordem da barra.
+local STOCK_LABEL = {
+	{ "tocha", "tochas" },
+	{ "fumo", "fumos" },
+	{ "vela", "velas" },
+	{ "estrobo", "estrobos" },
+}
+
+-- As moedas do jogo (atributo "Moedas", posto pelo servidor).
+local function coins(): number
+	local value = player:GetAttribute("Moedas")
+	return if type(value) == "number" then value else 0
+end
 
 -- -1 quer dizer sem limite (Config.GearStock.unlimited, nos testes).
 local function updateGearLabel()
 	local pieces = {}
 	if stock.tocha < 0 then
-		table.insert(pieces, "tochas e fumo sem limite")
+		table.insert(pieces, "material sem limite")
 	else
-		if stock.tocha > 0 then
-			table.insert(pieces, stock.tocha .. " tochas")
+		for _, entry in STOCK_LABEL do
+			local n = stock[entry[1]] or 0
+			if n > 0 then
+				table.insert(pieces, n .. " " .. entry[2])
+			end
 		end
-		if stock.fumo > 0 then
-			table.insert(pieces, stock.fumo .. " fumos")
+		if #pieces == 0 then
+			table.insert(pieces, "sem pirotecnia: compra a um dealer na rua")
 		end
 	end
 	if stock.tambor > 0 then
 		table.insert(pieces, "tambor")
 	end
-
-	if #pieces == 0 then
-		gearLabel.Text = "sem tochas nem fumo ate ao proximo jogo"
-		gearLabel.TextColor3 = MUTED
-	else
-		gearLabel.Text = table.concat(pieces, "   ·   ")
-		gearLabel.TextColor3 = BRASS
-	end
+	table.insert(pieces, coins() .. " moedas")
+	gearLabel.Text = table.concat(pieces, "   ·   ")
+	gearLabel.TextColor3 = BRASS
 end
 
 updateGearLabel()
+player:GetAttributeChangedSignal("Moedas"):Connect(updateGearLabel)
 
 Remotes.GearCount.OnClientEvent:Connect(function(counts)
 	for kind, value in counts do
 		stock[kind] = value
 	end
 	updateGearLabel()
+end)
+
+--------------------------------------------------------------------------------
+-- A loja do dealer
+--------------------------------------------------------------------------------
+
+--[[
+	Falar com um dealer abre isto: o que ele vende, o preco, quantas moedas se
+	tem, e um botao por cada coisa. Quem decide se a compra passa e o
+	servidor; aqui so se pede. Fecha-se no X, ou ao afastar-se dele.
+]]
+local shop = Instance.new("Frame")
+shop.AnchorPoint = Vector2.new(0.5, 0.5)
+shop.Size = UDim2.fromOffset(380, 90 + #Config.Shop * 52)
+shop.Position = UDim2.fromScale(0.5, 0.5)
+shop.BackgroundColor3 = INK
+shop.BackgroundTransparency = 0.08
+shop.BorderSizePixel = 0
+shop.Visible = false
+shop.ZIndex = 20
+shop.Parent = gui
+
+local shopCorner = Instance.new("UICorner")
+shopCorner.CornerRadius = UDim.new(0, 10)
+shopCorner.Parent = shop
+
+local shopTitle = label(shop, "DEALER", 20, BRASS)
+shopTitle.Font = Enum.Font.GothamBlack
+shopTitle.TextXAlignment = Enum.TextXAlignment.Left
+shopTitle.Size = UDim2.new(1, -80, 0, 28)
+shopTitle.Position = UDim2.fromOffset(16, 12)
+shopTitle.ZIndex = 21
+
+local shopCoins = label(shop, "", 14, TEXT)
+shopCoins.TextXAlignment = Enum.TextXAlignment.Left
+shopCoins.Size = UDim2.new(1, -32, 0, 18)
+shopCoins.Position = UDim2.fromOffset(16, 44)
+shopCoins.ZIndex = 21
+
+local shopClose = Instance.new("TextButton")
+shopClose.AnchorPoint = Vector2.new(1, 0)
+shopClose.Size = UDim2.fromOffset(36, 36)
+shopClose.Position = UDim2.new(1, -10, 0, 10)
+shopClose.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
+shopClose.BorderSizePixel = 0
+shopClose.Font = Enum.Font.GothamBlack
+shopClose.TextSize = 18
+shopClose.TextColor3 = TEXT
+shopClose.Text = "X"
+shopClose.ZIndex = 21
+shopClose.Parent = shop
+local shopCloseCorner = Instance.new("UICorner")
+shopCloseCorner.CornerRadius = UDim.new(0, 8)
+shopCloseCorner.Parent = shopClose
+shopClose.Activated:Connect(function()
+	shop.Visible = false
+end)
+
+for index, item in Config.Shop do
+	local row = Instance.new("TextButton")
+	row.Size = UDim2.new(1, -32, 0, 44)
+	row.Position = UDim2.fromOffset(16, 72 + (index - 1) * 52)
+	row.BackgroundColor3 = Color3.fromRGB(40, 44, 52)
+	row.BorderSizePixel = 0
+	row.Font = Enum.Font.GothamBold
+	row.TextSize = 15
+	row.TextColor3 = TEXT
+	row.TextXAlignment = Enum.TextXAlignment.Left
+	row.Text = "   " .. item.label
+	row.ZIndex = 21
+	row.Parent = shop
+	local rowCorner = Instance.new("UICorner")
+	rowCorner.CornerRadius = UDim.new(0, 6)
+	rowCorner.Parent = row
+	local price = label(row, item.price .. " moedas", 14, BRASS)
+	price.TextXAlignment = Enum.TextXAlignment.Right
+	price.Size = UDim2.new(1, -16, 1, 0)
+	price.ZIndex = 22
+	row.Activated:Connect(function()
+		Remotes.Shop:FireServer("buy", item.kind)
+	end)
+end
+
+local shopAt: Vector3? = nil
+
+local function refreshShop()
+	shopCoins.Text = "tens " .. coins() .. " moedas"
+end
+player:GetAttributeChangedSignal("Moedas"):Connect(refreshShop)
+
+Remotes.Shop.OnClientEvent:Connect(function(action)
+	if action ~= "open" then
+		return
+	end
+	refreshShop()
+	shop.Visible = true
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	shopAt = root and root.Position or nil
+end)
+
+RunService.Heartbeat:Connect(function()
+	if not shop.Visible or not shopAt then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root and (root.Position - shopAt).Magnitude > 16 then
+		shop.Visible = false
+	end
 end)
 
 --------------------------------------------------------------------------------
