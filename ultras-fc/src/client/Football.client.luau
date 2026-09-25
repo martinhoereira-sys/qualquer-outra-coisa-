@@ -240,6 +240,9 @@ local function dive()
 	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
 		keys += look
 	end
+	-- S com A ou D: mergulho alto, ao angulo (sobe mais, cai de lado na mesma).
+	local high = UserInputService:IsKeyDown(Enum.KeyCode.S) and keys.Magnitude > 0.1
+	local arc = if high then ARC * 2.3 else ARC
 	local upward = UserInputService:IsKeyDown(Enum.KeyCode.S) and keys.Magnitude < 0.1
 	-- No telemovel nao ha teclas: o analogico, como estiver.
 	local moving = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
@@ -313,7 +316,7 @@ local function dive()
 		if t < AIR then
 			local k = t / AIR
 			local along = distance * ease(k)
-			local y = standY + (lyingY - standY) * k + ARC * math.sin(math.pi * k)
+			local y = standY + (lyingY - standY) * k + arc * math.sin(math.pi * k)
 			pos = Vector3.new(start.X, 0, start.Z) + dir * along + Vector3.new(0, y, 0)
 			lie = math.min(1, k * 2.2)
 		elseif t < AIR + DOWN then
