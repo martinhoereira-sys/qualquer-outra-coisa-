@@ -24,6 +24,11 @@ local function make(name: string): Sound?
 	sound.SoundId = "rbxassetid://" .. tostring(spec.id)
 	sound.Volume = spec.volume
 	sound.Looped = spec.looped == true
+	-- So o comeco do ficheiro (ex.: uma pancada de um som com varias).
+	if spec.cut then
+		sound.PlaybackRegionsEnabled = true
+		sound.PlaybackRegion = NumberRange.new(0, spec.cut)
+	end
 	return sound
 end
 

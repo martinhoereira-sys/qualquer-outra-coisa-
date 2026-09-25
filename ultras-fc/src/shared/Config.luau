@@ -134,13 +134,13 @@ Config.Admins = {
 	(ProSoundEffects e APM). Audio privado de outra conta nao toca e nao da
 	erro: fica mudo.
 ]]
-export type SoundSpec = { id: number, volume: number, volumeMax: number?, looped: boolean? }
+export type SoundSpec = { id: number, volume: number, volumeMax: number?, looped: boolean?, cut: number? }
 
 Config.Sounds = {
 	multidao = { id = 9119562234, volume = 0.15, volumeMax = 0.4, looped = true },
 	golo = { id = 9120975204, volume = 0.9 },
 	lamento = { id = 9120974911, volume = 0.6 },
-	tambor = { id = 9113343286, volume = 0.8 },
+	tambor = { id = 9113343286, volume = 0.8, cut = 0.55 }, -- o ficheiro tem varias pancadas: toca-se so a primeira
 	apito_inicio = { id = 9118113825, volume = 0.8 },
 	apito_falta = { id = 9117261163, volume = 0.8 },
 	apito_fim = { id = 9117259635, volume = 0.9 },
@@ -287,7 +287,7 @@ Config.Football = {
 		segura, mexer o rato da o efeito (para os lados) e a altura (para cima,
 		chapeu; para baixo, rasteira).
 	]]
-	chargeTime = 1.1, -- segundos ate a forca maxima
+	chargeTime = 0.9, -- segundos ate a forca maxima
 	kickSpeedMin = 24, -- um toque
 	kickSpeedMax = 112, -- tudo
 	aimPixels = 120, -- quanto se mexe o rato para chegar ao maximo de efeito ou altura

@@ -14,6 +14,7 @@
 	conta e tudo decidido no servidor.
 ]]
 
+local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -165,7 +166,7 @@ diveButton.BorderSizePixel = 0
 diveButton.Font = Enum.Font.GothamBold
 diveButton.TextSize = 14
 diveButton.TextColor3 = TEXT
-diveButton.Text = "Q  ATIRAR-SE"
+diveButton.Text = "ATIRAR-SE"
 diveButton.Visible = false
 diveButton.Parent = gui
 local diveCorner = Instance.new("UICorner")
@@ -199,11 +200,14 @@ local function dive()
 	end
 	lastDive = os.clock()
 	-- O corpo e desta pessoa: o impulso da-se aqui, e o servidor so regista.
+	-- Para onde: as teclas de andar (W frente, S tras, A/D lados, e as
+	-- diagonais), vistas da camara; sem nenhuma carregada, para a bola.
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local moving = if humanoid then Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z) else Vector3.zero
 	local towards = if ball then ball.Position - root.Position else root.CFrame.LookVector
-	local flat = Vector3.new(towards.X, 0, towards.Z)
+	local flat = if moving.Magnitude > 0.1 then moving else Vector3.new(towards.X, 0, towards.Z)
 	local dir = if flat.Magnitude > 0.1 then flat.Unit else root.CFrame.LookVector
 	-- Solto das pernas durante o voo, senao o boneco travava o mergulho a andar.
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.PlatformStand = true
 		task.delay(F.keeperDiveTime, function()
@@ -214,6 +218,20 @@ local function dive()
 	Remotes.Football:FireServer("dive")
 end
 diveButton.Activated:Connect(dive)
+
+--[[
+	Na baliza, o espaco e para se atirar, nao para saltar: por cima do salto do
+	Roblox, e so para o guarda-redes. Os outros saltam como sempre.
+]]
+ContextActionService:BindActionAtPriority("Mergulhar", function(_, state)
+	if not isKeeper() then
+		return Enum.ContextActionResult.Pass
+	end
+	if state == Enum.UserInputState.Begin then
+		dive()
+	end
+	return Enum.ContextActionResult.Sink
+end, false, Enum.ContextActionPriority.High.Value + 100, Enum.KeyCode.Space)
 
 --------------------------------------------------------------------------------
 -- Input
@@ -238,6 +256,88 @@ local function aim(): (number, number)
 		return 0, 0
 	end
 	return math.clamp(moved.X / F.aimPixels, -1, 1), math.clamp(-moved.Y / F.aimPixels, -1, 1)
+end
+
+
+--[[
+	No telemovel nao ha rato: botoes de toque. CHUTAR carrega a forca enquanto
+	se segura e chuta ao largar, para onde o boneco esta virado (o efeito e a
+	altura sao do rato, ficam para o computador). CORRER liga e desliga o
+	sprint. O botao de se atirar do guarda-redes fica por cima deles.
+]]
+local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+local uiScale = Instance.new("UIScale")
+uiScale.Parent = gui
+local function rescale()
+	local camera = workspace.CurrentCamera
+	local size = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+	uiScale.Scale = math.clamp(math.min(size.X / 1280, size.Y / 720), 0.5, 1)
+end
+rescale()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+end
+
+local function roundButton(label: string, size: number, position: UDim2): TextButton
+	local b = Instance.new("TextButton")
+	b.AnchorPoint = Vector2.new(1, 1)
+	b.Size = UDim2.fromOffset(size, size)
+	b.Position = position
+	b.BackgroundColor3 = Color3.fromRGB(30, 34, 42)
+	b.BackgroundTransparency = 0.25
+	b.BorderSizePixel = 0
+	b.Font = Enum.Font.GothamBlack
+	b.TextSize = 16
+	b.TextColor3 = TEXT
+	b.Text = label
+	b.AutoButtonColor = true
+	b.Parent = gui
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(1, 0)
+	c.Parent = b
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = BRASS
+	stroke.Thickness = 2
+	stroke.Parent = b
+	return b
+end
+
+if touchOnly then
+	local kickButton = roundButton("CHUTAR", 120, UDim2.new(1, -190, 1, -40))
+	local sprintButton = roundButton("CORRER", 84, UDim2.new(1, -330, 1, -50))
+
+	kickButton.MouseButton1Down:Connect(function()
+		if playing() then
+			chargingSince = os.clock()
+			withSpin = false
+			moved = Vector2.zero
+		end
+	end)
+	local function release()
+		if chargingSince and not withSpin then
+			Remotes.Football:FireServer("kick", { power = charge(), curve = 0, height = 0 })
+			chargingSince = nil
+		end
+	end
+	kickButton.MouseButton1Up:Connect(release)
+	kickButton.MouseLeave:Connect(release)
+
+	sprintButton.Activated:Connect(function()
+		sprinting = not sprinting
+		Remotes.Football:FireServer("sprint", sprinting)
+		sprintButton.BackgroundColor3 = if sprinting then BRASS:Lerp(Color3.new(0, 0, 0), 0.3) else Color3.fromRGB(30, 34, 42)
+	end)
+
+	-- O de se atirar, redondo e por cima do CHUTAR.
+	diveButton.Size = UDim2.fromOffset(96, 96)
+	diveButton.Position = UDim2.new(1, -200, 1, -180)
+	diveButton.Text = "ATIRAR"
+	local diveRound = diveButton:FindFirstChildOfClass("UICorner")
+	if diveRound then
+		diveRound.CornerRadius = UDim.new(1, 0)
+	end
+	hint.Visible = false
 end
 
 UserInputService.InputBegan:Connect(function(input, processed)

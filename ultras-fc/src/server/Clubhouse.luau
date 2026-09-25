@@ -52,7 +52,7 @@ end
 local function marker(host: BasePart, text: string, colour: Color3, height: number)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Marker"
-	gui.Size = UDim2.fromOffset(340, 80)
+	gui.Size = UDim2.fromOffset(220, 50)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, height, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 1200

@@ -35,6 +35,26 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.Parent = player:WaitForChild("PlayerGui")
 
+--[[
+	Ecras pequenos. Tudo aqui foi desenhado para 1280x720; num telemovel a
+	interface encolhe na mesma proporcao (UIScale), e o que so serve a teclado
+	(as dicas de teclas, as barras dos lados) sai.
+]]
+local UserInputService = game:GetService("UserInputService")
+local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+local uiScale = Instance.new("UIScale")
+uiScale.Parent = gui
+local function rescale()
+	local camera = workspace.CurrentCamera
+	local size = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+	uiScale.Scale = math.clamp(math.min(size.X / 1280, size.Y / 720), 0.5, 1)
+end
+rescale()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+end
+
 local function label(parent: Instance, text: string, size: number, colour: Color3): TextLabel
 	local l = Instance.new("TextLabel")
 	l.BackgroundTransparency = 1
@@ -529,6 +549,8 @@ for index, teamId in Config.TeamOrder do
 	track.BackgroundTransparency = 0.25
 	track.BorderSizePixel = 0
 	track.Parent = gui
+	-- No telemovel as barras dos lados tapavam os botoes; fica a da propria bancada.
+	track.Visible = not touch
 
 	local fill = Instance.new("Frame")
 	fill.AnchorPoint = Vector2.new(0, 1)
@@ -585,7 +607,7 @@ hint.Position = UDim2.new(0, 0, 1, -118)
 local function refreshHint()
 	local role = myRole()
 	local claque = role ~= nil and Config.Teams[role] ~= nil
-	hint.Visible = claque
+	hint.Visible = claque and not touch
 	gearLabel.Visible = claque
 	ownTrack.Visible = claque
 end
