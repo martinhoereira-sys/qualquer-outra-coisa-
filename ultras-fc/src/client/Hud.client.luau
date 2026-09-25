@@ -932,10 +932,14 @@ local function ownedText(kind: string): string
 end
 
 -- O modelo da montra: parecido ao que se leva na mao (Gear.buildHeld).
+local shown: Model? = nil
 local function showcase(kind: string, colour: Color3)
-	view:ClearAllChildren()
-	viewCamera.Parent = view
+	-- So o modelo anterior sai; a camera da montra fica.
+	if shown then
+		shown:Destroy()
+	end
 	local model = Instance.new("Model")
+	shown = model
 	local function part(size: Vector3, cf: CFrame, c: Color3, neon: boolean?)
 		local p = Instance.new("Part")
 		p.Anchored = true
