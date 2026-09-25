@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local City = require(script.Parent:WaitForChild("City"))
+local StadiumPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 local March = {}
 
@@ -69,9 +70,7 @@ local function routeFor(teamId: string): { Vector3 }
 		return {}
 	end
 
-	local S = Config.Stadium
-	local outerX = S.pitchLength / 2 + S.standGap + S.rows * S.rowDepth + 26
-	table.insert(points, Vector3.new(Config.Teams[teamId].side * (outerX + 10), 3, 0)) -- a porta da claque
+	table.insert(points, StadiumPlan.claqueGate(teamId)) -- a porta da claque, atras da sua curva
 	return points
 end
 

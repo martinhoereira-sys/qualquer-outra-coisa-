@@ -209,6 +209,19 @@ Config.Stadium = {
 	wallHeight = 10,
 	claqueGateWidth = 24,
 	publicGateWidth = 16,
+
+	--[[
+		O estadio novo (2026-09): uma taca branca continua, com as bancadas a
+		darem a volta pelos cantos em curva. As claques ficam em duas curvas
+		opostas, na diagonal; a bancada principal tem dois andares, com os
+		camarotes e a tribuna presidencial entre eles.
+	]]
+	cornerRadius = 20, -- raio da frente das curvas (a primeira fila)
+	curveSegments = 7, -- pedacos de cada fila de uma curva (mais = mais redondo, mais pecas)
+	boxDepth = 8, -- os camarotes, atras do primeiro andar da principal
+	boxHeight = 7,
+	upperRows = 8, -- o segundo andar da principal
+	upperRowHeight = 1.9,
 }
 
 
@@ -319,8 +332,8 @@ Config.Football = {
 	goalPause = 2.5, -- a bola na rede antes do pontape de saida
 
 	-- A baliza
-	goalHalfWidth = 8,
-	goalHeight = 8,
+	goalHalfWidth = 9, -- um pouco maiores do que eram (8 x 8)
+	goalHeight = 8.8,
 	goalDepth = 5,
 
 	-- Os bonecos

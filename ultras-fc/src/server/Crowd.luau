@@ -31,7 +31,7 @@ local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Crowd = {}
 
 local C = Config.Crowd
-local S = Config.Stadium
+local Plan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 type Supporter = {
 	model: Model,
@@ -120,32 +120,30 @@ function Crowd.build(parent: Instance)
 	table.clear(people)
 
 	--[[
-		Enche-se so o miolo das filas baixas de cada topo, atras da baliza. A
-		claque ocupa um bloco, nao a bancada toda: e a mancha compacta que se le
-		como claque, gente espalhada le-se como publico.
+		Enchem-se as filas baixas da curva de cada claque (StadiumPlan), de ponta
+		a ponta da curva, menos o buraco do vomitorio. E a mancha compacta que se
+		le como claque; gente espalhada le-se como publico.
 	]]
 	local rows = { 2, 3, 4, 5, 6, 7 }
 	local perRow = math.ceil(C.perStand / #rows)
 
 	for _, teamId in Config.TeamOrder do
-		local side = Config.Teams[teamId].side
 		local made = 0
 
 		for _, row in rows do
-			local topY = row * S.rowHeight
-			local x = (S.pitchLength / 2 + S.standGap + (row - 0.5) * S.rowDepth) * side
-			-- Ocupam o bloco do meio de ponta a ponta, e so ele: e o sector da
-			-- claque, entre as duas escadas que lhe servem de entrada.
-			local spread = Stadium.claqueHalfWidth() - 1
-
+			local hole = if row > Plan.exitRow then Plan.vomitoryHalfT(Plan.rowRadius(row)) + 0.02 else 0
 			for i = 1, perRow do
 				if made >= C.perStand then
 					break
 				end
+				local t = 0.07 + (i - 1) * (0.86 / (perRow - 1))
+				if math.abs(t - 0.5) < hole then
+					continue
+				end
 				made += 1
 
-				local z = -spread + (i - 1) * (spread * 2 / (perRow - 1))
-				local at = Vector3.new(x, topY + 2.6, z + math.random() * 0.5 - 0.25)
+				local jitter = (math.random() - 0.5) * 0.01
+				local at = Plan.claqueSeat(teamId, row, t + jitter) + Vector3.new(0, 2.6, 0)
 				table.insert(people, buildSupporter(teamId, at, made % C.flagEvery == 0, folder))
 			end
 		end

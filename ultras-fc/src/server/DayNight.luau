@@ -119,7 +119,9 @@ local function findFloods()
 	if not stadium then
 		return
 	end
-	for _, d in stadium:GetDescendants() do
+	-- As torres estao no edificio (Estadio, no mapa); os holofotes vao para a pasta do jogo.
+	local building = workspace:FindFirstChild("Estadio") or stadium
+	for _, d in building:GetDescendants() do
 		if d:IsA("BasePart") and d.Name == "Rig" then
 			table.insert(rigs, d)
 		end

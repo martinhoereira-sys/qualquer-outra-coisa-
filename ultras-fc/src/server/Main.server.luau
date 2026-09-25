@@ -32,6 +32,7 @@ local DayNight = require(script.Parent:WaitForChild("DayNight"))
 local Money = require(script.Parent:WaitForChild("Money"))
 local Bikes = require(script.Parent:WaitForChild("Bikes"))
 local Shops = require(script.Parent:WaitForChild("Shops"))
+local StadiumPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 --[[
 	A forca do tambor de cada bancada, de 0 a 1.
@@ -116,13 +117,9 @@ local function isAdmin(player: Player): boolean
 	return table.find(Config.Admins, player.UserId) ~= nil
 end
 
--- Dentro da muralha do estadio: a bancada, a explanada e o relvado.
+-- Dentro do estadio: as bancadas, a explanada a volta e o relvado.
 local function insideGround(position: Vector3): boolean
-	local S = Config.Stadium
-	local depth = S.rows * S.rowDepth
-	local outX = S.pitchLength / 2 + S.standGap + depth + 26
-	local outZ = S.pitchWidth / 2 + S.standGap + depth + 26
-	return math.abs(position.X) <= outX and math.abs(position.Z) <= outZ
+	return StadiumPlan.insideGround(position)
 end
 
 local function rootOf(player: Player): BasePart?
@@ -130,12 +127,9 @@ local function rootOf(player: Player): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
--- No topo da sua claque: nos degraus atras da baliza que ela ataca.
+-- Na curva da sua claque (StadiumPlan).
 local function inOwnStand(position: Vector3, teamId: string): boolean
-	local S = Config.Stadium
-	local inner = S.pitchLength / 2 + S.standGap
-	local across = position.X * Config.Teams[teamId].side
-	return across >= inner - 3 and across <= inner + S.rows * S.rowDepth + 3 and math.abs(position.Z) <= S.pitchWidth / 2 + 4
+	return StadiumPlan.inClaque(teamId, position) ~= nil
 end
 
 --[[

@@ -23,7 +23,6 @@ local Budget = require(script.Parent:WaitForChild("Budget"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local TifoDesigns = require(Shared:WaitForChild("TifoDesigns"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
-local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Crowd = require(script.Parent:WaitForChild("Crowd"))
 
 local Tifo = {}
@@ -31,7 +30,7 @@ local Tifo = {}
 local T = Config.Tifo
 local S = Config.Stadium
 
-local INNER_X = S.pitchLength / 2 + S.standGap -- frente dos topos, onde estao as claques
+local Plan = require(Shared:WaitForChild("StadiumPlan"))
 local RAKE = math.sqrt(S.rowHeight ^ 2 + S.rowDepth ^ 2) -- degrau medido ao longo da inclinacao
 
 type Cell = { col: number, row: number } -- fila 1 e a de cima, vista do relvado
@@ -75,33 +74,37 @@ local function gridFor(design: any, teamId: string): { { Color3 } }
 end
 
 --------------------------------------------------------------------------------
--- A grelha em cima da bancada
+-- A grelha em cima da curva da claque
 --------------------------------------------------------------------------------
 
-local function columnWidth(): number
-	return Stadium.claqueHalfWidth() * 2 / T.columns
+--[[
+	A grelha vai de ponta a ponta da curva da claque (StadiumPlan), nas filas
+	do meio. Em t (0 a 1 ao longo da curva), a coluna 1 e a da esquerda de
+	quem olha do relvado — que na curva e a ponta t = 1 — e a fila 1 a de cima.
+]]
+local T_FROM, T_TO = 0.07, 0.93
+
+local function tOfColumn(col: number): number
+	return T_TO - (col - 0.5) / T.columns * (T_TO - T_FROM)
+end
+
+-- Largura de uma cartolina nesta fila da bancada (a curva abre para tras).
+local function cardWidth(standRow: number): number
+	return (T_TO - T_FROM) / T.columns * (math.pi / 2) * Plan.rowRadius(standRow)
 end
 
 --[[
-	Onde fica cada cartolina. A coluna 1 e a da esquerda de quem olha do
-	relvado, e a fila 1 a de cima. As cartolinas deitam-se na inclinacao da
-	bancada: e assim que encostam umas as outras e fazem um plano so, que e o
-	que as torna um desenho e nao um monte de quadrados.
+	Onde fica cada cartolina: deitada na inclinacao da bancada, a altura das
+	maos levantadas. E assim que encostam umas as outras e fazem um plano so,
+	que e o que as torna um desenho e nao um monte de quadrados.
 ]]
 local function cellCFrame(teamId: string, cell: Cell): CFrame
-	local side = Config.Teams[teamId].side
-	local half = Stadium.claqueHalfWidth()
-
-	-- Quem olha do relvado para o topo nascente tem a esquerda para -Z; para o
-	-- poente, para +Z.
-	local z = -side * (half - (cell.col - 0.5) * columnWidth())
-
+	local cx, cz = Plan.claqueCorner(teamId)
 	local standRow = T.firstRow + T.rows - cell.row
-	local y = standRow * S.rowHeight + T.liftHeight
-	local x = (INNER_X + (standRow - 0.5) * S.rowDepth) * side
-
-	local centre = Vector3.new(x, y, z)
-	local up = Vector3.new(S.rowDepth * side, S.rowHeight, 0).Unit
+	local t = tOfColumn(cell.col)
+	local centre = Plan.curvePoint(cx, cz, t, Plan.rowRadius(standRow), standRow * S.rowHeight + T.liftHeight)
+	local out = Plan.dir(cx, cz, t)
+	local up = (out * S.rowDepth + Vector3.new(0, S.rowHeight, 0)).Unit
 	return CFrame.lookAt(centre, centre + up)
 end
 
@@ -114,7 +117,7 @@ local function makeCard(a: Active, cell: Cell)
 	Budget.take("Tifo")
 	local card = Instance.new("Part")
 	card.Name = "Card"
-	card.Size = Vector3.new(columnWidth() - 0.12, 0.15, RAKE - 0.12)
+	card.Size = Vector3.new(cardWidth(T.firstRow + T.rows - cell.row) - 0.1, 0.15, RAKE - 0.12)
 	card.CFrame = cellCFrame(a.teamId, cell)
 	card.Color = a.grid[cell.row][cell.col]
 	card.Material = Enum.Material.SmoothPlastic
@@ -127,25 +130,13 @@ local function makeCard(a: Active, cell: Cell)
 	card.Parent = folder
 end
 
--- Em que lugar da grelha esta um jogador, se estiver no bloco da sua claque.
+-- Em que lugar da grelha esta um jogador, se estiver na curva da sua claque.
 local function cellUnder(teamId: string, position: Vector3): Cell?
-	local side = Config.Teams[teamId].side
-	if position.X * side <= 0 then
+	local standRow, t = Plan.inClaque(teamId, position)
+	if not standRow or not t then
 		return nil
 	end
-
-	-- O bloco e as duas escadas que lhe servem de entrada.
-	local half = Stadium.claqueHalfWidth()
-	if math.abs(position.Z) > half + S.gangwayWidth then
-		return nil
-	end
-
-	local standRow = math.ceil((math.abs(position.X) - INNER_X) / S.rowDepth)
-	if standRow < 1 or standRow > S.rows then
-		return nil
-	end
-
-	local col = math.clamp(math.floor((half + side * position.Z) / columnWidth()) + 1, 1, T.columns)
+	local col = math.clamp(math.floor((T_TO - t) / (T_TO - T_FROM) * T.columns) + 1, 1, T.columns)
 	local row = math.clamp(T.firstRow + T.rows - standRow, 1, T.rows)
 	return { col = col, row = row }
 end
@@ -251,47 +242,56 @@ local function raise(a: Active)
 	]]
 	local message = a.message
 	if message then
-		local first = cellCFrame(a.teamId, { col = 1, row = 1 })
-		local last = cellCFrame(a.teamId, { col = T.columns, row = T.rows })
-		local banner = Instance.new("Part")
-		banner.Name = "Frase"
 		--[[
-			A face da frente do painel olha para o relvado, com o "cima" das letras
-			pela bancada acima: le-se direito de la. (Na face de cima as letras
-			saiam deitadas de lado.)
+			Na curva nao ha um plano so onde escrever: a frase parte-se em tiras,
+			uma por coluna de cartolinas, cada uma virada para o relvado com o
+			"cima" das letras pela bancada acima. Cada tira mostra so o seu pedaco
+			da frase inteira, e juntas leem-se de la de baixo como um painel.
 		]]
-		local width = columnWidth() * T.columns
+		local text = string.gsub(message, "%%TEAM%%", string.upper(Config.Teams[a.teamId].name))
 		local height = RAKE * T.rows
-		local normal = first.UpVector -- para fora da bancada, para o campo
-		local upslope = first.LookVector -- pela bancada acima
-		local viewerRight = upslope:Cross(normal)
-		local centre = (first.Position + last.Position) / 2 + normal * 0.2
-		banner.Size = Vector3.new(width, height, 0.1)
-		banner.CFrame = CFrame.fromMatrix(centre, -viewerRight, upslope, -normal)
-		banner.Transparency = 1
-		banner.Anchored = true
-		banner.CanCollide = false
-		banner.CanQuery = false
-		banner.CastShadow = false
-		banner.Parent = folder
-		local gui = Instance.new("SurfaceGui")
-		gui.Face = Enum.NormalId.Front
-		gui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
-		gui.CanvasSize = Vector2.new(1400, math.floor(1400 * height / width))
-		gui.LightInfluence = 0
-		gui.Parent = banner
-		local text = Instance.new("TextLabel")
-		text.Size = UDim2.fromScale(0.94, 0.9)
-		text.Position = UDim2.fromScale(0.03, 0.05)
-		text.BackgroundTransparency = 1
-		text.Font = Enum.Font.GothamBlack
-		text.TextScaled = true
-		text.TextWrapped = true
-		text.TextColor3 = Color3.fromRGB(245, 245, 240)
-		text.TextStrokeTransparency = 0.2
-		text.TextStrokeColor3 = Color3.fromRGB(20, 20, 24)
-		text.Text = string.gsub(message, "%%TEAM%%", string.upper(Config.Teams[a.teamId].name))
-		text.Parent = gui
+		local PW = 120 -- pixeis de cada tira na largura
+		for col = 1, T.columns do
+			local top = cellCFrame(a.teamId, { col = col, row = 1 })
+			local bottom = cellCFrame(a.teamId, { col = col, row = T.rows })
+			local midRow = T.firstRow + T.rows // 2
+			local width = cardWidth(midRow)
+			local normal = top.UpVector -- para fora da bancada, para o campo
+			local upslope = top.LookVector -- pela bancada acima
+			local viewerRight = upslope:Cross(normal)
+			local strip = Instance.new("Part")
+			strip.Name = "Frase"
+			strip.Size = Vector3.new(width, height, 0.1)
+			strip.CFrame = CFrame.fromMatrix((top.Position + bottom.Position) / 2 + normal * 0.2, -viewerRight, upslope, -normal)
+			strip.Transparency = 1
+			strip.Anchored = true
+			strip.CanCollide = false
+			strip.CanQuery = false
+			strip.CastShadow = false
+			strip.Parent = folder
+
+			local PH = math.floor(PW * height / width)
+			local gui = Instance.new("SurfaceGui")
+			gui.Face = Enum.NormalId.Front
+			gui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+			gui.CanvasSize = Vector2.new(PW, PH)
+			gui.LightInfluence = 0
+			gui.ClipsDescendants = true
+			gui.Parent = strip
+			local total = PW * T.columns
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.fromOffset(total * 0.94, PH * 0.9)
+			label.Position = UDim2.fromOffset(-(col - 1) * PW + total * 0.03, PH * 0.05)
+			label.BackgroundTransparency = 1
+			label.Font = Enum.Font.GothamBlack
+			label.TextScaled = true
+			label.TextWrapped = true
+			label.TextColor3 = Color3.fromRGB(245, 245, 240)
+			label.TextStrokeTransparency = 0.2
+			label.TextStrokeColor3 = Color3.fromRGB(20, 20, 24)
+			label.Text = text
+			label.Parent = gui
+		end
 	end
 
 	Crowd.setTifo(a.teamId, true)
