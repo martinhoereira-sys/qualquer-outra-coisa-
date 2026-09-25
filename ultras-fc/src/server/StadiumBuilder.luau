@@ -252,23 +252,84 @@ local function buildPitch(parent: Instance)
 		end
 
 		--[[
-			A baliza, um pouco maior do que era (Config.Football). Postes e trave
-			na linha, rede fina por tras. Oca: e a bola a entrar nela que marca.
+			A baliza, como as de verdade: postes e trave redondos e brancos, a
+			armacao de tras (dois postes, a barra de cima e as do chao) e a rede em
+			quadricula no fundo, nos lados e no tecto. A rede sao paineis finos
+			(e neles que a bola bate) com a quadricula desenhada por cima; oca
+			por dentro, porque e a bola a entrar que marca.
 		]]
 		local goalX = (S.pitchLength / 2 + 0.35) * sign
 		local backX = (S.pitchLength / 2 + G.goalDepth) * sign
 		local midX = (goalX + backX) / 2
-		local metal: Opts = { material = Enum.Material.Metal }
-		local net: Opts = { material = Enum.Material.Fabric, transparency = 0.6 }
-		local NET = Color3.fromRGB(222, 226, 232)
 		local w = G.goalHalfWidth
-		part("PosteE", Vector3.new(0.7, G.goalHeight, 0.7), CFrame.new(goalX, G.goalHeight / 2, -w - 0.35), LINE, folder, metal)
-		part("PosteD", Vector3.new(0.7, G.goalHeight, 0.7), CFrame.new(goalX, G.goalHeight / 2, w + 0.35), LINE, folder, metal)
-		part("Trave", Vector3.new(0.7, 0.7, w * 2 + 1.4), CFrame.new(goalX, G.goalHeight + 0.35, 0), LINE, folder, metal)
-		part("RedeFundo", Vector3.new(0.2, G.goalHeight, w * 2 + 1.4), CFrame.new(backX, G.goalHeight / 2, 0), NET, folder, net)
-		part("RedeTopo", Vector3.new(G.goalDepth, 0.2, w * 2 + 1.4), CFrame.new(midX, G.goalHeight + 0.6, 0), NET, folder, net)
+		local h = G.goalHeight
+		local d = G.goalDepth
+		local goal = folderIn(folder, "Baliza" .. (if sign > 0 then "Pos" else "Neg"))
+		local metal: Opts = { material = Enum.Material.SmoothPlastic }
+		local function tube(name: string, from: Vector3, to: Vector3, thick: number)
+			span(name, from, to, thick, thick, LINE, goal, metal)
+		end
+		-- Postes e trave, grossos.
+		part("PosteE", Vector3.new(0.7, h, 0.7), CFrame.new(goalX, h / 2, -w - 0.35), LINE, goal, metal)
+		part("PosteD", Vector3.new(0.7, h, 0.7), CFrame.new(goalX, h / 2, w + 0.35), LINE, goal, metal)
+		part("Trave", Vector3.new(0.7, 0.7, w * 2 + 1.4), CFrame.new(goalX, h + 0.35, 0), LINE, goal, metal)
+		-- A armacao de tras, fina.
+		for _, s in { -1, 1 } do
+			local z = s * (w + 0.35)
+			tube("PosteTras", Vector3.new(backX, 0, z), Vector3.new(backX, h + 0.35, z), 0.35)
+			tube("BarraLado", Vector3.new(goalX, h + 0.35, z), Vector3.new(backX, h + 0.35, z), 0.3)
+			tube("BarraChaoLado", Vector3.new(goalX, 0.15, z), Vector3.new(backX, 0.15, z), 0.3)
+		end
+		tube("BarraTras", Vector3.new(backX, h + 0.35, -w - 0.35), Vector3.new(backX, h + 0.35, w + 0.35), 0.35)
+		tube("BarraChaoTras", Vector3.new(backX, 0.15, -w - 0.35), Vector3.new(backX, 0.15, w + 0.35), 0.3)
+
+		--[[
+			Um painel de rede: invisivel (a bola bate nele) e, desenhada nas duas
+			faces, a quadricula de fios brancos com `cell` studs de lado.
+		]]
+		local CELL = 0.9
+		local function net(name: string, size: Vector3, cf: CFrame, faces: { Enum.NormalId })
+			local panel = part(name, size, cf, LINE, goal, { material = Enum.Material.SmoothPlastic, transparency = 1, shadow = false })
+			for _, face in faces do
+				local across, up
+				if face == Enum.NormalId.Front or face == Enum.NormalId.Back then
+					across, up = size.X, size.Y
+				elseif face == Enum.NormalId.Left or face == Enum.NormalId.Right then
+					across, up = size.Z, size.Y
+				else
+					across, up = size.X, size.Z
+				end
+				local gui = Instance.new("SurfaceGui")
+				gui.Face = face
+				gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+				gui.PixelsPerStud = 20
+				gui.LightInfluence = 0.6
+				gui.Parent = panel
+				local wire = Color3.fromRGB(236, 240, 244)
+				for i = 0, math.floor(across / CELL) do
+					local line = Instance.new("Frame")
+					line.BorderSizePixel = 0
+					line.BackgroundColor3 = wire
+					line.Size = UDim2.new(0, 2, 1, 0)
+					line.Position = UDim2.fromOffset(math.floor(i * CELL * 20), 0)
+					line.Parent = gui
+				end
+				for i = 0, math.floor(up / CELL) do
+					local line = Instance.new("Frame")
+					line.BorderSizePixel = 0
+					line.BackgroundColor3 = wire
+					line.Size = UDim2.new(1, 0, 0, 2)
+					line.Position = UDim2.fromOffset(0, math.floor(i * CELL * 20))
+					line.Parent = gui
+				end
+			end
+			return panel
+		end
+		local width = w * 2 + 0.7
+		net("RedeFundo", Vector3.new(0.15, h, width), CFrame.new(backX + 0.1 * sign, h / 2, 0), { Enum.NormalId.Left, Enum.NormalId.Right })
+		net("RedeTopo", Vector3.new(d - 0.35, 0.15, width), CFrame.new(midX, h + 0.35, 0), { Enum.NormalId.Top, Enum.NormalId.Bottom })
 		for _, edge in { -1, 1 } do
-			part("RedeLado", Vector3.new(G.goalDepth, G.goalHeight, 0.2), CFrame.new(midX, G.goalHeight / 2, (w + 0.7) * edge), NET, folder, net)
+			net("RedeLado", Vector3.new(d - 0.35, h, 0.15), CFrame.new(midX, h / 2, (w + 0.45) * edge), { Enum.NormalId.Front, Enum.NormalId.Back })
 		end
 	end
 
