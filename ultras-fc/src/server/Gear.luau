@@ -35,6 +35,13 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
+local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+
+-- A vela romana dispara a clique: quantos tiros tem cada uma, e o intervalo minimo.
+local CANDLE_SHOTS = 10
+local CANDLE_GAP = 0.35
+local candleShots: { [Tool]: number } = {}
+local candleNext: { [Tool]: number } = {}
 
 local Gear = {}
 
@@ -712,7 +719,22 @@ local function activate(player: Player, tool: Tool, kind: string)
 		return
 	end
 
-	if lit[tool] then
+	--[[
+		A vela acesa dispara uma bola de fogo por clique, pela ponta. Quem a
+		desenha e cada ecra (Candle.client), a partir da ponta como a ve; aqui
+		conta-se so os tiros. Acabados, a vela apaga-se.
+	]]
+	local burning = lit[tool]
+	if burning then
+		if kind == "vela" and os.clock() >= (candleNext[tool] or 0) then
+			candleNext[tool] = os.clock() + CANDLE_GAP
+			candleShots[tool] = (candleShots[tool] or CANDLE_SHOTS) - 1
+			Remotes.Candle:FireAllClients(player)
+			if candleShots[tool] <= 0 then
+				candleShots[tool] = nil
+				extinguish(burning)
+			end
+		end
 		return
 	end
 	local waits = nextAllowed[player]
