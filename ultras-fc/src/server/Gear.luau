@@ -32,7 +32,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
@@ -320,10 +319,23 @@ local function flareEffects(at: Attachment, colour: Color3)
 end
 
 --[[
-	A vela romana, na mao: faiscas e fumo a sair da boca. As bolas de fogo que
-	dispara sao pecas a serio (fireball, mais abaixo), para subirem alto.
+	A vela romana, na mao: arde como uma tocha pequena, com faiscas e fumo a
+	sair da boca. As bolinhas que dispara desenha-as cada ecra (Candle.client),
+	a partir da ponta tal como ele a ve levantada: o servidor nao ve o braco no
+	ar, e dali sairiam do chao.
 ]]
 local function candleEffects(at: Attachment, colour: Color3)
+	local flame = emitter("Chama", BASE_FIRE, at)
+	flame.Color = ColorSequence.new(HOT, colour)
+	flame.LightEmission = 1
+	flame.LightInfluence = 0
+	flame.Size = curve({ { 0, 0.7 }, { 1, 0.1 } })
+	flame.Transparency = curve({ { 0, 0 }, { 1, 1 } })
+	flame.Lifetime = NumberRange.new(0.15, 0.3)
+	flame.Rate = 40
+	flame.Speed = NumberRange.new(0.5, 1.5)
+	flame.Acceleration = Vector3.new(0, 10, 0)
+
 	local trail = emitter("Rasto", SPARK, at)
 	trail.Color = ColorSequence.new(HOT, colour)
 	trail.LightEmission = 1
@@ -402,62 +414,6 @@ local function smokeEffects(at: Attachment, colour: Color3)
 	jet.Speed = NumberRange.new(7, 10)
 	jet.SpreadAngle = Vector2.new(10, 10)
 end
-
---[[
-	Uma bola de fogo da vela romana: sobe a direito, alto, com rasto de fogo e
-	faiscas, e apaga-se no ar. E uma peca com fisica a serio, mas com a
-	gravidade quase toda anulada (VectorForce), senao nao passava dos 12 studs.
-]]
-local function fireball(from: Vector3, colour: Color3, parent: Instance)
-	local ball = Instance.new("Part")
-	ball.Name = "BolaDeFogo"
-	ball.Shape = Enum.PartType.Ball
-	ball.Size = Vector3.new(1, 1, 1)
-	ball.Material = Enum.Material.Neon
-	ball.Color = colour:Lerp(HOT, 0.25)
-	ball.CanCollide = false
-	ball.CanQuery = false
-	ball.CanTouch = false
-	ball.CastShadow = false
-	ball.CFrame = CFrame.new(from)
-
-	local at = Instance.new("Attachment")
-	at.Parent = ball
-	local lift = Instance.new("VectorForce")
-	lift.Attachment0 = at
-	lift.RelativeTo = Enum.ActuatorRelativeTo.World
-	lift.ApplyAtCenterOfMass = true
-	lift.Parent = ball
-
-	local trail = emitter("Rasto", FIRE, at)
-	trail.Color = ColorSequence.new(HOT, colour)
-	trail.LightEmission = 1
-	trail.LightInfluence = 0
-	trail.Size = curve({ { 0, 1.4 }, { 1, 0 } })
-	trail.Transparency = curve({ { 0, 0 }, { 1, 1 } })
-	trail.Lifetime = NumberRange.new(0.25, 0.45)
-	trail.Rate = 90
-	trail.Speed = NumberRange.new(0, 1)
-
-	local sparks = emitter("Faiscas", SPARK, at)
-	sparks.Color = ColorSequence.new(HOT)
-	sparks.LightEmission = 1
-	sparks.Size = curve({ { 0, 0.12 }, { 1, 0 } })
-	sparks.Lifetime = NumberRange.new(0.3, 0.6)
-	sparks.Rate = 40
-	sparks.Speed = NumberRange.new(2, 5)
-	sparks.SpreadAngle = Vector2.new(180, 180)
-	sparks.Acceleration = Vector3.new(0, -20, 0)
-
-	ball.Parent = parent
-	lift.Force = Vector3.new(0, ball:GetMass() * workspace.Gravity * 0.85, 0)
-	ball:SetNetworkOwner(nil)
-	local wobble = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5) * 0.15
-	ball.AssemblyLinearVelocity = (Vector3.yAxis + wobble).Unit * 72
-	Debris:AddItem(ball, 2.4)
-end
-
-local shotAt: { [Tool]: number } = {}
 
 --------------------------------------------------------------------------------
 -- O que se tem na mao
@@ -935,14 +891,6 @@ function Gear.start()
 				lit[tool] = nil
 			elseif now >= entry.until_ then
 				extinguish(entry)
-				shotAt[tool] = nil
-			elseif entry.kind == "vela" and now >= (shotAt[tool] or 0) then
-				-- Uma bola de fogo de cada vez, pela boca da vela.
-				shotAt[tool] = now + 0.8
-				local h = held[tool]
-				if h then
-					fireball(h.tip.Position + Vector3.new(0, 0.6, 0), Config.Teams[entry.teamId].color, workspace)
-				end
 			end
 		end
 		for tool in raised do
