@@ -547,7 +547,7 @@ Config.Gear = {
 		gainPerSecond = 1.5,
 	},
 	vela = {
-		perMatch = 0, -- a sede nao da: so os dealers
+		perMatch = 1, -- a sede da uma; mais, so aos dealers
 		duration = 12, -- dispara bolas de luz para o ar
 		cooldown = 3,
 		gainPerSecond = 3,

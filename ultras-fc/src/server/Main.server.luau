@@ -312,6 +312,23 @@ local function sendGearCount(player: Player)
 	Remotes.GearCount:FireClient(player, Gear.counts(player))
 end
 
+-- Tentou acender sem stock: diz-se onde arranjar mais.
+Gear.onEmpty(function(player, kind)
+	local name = kind
+	for _, item in Config.Shop do
+		if item.kind == kind then
+			name = item.label
+		end
+	end
+	Remotes.Npc:FireClient(player, {
+		title = "Acabou: " .. name,
+		lines = {
+			"A claque da uma racao por jogo, e ja a gastaste.",
+			"Compra mais a um dealer na rua, com as moedas do jogo.",
+		},
+	})
+end)
+
 Gear.onCountChanged(function(player, counts)
 	Remotes.GearCount:FireClient(player, counts)
 end)

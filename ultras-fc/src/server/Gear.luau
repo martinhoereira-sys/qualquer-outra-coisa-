@@ -60,11 +60,13 @@ local LABEL: { [string]: string } = {
 	feitas para claques): so as imagens, nunca os scripts desses modelos. A
 	chama de bengala, o fogo, o brilho, as faiscas e um fumo realista.
 ]]
-local FLARE = "rbxassetid://3959152627"
 local FIRE = "rbxassetid://4753372559"
 local GLOW = "rbxassetid://6673021984"
 local SPARK = "rbxassetid://10822615828"
 local SMOKE = "rbxassetid://9013694245"
+-- O fogo e o fumo do proprio Roblox: a chama da tocha de que se gostou.
+local BASE_FIRE = "rbxasset://textures/particles/fire_main.dds"
+local BASE_SMOKE = "rbxasset://textures/particles/smoke_main.dds"
 
 local HOT = Color3.fromRGB(255, 244, 214) -- o branco do centro de uma chama
 local WHITE = Color3.fromRGB(240, 240, 240)
@@ -110,6 +112,13 @@ local raised: { [Tool]: { player: Player, teamId: string } } = {}
 
 local onDrumHit: ((Player) -> ())? = nil
 local onCountChanged: ((Player, { [string]: number }) -> ())? = nil
+
+local onEmpty: ((Player, string) -> ())? = nil
+
+-- Quem tentou acender algo que ja nao tem (para o avisar).
+function Gear.onEmpty(fn: (Player, string) -> ())
+	onEmpty = fn
+end
 
 function Gear.onDrumHit(fn: (Player) -> ())
 	onDrumHit = fn
@@ -239,66 +248,69 @@ end
 	qual for o angulo da mao, o fogo vai sempre para cima.
 ]]
 local function flareEffects(at: Attachment, colour: Color3)
-	-- A chama da bengala: viva, a tremer, branca no meio e da cor da equipa.
-	local flame = emitter("Chama", FLARE, at)
+	-- A chama: a de sempre (fogo do proprio Roblox), da cor da equipa com o
+	-- centro quase branco, a tremer e a subir.
+	local flame = emitter("Chama", BASE_FIRE, at)
 	flame.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, HOT),
-		ColorSequenceKeypoint.new(0.35, colour:Lerp(HOT, 0.4)),
+		ColorSequenceKeypoint.new(0.3, colour:Lerp(HOT, 0.45)),
 		ColorSequenceKeypoint.new(1, colour),
 	})
-	flame.LightEmission = 0.85
+	flame.LightEmission = 1
 	flame.LightInfluence = 0
-	flame.Size = curve({ { 0, 1.3 }, { 0.5, 0.9 }, { 1, 0.2 } })
+	flame.Size = curve({ { 0, 1.1 }, { 0.5, 0.75 }, { 1, 0.15 } })
 	flame.Transparency = curve({ { 0, 0 }, { 0.7, 0.3 }, { 1, 1 } })
-	flame.Lifetime = NumberRange.new(0.3, 0.55)
-	flame.Rate = 70
+	flame.Lifetime = NumberRange.new(0.22, 0.42)
+	flame.Rate = 55
 	flame.Speed = NumberRange.new(0.5, 2)
-	flame.SpreadAngle = Vector2.new(15, 15)
-	flame.Acceleration = Vector3.new(0, 10, 0)
-	flame.RotSpeed = NumberRange.new(-120, 120)
+	flame.SpreadAngle = Vector2.new(18, 18)
+	flame.Acceleration = Vector3.new(0, 12, 0)
+	flame.RotSpeed = NumberRange.new(-140, 140)
 
-	-- O nucleo, quase branco, colado a ponta.
+	-- O nucleo branco, colado a ponta: uma tocha a serio queima a branco.
 	local core = emitter("Nucleo", FIRE, at)
-	core.Color = ColorSequence.new(HOT)
+	core.Color = ColorSequence.new(Color3.new(1, 1, 1), HOT)
 	core.LightEmission = 1
 	core.LightInfluence = 0
-	core.Size = curve({ { 0, 0.6 }, { 1, 0.2 } })
-	core.Transparency = curve({ { 0, 0 }, { 1, 1 } })
-	core.Lifetime = NumberRange.new(0.08, 0.14)
-	core.Rate = 60
-	core.Speed = NumberRange.new(0, 0.5)
+	core.Size = curve({ { 0, 0.55 }, { 1, 0.25 } })
+	core.Transparency = curve({ { 0, 0 }, { 1, 0.9 } })
+	core.Lifetime = NumberRange.new(0.06, 0.1)
+	core.Rate = 70
+	core.Speed = NumberRange.new(0, 0.3)
 
-	-- O brilho a volta, que se ve do outro lado do estadio.
+	-- O brilho a volta, a pulsar: e o que se ve do outro lado do estadio.
 	local glow = emitter("Halo", GLOW, at)
-	glow.Color = ColorSequence.new(colour:Lerp(HOT, 0.25))
+	glow.Color = ColorSequence.new(colour:Lerp(HOT, 0.3))
 	glow.LightEmission = 1
 	glow.LightInfluence = 0
-	glow.Size = curve({ { 0, 3.5 }, { 1, 4.5 } })
-	glow.Transparency = curve({ { 0, 0.72 }, { 1, 1 } })
-	glow.Lifetime = NumberRange.new(0.15, 0.25)
-	glow.Rate = 16
+	glow.Size = curve({ { 0, 2.6 }, { 1, 3.4 } })
+	glow.Transparency = curve({ { 0, 0.62 }, { 1, 1 } })
+	glow.Lifetime = NumberRange.new(0.1, 0.2)
+	glow.Rate = 22
 	glow.Speed = NumberRange.new(0, 0)
 
+	-- Faiscas e escorias a pingar da ponta.
 	local sparks = emitter("Faiscas", SPARK, at)
 	sparks.Color = ColorSequence.new(HOT, colour:Lerp(HOT, 0.5))
 	sparks.LightEmission = 1
 	sparks.LightInfluence = 0
-	sparks.Size = curve({ { 0, 0.08 }, { 1, 0 } })
-	sparks.Lifetime = NumberRange.new(0.4, 0.9)
-	sparks.Rate = 30
-	sparks.Speed = NumberRange.new(6, 12)
-	sparks.SpreadAngle = Vector2.new(70, 70)
-	sparks.Acceleration = Vector3.new(0, -24, 0)
-	sparks.Drag = 1
+	sparks.Size = curve({ { 0, 0.1 }, { 1, 0 } })
+	sparks.Lifetime = NumberRange.new(0.5, 1)
+	sparks.Rate = 26
+	sparks.Speed = NumberRange.new(3, 8)
+	sparks.SpreadAngle = Vector2.new(80, 80)
+	sparks.Acceleration = Vector3.new(0, -30, 0)
+	sparks.Drag = 0.8
 
-	local smoke = emitter("Fumo", SMOKE, at)
-	smoke.Color = ColorSequence.new(colour:Lerp(Color3.fromRGB(215, 210, 205), 0.55), Color3.fromRGB(170, 166, 162))
-	smoke.LightEmission = 0.1
+	-- Fumo: muito, que e o que uma tocha deita. Claro, com um toque da cor.
+	local smoke = emitter("Fumo", BASE_SMOKE, at)
+	smoke.Color = ColorSequence.new(colour:Lerp(Color3.fromRGB(225, 222, 218), 0.6), Color3.fromRGB(180, 178, 176))
+	smoke.LightEmission = 0.15
 	smoke.LightInfluence = 0.6
-	smoke.Size = curve({ { 0, 1 }, { 0.3, 4 }, { 1, 8 } })
-	smoke.Transparency = curve({ { 0, 0.5 }, { 0.5, 0.65 }, { 1, 1 } })
-	smoke.Lifetime = NumberRange.new(4, 6)
-	smoke.Rate = 8
+	smoke.Size = curve({ { 0, 1 }, { 0.3, 4.5 }, { 1, 9 } })
+	smoke.Transparency = curve({ { 0, 0.4 }, { 0.5, 0.6 }, { 1, 1 } })
+	smoke.Lifetime = NumberRange.new(4, 6.5)
+	smoke.Rate = 12
 	smoke.Speed = NumberRange.new(2, 4)
 	smoke.SpreadAngle = Vector2.new(20, 20)
 	smoke.Acceleration = Vector3.new(0, 3, 0)
@@ -707,6 +719,10 @@ local function activate(player: Player, tool: Tool, kind: string)
 		return
 	end
 	if Gear.remaining(player, kind) == 0 then
+		-- Sem stock: diz-se porque, em vez de nao acontecer nada.
+		if onEmpty then
+			onEmpty(player, kind)
+		end
 		return
 	end
 
