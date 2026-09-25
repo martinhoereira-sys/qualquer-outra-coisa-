@@ -46,6 +46,7 @@ type Active = {
 	holders: { [Player]: Cell },
 	lifted: { [Player]: boolean },
 	folder: Folder?,
+	message: string?, -- uma frase por cima do mosaico, em letras gigantes
 }
 
 local active: { [string]: Active } = {}
@@ -243,6 +244,44 @@ local function raise(a: Active)
 		end
 	end)
 
+	--[[
+		Uma frase ("AQUI MANDAMOS NOS"...): as cartolinas sobem na cor da
+		equipa, e por cima delas as letras gigantes, a ler-se do relvado. So
+		frases da lista (Config.Tifo.designs), nunca escritas por quem joga.
+	]]
+	local message = a.message
+	if message then
+		local first = cellCFrame(a.teamId, { col = 1, row = 1 })
+		local last = cellCFrame(a.teamId, { col = T.columns, row = T.rows })
+		local banner = Instance.new("Part")
+		banner.Name = "Frase"
+		banner.Size = Vector3.new(columnWidth() * T.columns, 0.1, RAKE * T.rows)
+		banner.CFrame = CFrame.new((first.Position + last.Position) / 2) * first.Rotation * CFrame.new(0, 0.2, 0)
+		banner.Transparency = 1
+		banner.Anchored = true
+		banner.CanCollide = false
+		banner.CanQuery = false
+		banner.CastShadow = false
+		banner.Parent = folder
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Top
+		gui.CanvasSize = Vector2.new(1400, 800)
+		gui.LightInfluence = 0
+		gui.Parent = banner
+		local text = Instance.new("TextLabel")
+		text.Size = UDim2.fromScale(0.94, 0.9)
+		text.Position = UDim2.fromScale(0.03, 0.05)
+		text.BackgroundTransparency = 1
+		text.Font = Enum.Font.GothamBlack
+		text.TextScaled = true
+		text.TextWrapped = true
+		text.TextColor3 = Color3.fromRGB(245, 245, 240)
+		text.TextStrokeTransparency = 0.2
+		text.TextStrokeColor3 = Color3.fromRGB(20, 20, 24)
+		text.Text = string.gsub(message, "%%TEAM%%", string.upper(Config.Teams[a.teamId].name))
+		text.Parent = gui
+	end
+
 	Crowd.setTifo(a.teamId, true)
 end
 
@@ -288,6 +327,7 @@ function Tifo.launch(player: Player, designId: string): boolean
 		holders = {},
 		lifted = {},
 		folder = nil,
+		message = design.message,
 	}
 
 	local taken: { [string]: boolean } = {}

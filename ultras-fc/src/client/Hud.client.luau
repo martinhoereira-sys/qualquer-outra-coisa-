@@ -1416,10 +1416,12 @@ tifoButtonNote.Font = Enum.Font.Gotham
 tifoButtonNote.Size = UDim2.new(1, 0, 0, 16)
 tifoButtonNote.Position = UDim2.new(0, 0, 0, 31)
 
--- O seletor: um cartao por desenho, com o desenho em ponto pequeno.
+-- O seletor: um cartao por desenho, com o desenho em ponto pequeno, cinco por linha.
+local PICK_PER_ROW = 5
+local pickRows = math.ceil(#TIFO.designs / PICK_PER_ROW)
 local picker = Instance.new("Frame")
 picker.AnchorPoint = Vector2.new(1, 1)
-picker.Size = UDim2.fromOffset(#TIFO.designs * 150 + 10, 150)
+picker.Size = UDim2.fromOffset(math.min(#TIFO.designs, PICK_PER_ROW) * 150 + 10, pickRows * 140 + 10)
 picker.Position = UDim2.new(1, -20, 1, -84)
 picker.BackgroundColor3 = INK
 picker.BackgroundTransparency = 0.1
@@ -1436,7 +1438,7 @@ local previews: { { cells: { Frame }, design: any } } = {}
 for i, design in TIFO.designs do
 	local card = Instance.new("TextButton")
 	card.Size = UDim2.fromOffset(140, 130)
-	card.Position = UDim2.fromOffset(10 + (i - 1) * 150, 10)
+	card.Position = UDim2.fromOffset(10 + ((i - 1) % PICK_PER_ROW) * 150, 10 + ((i - 1) // PICK_PER_ROW) * 140)
 	card.BackgroundColor3 = Color3.fromRGB(30, 35, 43)
 	card.BorderSizePixel = 0
 	card.Text = ""
@@ -1466,6 +1468,16 @@ for i, design in TIFO.designs do
 		end
 	end
 	table.insert(previews, { cells = cells, design = design })
+
+	-- Nas frases, a frase por cima da pre-visualizacao.
+	if design.message then
+		local words = label(grid, if design.message == "%TEAM%" then "NOME DA CLAQUE" else design.message, 12, TEXT)
+		words.Font = Enum.Font.GothamBlack
+		words.Size = UDim2.fromScale(1, 1)
+		words.TextWrapped = true
+		words.TextStrokeTransparency = 0.3
+		words.ZIndex = 3
+	end
 
 	local name = label(card, design.name, 15, TEXT)
 	name.Size = UDim2.new(1, 0, 0, 20)

@@ -585,7 +585,7 @@ Config.Gear = {
 	E isso que torna disparar uma decisao do lider e nao um botao a toa.
 ]]
 Config.Tifo = {
-	perMatch = 2, -- por claque, e renova-se no aquecimento
+	perMatch = 4, -- por claque, e renova-se no aquecimento
 	countdown = 3, -- segundos de aviso antes de subir
 	duration = 12, -- quanto tempo fica no ar
 	gainPerSecond = 3, -- ambiente por segundo enquanto esta no ar
@@ -609,7 +609,8 @@ Config.Tifo = {
 			B  branco
 			P  preto
 
-		Com `initials`, o desenho e gerado a partir da sigla da equipa.
+		Com `initials`, o desenho e gerado a partir da sigla da equipa. Com
+		`message`, sai uma frase por cima (%TEAM% vira o nome da claque).
 	]]
 	designs = {
 		{
@@ -643,6 +644,97 @@ Config.Tifo = {
 				"EEEBBBBBBBBEEE",
 				"EEBBBBEEBBBBEE",
 				"EBBBEEEEEEBBBE",
+			},
+		},
+		-- Frases: a cor da equipa, e a frase por cima em letras gigantes.
+		{
+			id = "frase_aqui",
+			name = "Aqui mandamos nos",
+			message = "AQUI MANDAMOS NÓS",
+			rows = {
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+			},
+		},
+		{
+			id = "frase_pesadelo",
+			name = "O vosso pesadelo chegou",
+			message = "O VOSSO PESADELO CHEGOU",
+			rows = {
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+			},
+		},
+		{
+			id = "frase_sempre",
+			name = "Sempre contigo",
+			message = "SEMPRE CONTIGO",
+			rows = {
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+			},
+		},
+		{
+			id = "frase_fim",
+			name = "Ate ao fim",
+			message = "ATÉ AO FIM",
+			rows = {
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+			},
+		},
+		{
+			id = "frase_equipa",
+			name = "Nome da claque",
+			message = "%TEAM%",
+			rows = {
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+			},
+		},
+		{
+			id = "frase_ultras",
+			name = "Ultras",
+			message = "ULTRAS",
+			rows = {
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
+				"EEEEEEEEEEEEEE",
 			},
 		},
 	},
