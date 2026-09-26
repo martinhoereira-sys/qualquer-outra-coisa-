@@ -49,10 +49,18 @@ local Gear = {}
 local KINDS = Config.Gear
 
 -- A ordem na barra: tocha, fumo, vela romana, estrobo, cachecol e (lider) tambor.
-local ORDER = { "tocha", "fumo", "vela", "estrobo", "cachecol", "tambor" }
+local ORDER = { "tocha", "fumo", "vela", "estrobo", "cachecol", "bandeirinha", "bandeira", "tambor" }
 
 -- O que se acende e se segura no ar.
 local PYRO: { [string]: boolean } = { tocha = true, fumo = true, vela = true, estrobo = true }
+
+--[[
+	As bandeiras: nao se gastam. O pano desenha-o cada ecra (Poses.client, Pano)
+	a partir do atributo "Hold"; clicar poe-na a agitar com forca ("Wave").
+	A bandeirinha e de toda a gente; a de duas hastes e grande, tem de se ter
+	(dealer ou o lider) e quem a segura fica no lugar.
+]]
+local FLAGS: { [string]: boolean } = { bandeirinha = true, bandeira = true }
 
 local LABEL: { [string]: string } = {
 	tocha = "Tocha",
@@ -60,6 +68,8 @@ local LABEL: { [string]: string } = {
 	vela = "Vela",
 	estrobo = "Estrobo",
 	cachecol = "Cachecol",
+	bandeirinha = "Bandeirinha",
+	bandeira = "Bandeira",
 	tambor = "Tambor",
 }
 
@@ -116,8 +126,11 @@ type Lit = {
 -- O que esta aceso agora, um por objecto: o tambor do lider ja nao tapa a tocha.
 local lit: { [Tool]: Lit } = {}
 
--- Cachecois esticados no ar.
-local raised: { [Tool]: { player: Player, teamId: string } } = {}
+-- Cachecois esticados no ar e bandeiras a agitar.
+local raised: { [Tool]: { player: Player, teamId: string, kind: string } } = {}
+
+-- Quem segura a bandeira grande fica no lugar: a velocidade que tinha antes.
+local rooted: { [Player]: { walk: number, jump: number } } = {}
 
 local onDrumHit: ((Player) -> ())? = nil
 local onCountChanged: ((Player, { [string]: number }) -> ())? = nil
@@ -211,6 +224,9 @@ function Gear.counts(player: Player): { [string]: number }
 	for kind in PYRO do
 		counts[kind] = if Teams.get(player) then Gear.remaining(player, kind) else 0
 	end
+	for kind in FLAGS do
+		counts[kind] = if Teams.get(player) then Gear.remaining(player, kind) else 0
+	end
 	return counts
 end
 
@@ -222,7 +238,7 @@ end
 
 -- Mais stock deste material (comprado a um dealer, por exemplo).
 function Gear.give(player: Player, kind: string, amount: number)
-	if not PYRO[kind] or Config.GearStock.unlimited then
+	if not (PYRO[kind] or FLAGS[kind]) or Config.GearStock.unlimited then
 		return
 	end
 	remaining[player] = remaining[player] or {}
@@ -240,7 +256,7 @@ function Gear.heatFor(teamId: string): number
 	end
 	for _, entry in raised do
 		if entry.teamId == teamId then
-			total += KINDS.cachecol.gainPerSecond
+			total += KINDS[entry.kind].gainPerSecond
 		end
 	end
 	return total
@@ -616,6 +632,35 @@ local function extinguish(entry: Lit)
 	end
 end
 
+--[[
+	A bandeira na mao: o "Hold" diz a todos os ecras para a desenharem. A
+	grande prende quem a segura ao sitio (e pesada, e agita-se parado).
+]]
+local function raiseFlag(player: Player, kind: string)
+	setHold(player, kind)
+	player:SetAttribute("Wave", nil)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if kind == "bandeira" and humanoid and not rooted[player] then
+		rooted[player] = { walk = humanoid.WalkSpeed, jump = humanoid.JumpHeight }
+		humanoid.WalkSpeed = 0
+		humanoid.JumpHeight = 0
+	end
+end
+
+local function lowerFlag(player: Player, kind: string)
+	if player:GetAttribute("Hold") == kind then
+		setHold(player, nil)
+	end
+	player:SetAttribute("Wave", nil)
+	local before = rooted[player]
+	rooted[player] = nil
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if before and humanoid then
+		humanoid.WalkSpeed = if before.walk > 0 then before.walk else 16
+		humanoid.JumpHeight = if before.jump > 0 then before.jump else 7.2
+	end
+end
+
 -- Larga: o que estava na mao some, e aceso apaga-se.
 local function unequip(player: Player, tool: Tool)
 	local entry = lit[tool]
@@ -626,6 +671,10 @@ local function unequip(player: Player, tool: Tool)
 		raised[tool] = nil
 		setHold(player, nil)
 		showScarf(player.Character, true)
+	end
+	local kind = tool:GetAttribute("Kind")
+	if type(kind) == "string" and FLAGS[kind] then
+		lowerFlag(player, kind)
 	end
 	local h = held[tool]
 	held[tool] = nil
@@ -650,6 +699,18 @@ local function activate(player: Player, tool: Tool, kind: string)
 		return
 	end
 
+	-- A bandeira: clicar agita-a com forca; outra vez, volta a so a segurar.
+	if FLAGS[kind] then
+		if raised[tool] then
+			raised[tool] = nil
+			player:SetAttribute("Wave", nil)
+		else
+			raised[tool] = { player = player, teamId = teamId, kind = kind }
+			player:SetAttribute("Wave", true)
+		end
+		return
+	end
+
 	-- O cachecol: do pescoco para cima da cabeca, esticado, e de volta.
 	if kind == "cachecol" then
 		if raised[tool] then
@@ -657,7 +718,7 @@ local function activate(player: Player, tool: Tool, kind: string)
 			setHold(player, nil)
 			showScarf(player.Character, true)
 		else
-			raised[tool] = { player = player, teamId = teamId }
+			raised[tool] = { player = player, teamId = teamId, kind = "cachecol" }
 			setHold(player, "cachecol")
 			showScarf(player.Character, false)
 		end
@@ -734,6 +795,10 @@ local function buildTool(player: Player, kind: string, teamId: string): Tool
 		tool.Equipped:Connect(function()
 			equip(tool, kind, teamId)
 		end)
+	elseif FLAGS[kind] then
+		tool.Equipped:Connect(function()
+			raiseFlag(player, kind)
+		end)
 	end
 	tool.Unequipped:Connect(function()
 		unequip(player, tool)
@@ -794,7 +859,10 @@ function Gear.sync(player: Player)
 	end
 
 	for _, kind in ORDER do
-		local wanted = teamId ~= nil and (kind ~= "tambor" or Gear.hasDrum(player))
+		-- A bandeira grande so aparece a quem tem uma (dealer ou lider).
+		local wanted = teamId ~= nil
+			and (kind ~= "tambor" or Gear.hasDrum(player))
+			and (kind ~= "bandeira" or Gear.remaining(player, kind) ~= 0)
 		local tool = mine[kind]
 
 		-- Mudou de lado: o material do outro lado tinha a cor errada.
@@ -831,6 +899,8 @@ function Gear.start()
 	local function watch(player: Player)
 		player.CharacterAdded:Connect(function()
 			player:SetAttribute("Hold", nil)
+			player:SetAttribute("Wave", nil)
+			rooted[player] = nil
 			-- O Roblox esvazia a mochila ao renascer; da-se-lhe tempo e volta a encher.
 			task.wait(0.5)
 			Gear.sync(player)
@@ -904,6 +974,7 @@ function Gear.forget(player: Player)
 	tools[player] = nil
 	remaining[player] = nil
 	nextAllowed[player] = nil
+	rooted[player] = nil
 end
 
 return Gear

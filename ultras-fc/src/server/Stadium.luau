@@ -19,6 +19,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local Budget = require(script.Parent:WaitForChild("Budget"))
 local City = require(script.Parent:WaitForChild("City"))
 local StadiumBuilder = require(script.Parent:WaitForChild("StadiumBuilder"))
+local Faixas = require(script.Parent:WaitForChild("Faixas"))
 local Plan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 local Stadium = {}
@@ -181,6 +182,8 @@ function Stadium.build()
 
 	-- O edificio: o do mapa, ou feito agora se o mapa nao o tiver.
 	local building = workspace:FindFirstChild("Estadio") or StadiumBuilder.build(workspace)
+	-- As faixas de pano na vedacao das claques (so faz as que faltam).
+	Faixas.build(building)
 	tunnelGate = building:FindFirstChild("TunnelGate", true) :: BasePart?
 
 	-- A pasta do que e do jogo e muda (adeptos, tifo, corteo, bola).

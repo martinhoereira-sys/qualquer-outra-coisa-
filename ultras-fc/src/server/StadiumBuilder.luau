@@ -581,25 +581,7 @@ local function buildCurve(cx: number, cz: number, claque: string?, parent: Insta
 	if team then
 		ring("VedacaoMalha", cx, cz, 0, 1, R - 1.6, R - 1.4, 0, 6, RAIL, folder, { material = Enum.Material.DiamondPlate, transparency = 0.6, collide = true, shadow = false })
 		ring("VedacaoTopo", cx, cz, 0, 1, R - 1.7, R - 1.3, 6, 6.3, RAIL, folder, { material = Enum.Material.Metal })
-		-- A tarja da claque, atada a vedacao, com o nome virado para o campo.
-		local a = Plan.curvePoint(cx, cz, 0.28, R - 1.9, 2.8)
-		local b = Plan.curvePoint(cx, cz, 0.72, R - 1.9, 2.8)
-		local banner = span("Tarja", a, b, 0.2, 3, team.color, folder, { material = Enum.Material.Fabric })
-		banner.CFrame = CFrame.lookAt(banner.Position, banner.Position + (b - a).Unit) -- ao comprido
-		local toPitch = -Plan.dir(cx, cz, 0.5)
-		local face = if banner.CFrame.RightVector:Dot(toPitch) > 0 then Enum.NormalId.Right else Enum.NormalId.Left
-		local sign = Instance.new("SurfaceGui")
-		sign.Face = face
-		sign.CanvasSize = Vector2.new(1200, 150)
-		sign.Parent = banner
-		local text = Instance.new("TextLabel")
-		text.Size = UDim2.fromScale(1, 1)
-		text.BackgroundTransparency = 1
-		text.Font = Enum.Font.GothamBlack
-		text.Text = string.upper(team.name)
-		text.TextScaled = true
-		text.TextColor3 = Color3.fromRGB(248, 248, 248)
-		text.Parent = sign
+		-- As faixas da claque, atadas a vedacao, sao de pano: Faixas (no arranque).
 
 		-- As pontas vedadas: o setor e so da claque.
 		for _, t in { 0, 1 } do

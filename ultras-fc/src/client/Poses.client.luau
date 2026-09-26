@@ -20,6 +20,7 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+local Pano = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pano"))
 
 local me = Players.LocalPlayer
 local lastStop = 0
@@ -245,6 +246,147 @@ end
 
 --------------------------------------------------------------------------------
 
+--------------------------------------------------------------------------------
+-- As bandeiras na mao (Pano): a bandeirinha num pau, a grande entre duas hastes
+--------------------------------------------------------------------------------
+
+type HeldFlag = {
+	kind: string,
+	colour: Color3,
+	cloth: Pano.Cloth,
+	poles: { BasePart },
+	folder: Folder,
+}
+
+local flags: { [Player]: HeldFlag } = {}
+
+local POLE = Color3.fromRGB(70, 60, 48)
+local SMALL_POLE = 3.6 -- o pau da bandeirinha
+local BIG_POLE = 7.5 -- cada haste da bandeira grande
+local BIG_HEIGHT = 3.4
+
+local function flagColour(player: Player, kind: string): Color3
+	local chosen = player:GetAttribute("Cor_" .. kind)
+	if typeof(chosen) == "Color3" then
+		return chosen
+	end
+	local team = Config.Teams[player:GetAttribute("Team") or ""]
+	return if team then team.color else Color3.new(1, 1, 1)
+end
+
+local function dropFlag(player: Player)
+	local f = flags[player]
+	if f then
+		f.folder:Destroy()
+		flags[player] = nil
+	end
+end
+
+Players.PlayerRemoving:Connect(dropFlag)
+
+local function flagFor(player: Player, kind: string): HeldFlag?
+	local teamId = player:GetAttribute("Team")
+	if type(teamId) ~= "string" or not Config.Teams[teamId] then
+		return nil
+	end
+	local colour = flagColour(player, kind)
+	local existing = flags[player]
+	if existing and existing.kind == kind and existing.colour == colour and existing.folder.Parent then
+		return existing
+	end
+	dropFlag(player)
+
+	local folder = Instance.new("Folder")
+	folder.Name = "Bandeira_" .. player.Name
+	local design = Pano.designFor(if kind == "bandeira" then "bandeira" else "bandeirinha", teamId)
+	design.colour = colour
+	local cloth = if kind == "bandeira"
+		then Pano.new(folder, 5.5, BIG_HEIGHT, 7, design, { mode = "pinned", pixels = 24, seed = player.UserId })
+		else Pano.new(folder, 2.4, 1.6, 3, design, { mode = "flag", pixels = 20, maxDistance = 200, seed = player.UserId })
+
+	local poles: { BasePart } = {}
+	for _ = 1, if kind == "bandeira" then 2 else 1 do
+		local pole = Instance.new("Part")
+		pole.Name = "Haste"
+		pole.Size = Vector3.new(0.14, if kind == "bandeira" then BIG_POLE else SMALL_POLE, 0.14)
+		pole.Color = POLE
+		pole.Material = Enum.Material.Wood
+		pole.Anchored = true
+		pole.CanCollide = false
+		pole.CanQuery = false
+		pole.CanTouch = false
+		pole.CastShadow = false
+		pole.Parent = folder
+		table.insert(poles, pole)
+	end
+	folder.Parent = workspace
+
+	local made: HeldFlag = { kind = kind, colour = colour, cloth = cloth, poles = poles, folder = folder }
+	flags[player] = made
+	return made
+end
+
+-- Uma haste da mao `from` ao longo de `axis`: devolve o CFrame e a ponta de cima.
+local function poleFrame(from: Vector3, axis: Vector3, length: number): (CFrame, Vector3)
+	local top = from + axis * (length - 0.6)
+	local mid = from + axis * (length / 2 - 0.6)
+	local side = if math.abs(axis:Dot(Vector3.zAxis)) < 0.95 then Vector3.zAxis else Vector3.xAxis
+	return CFrame.fromMatrix(mid, axis:Cross(side).Unit, axis), top
+end
+
+local flagParts: { BasePart } = {}
+local flagFrames: { CFrame } = {}
+
+local function placeFlag(player: Player, character: Model, kind: string, t: number)
+	local f = flagFor(player, kind)
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not f or not root then
+		dropFlag(player)
+		return
+	end
+	local waving = player:GetAttribute("Wave") == true
+	table.clear(flagParts)
+	table.clear(flagFrames)
+	local right = root.CFrame.RightVector
+
+	if kind == "bandeira" then
+		local left = character:FindFirstChild("LeftHand") :: BasePart?
+		local rightHand = character:FindFirstChild("RightHand") :: BasePart?
+		if not left or not rightHand then
+			return
+		end
+		-- As hastes abrem para fora e para cima; a agitar, balancam juntas.
+		local sway = if waving then math.sin(t * 3.2) * 0.35 else math.sin(t * 1.3) * 0.06
+		local tops = {}
+		for i, hand in { left, rightHand } do
+			local out = if i == 1 then -1 else 1
+			local axis = (Vector3.yAxis + right * (out * 0.28 + sway)).Unit
+			local cf, top = poleFrame(hand.Position, axis, BIG_POLE)
+			table.insert(flagParts, f.poles[i])
+			table.insert(flagFrames, cf)
+			tops[i] = top
+		end
+		Pano.resize(f.cloth, (tops[2] - tops[1]).Magnitude)
+		Pano.pose(f.cloth, Pano.between(tops[1], tops[2], Vector3.yAxis), t, if waving then 1 else 0.45, flagParts, flagFrames)
+	else
+		local hand = character:FindFirstChild("RightHand") :: BasePart?
+		if not hand then
+			return
+		end
+		local sway = if waving then math.sin(t * 6) * 0.5 else math.sin(t * 2) * 0.08
+		local axis = (Vector3.yAxis + right * sway).Unit
+		local cf, top = poleFrame(hand.Position, axis, SMALL_POLE)
+		table.insert(flagParts, f.poles[1])
+		table.insert(flagFrames, cf)
+		-- O pano sai do pau para o lado, virado para a frente de quem a segura.
+		local base = CFrame.fromMatrix(top, right, axis)
+		Pano.pose(f.cloth, base, t, if waving then 1 else 0.55, flagParts, flagFrames)
+	end
+	workspace:BulkMoveTo(flagParts, flagFrames, Enum.BulkMoveMode.FireCFrameChanged)
+end
+
+--------------------------------------------------------------------------------
+
 RunService.Stepped:Connect(function()
 	local now = os.clock()
 	for _, player in Players:GetPlayers() do
@@ -255,6 +397,7 @@ RunService.Stepped:Connect(function()
 		local diving = player:GetAttribute("Diving") == true
 		if not character or (hold == nil and emote == nil and not riding and not diving) then
 			dropScarf(player)
+			dropFlag(player)
 			continue
 		end
 		local rig = rigOf(character)
@@ -313,6 +456,25 @@ RunService.Stepped:Connect(function()
 			arm(rig.rightShoulder, 1, RAISED + wave, math.rad(8) + side)
 			set(rig.rightElbow, CFrame.identity)
 			dropScarf(player)
+			dropFlag(player)
+		elseif hold == "bandeirinha" then
+			-- O braco direito no ar com o pau; a agitar, vai de um lado ao outro.
+			local waving = player:GetAttribute("Wave") == true
+			local swing = if waving then math.sin(t * 6) * math.rad(28) else math.sin(t * 2) * math.rad(6)
+			arm(rig.rightShoulder, 1, RAISED, math.rad(10) + swing)
+			set(rig.rightElbow, CFrame.identity)
+			dropScarf(player)
+			placeFlag(player, character, "bandeirinha", t)
+		elseif hold == "bandeira" then
+			-- Os dois bracos no ar, abertos, uma haste em cada mao.
+			local waving = player:GetAttribute("Wave") == true
+			local swing = if waving then math.sin(t * 3.2) * math.rad(14) else 0
+			arm(rig.rightShoulder, 1, math.rad(165), math.rad(22) + swing)
+			arm(rig.leftShoulder, -1, math.rad(165), math.rad(22) - swing)
+			set(rig.rightElbow, CFrame.identity)
+			set(rig.leftElbow, CFrame.identity)
+			dropScarf(player)
+			placeFlag(player, character, "bandeira", t)
 		elseif hold == "cachecol" then
 			-- Os dois bracos a frente, abertos, com o cachecol esticado entre as
 			-- maos a altura da cara, a subir e a descer ao ritmo.
@@ -322,8 +484,10 @@ RunService.Stepped:Connect(function()
 			set(rig.rightElbow, CFrame.identity)
 			set(rig.leftElbow, CFrame.identity)
 			placeScarf(player, character)
+			dropFlag(player)
 		else
 			dropScarf(player)
+			dropFlag(player)
 		end
 	end
 end)

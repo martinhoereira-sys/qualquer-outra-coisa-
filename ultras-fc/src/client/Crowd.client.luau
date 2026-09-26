@@ -14,6 +14,14 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Pyro = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pyro"))
+local Pano = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pano"))
+
+-- As bandeiras dos bonecos sao de pano (Pano), feitas neste ecra.
+local clothFolder = Instance.new("Folder")
+clothFolder.Name = "BandeirasBancada"
+clothFolder.Parent = workspace
+-- Onde o pano prende ao mastro, relativo ao tronco (o mastro e o do servidor).
+local FLAG_AT = CFrame.new(0.9, 9.3, 0)
 
 type Person = {
 	model: Model,
@@ -22,6 +30,7 @@ type Person = {
 	base: CFrame,
 	parts: { BasePart },
 	offsets: { CFrame },
+	cloth: Pano.Cloth?,
 }
 
 local people: { [Model]: Person } = {}
@@ -55,6 +64,22 @@ local function track(model: Instance)
 		return
 	end
 
+	-- Com bandeira: o pano a ondular do mastro para o lado, virado para o campo.
+	local cloth: Pano.Cloth? = nil
+	if model:FindFirstChild("Flag") then
+		cloth = Pano.new(clothFolder, 5, 3.4, 5, Pano.designFor("bandeira", teamId), {
+			mode = "flag",
+			pixels = 16,
+			maxDistance = 260,
+			seed = math.floor(phase * 1e6),
+		})
+		model.AncestryChanged:Connect(function()
+			if not model:IsDescendantOf(workspace) and cloth then
+				cloth.model:Destroy()
+			end
+		end)
+	end
+
 	people[model] = {
 		model = model,
 		teamId = teamId,
@@ -62,6 +87,7 @@ local function track(model: Instance)
 		base = torso.CFrame,
 		parts = parts,
 		offsets = offsets,
+		cloth = cloth,
 	}
 end
 
@@ -178,6 +204,15 @@ RunService.RenderStepped:Connect(function()
 			for i, part in person.parts do
 				table.insert(moveParts, part)
 				table.insert(moveFrames, at * person.offsets[i])
+			end
+			local cloth = person.cloth
+			if cloth then
+				-- Tifo no ar: as bandeiras recolhem-se.
+				local down = crowd:GetAttribute("Hold_" .. person.teamId) == true
+				Pano.show(cloth, not down)
+				if not down then
+					Pano.pose(cloth, at * FLAG_AT, now + person.phase * 40, 0.85, moveParts, moveFrames)
+				end
 			end
 		end
 	end

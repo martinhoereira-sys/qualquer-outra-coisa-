@@ -25,6 +25,8 @@ Config.Teams = {
 		side = -1, -- topo poente
 		keeperColor = Color3.fromRGB(46, 160, 82), -- a camisola do guarda-redes, diferente da equipa
 		sedeName = "sede vermelha", -- o nome da sede no mapa (ver City)
+		claque = "ULTRAS AGN", -- o nome da claque: faixa do corteo, bandeirao
+		faixas = { "CURVA NORTE", "ULTRAS AGN", "SEMPRE PRESENTES" }, -- na vedacao, da esquerda para a direita
 	},
 	away = {
 		id = "away",
@@ -34,6 +36,8 @@ Config.Teams = {
 		side = 1, -- topo nascente
 		keeperColor = Color3.fromRGB(236, 176, 40),
 		sedeName = "sede azul",
+		claque = "BRIGADA LES",
+		faixas = { "CURVA SUL", "BRIGADA LES", "NUNCA SOZINHOS" },
 	},
 }
 
@@ -702,10 +706,11 @@ Config.Dealers = {
 
 -- O que os dealers vendem, e quanto custa cada um.
 Config.Shop = {
-	{ kind = "tocha", label = "Tocha", price = 10, about = "Chama viva e fumo. Arde 16 segundos." },
+	{ kind = "tocha", label = "Tocha", price = 10, about = "Chama viva e fumo. Arde 25 segundos." },
 	{ kind = "fumo", label = "Bomba de fumo", price = 15, about = "Nuvem grossa que se ve do outro lado." },
 	{ kind = "estrobo", label = "Estrobo", price = 12, about = "Pisca-pisca branco, ofusca a bancada." },
 	{ kind = "vela", label = "Vela romana", price = 25, about = "Dez bolas de fogo, uma por clique." },
+	{ kind = "bandeira", label = "Bandeira grande", price = 40, about = "De duas hastes, por cima da vedacao. Fica contigo o jogo todo; quem a agita fica no lugar." },
 }
 
 -- Quantas de uma vez: o pack de 5 sai mais barato (paga-se 4).
@@ -760,6 +765,18 @@ Config.Gear = {
 		duration = 15, -- pisca-pisca branco
 		cooldown = 2,
 		gainPerSecond = 1.8,
+	},
+	bandeirinha = {
+		perMatch = 1, -- de toda a gente; nao se gasta
+		duration = math.huge,
+		cooldown = 0,
+		gainPerSecond = 0.4, -- a agitar
+	},
+	bandeira = {
+		perMatch = 0, -- a de duas hastes: so do dealer ou dada pelo lider; nao se gasta
+		duration = math.huge,
+		cooldown = 0,
+		gainPerSecond = 1.2, -- a agitar
 	},
 	cachecol = {
 		perMatch = 1, -- nao se gasta: levanta-se e baixa-se

@@ -657,6 +657,7 @@ local STOCK_LABEL = {
 	{ "fumo", "fumos" },
 	{ "vela", "velas" },
 	{ "estrobo", "estrobos" },
+	{ "bandeira", "bandeira grande" },
 }
 
 -- As moedas do jogo (atributo "Moedas", posto pelo servidor).

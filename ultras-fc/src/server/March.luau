@@ -91,22 +91,9 @@ local function buildBanner(teamId: string, at: Vector3, parent: Instance): Part
 	banner:SetAttribute("Arrived", false)
 	banner.Parent = parent
 
-	-- O nome dos dois lados: le-se a frente de quem vem atras e de quem espera.
-	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
-		local sign = Instance.new("SurfaceGui")
-		sign.Face = face
-		sign.CanvasSize = Vector2.new(900, 200)
-		sign.Parent = banner
-
-		local text = Instance.new("TextLabel")
-		text.Size = UDim2.fromScale(1, 1)
-		text.BackgroundTransparency = 1
-		text.Font = Enum.Font.GothamBlack
-		text.Text = team.name
-		text.TextScaled = true
-		text.TextColor3 = Color3.fromRGB(245, 245, 245)
-		text.Parent = sign
-	end
+	-- O pano (com o nome da claque) cada ecra o faz e o pendura desta peca
+	-- (Corteo.client, Pano): aqui a peca so marca o sitio e brilha.
+	banner.Transparency = 1
 
 	-- Brilha, para se ver de longe qual e o ponto de encontro.
 	local light = Instance.new("PointLight")

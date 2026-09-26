@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Pano = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pano"))
 
 local M = Config.March
 
@@ -44,6 +45,7 @@ type Group = {
 	banner: BasePart,
 	folder: Folder,
 	walkers: { Walker },
+	cloth: Pano.Cloth, -- a faixa de pano, pendurada da peca do servidor
 	trail: { Vector3 }, -- o caminho da faixa, do mais recente para o mais antigo
 	arrivedAt: number?,
 }
@@ -152,10 +154,18 @@ local function track(banner: Instance)
 		add(back, if drum then 0 else side, nil, drum)
 	end
 
+	-- A faixa de pano (a peca do servidor e so o sitio dela).
+	local cloth = Pano.new(folder, banner.Size.X, banner.Size.Y, 20, Pano.designFor("faixa", teamId :: string), {
+		mode = "hang",
+		name = "Faixa",
+		pixels = 30,
+	})
+
 	groups[banner] = {
 		banner = banner,
 		folder = folder,
 		walkers = walkers,
+		cloth = cloth,
 		trail = { banner.Position },
 	}
 
@@ -242,6 +252,10 @@ RunService.RenderStepped:Connect(function(dt)
 		if inside then
 			continue
 		end
+
+		-- A faixa aberta, a baloicar mais quando anda.
+		local size = banner.Size
+		Pano.pose(group.cloth, banner.CFrame * CFrame.new(-size.X / 2, size.Y / 2, 0), now, if moving then 0.55 else 0.3, moveParts, moveFrames)
 
 		-- Com o lider a guiar, e ele que leva o tambor: o boneco do tambor sai.
 		local led = banner:GetAttribute("Led") == true

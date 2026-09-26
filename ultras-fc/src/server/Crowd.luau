@@ -109,7 +109,10 @@ local function buildSupporter(teamId: string, at: Vector3, withFlag: boolean, pa
 
 	if withFlag then
 		attach("Pole", Vector3.new(0.2, 9, 0.2), Color3.fromRGB(70, 60, 48), CFrame.new(0.9, 5, 0))
-		attach("Flag", Vector3.new(0.15, 3.4, 5), team.color, CFrame.new(0.9, 8, 2.6))
+		-- So o sitio da bandeira: o pano (Pano) cada ecra o faz e o poe a ondular.
+		attach("Flag", Vector3.new(0.15, 0.15, 0.15), team.color, CFrame.new(0.9, 9.3, 0))
+		local flag = model:FindFirstChild("Flag") :: BasePart
+		flag.Transparency = 1
 	end
 
 	-- O que o ecra precisa para o por a saltar: de que claque e, o desfasamento
@@ -284,7 +287,8 @@ function Crowd.setTifo(teamId: string, on: boolean)
 			for _, name in { "Pole", "Flag" } do
 				local piece = person.model:FindFirstChild(name) :: BasePart?
 				if piece then
-					piece.Transparency = on and 1 or 0
+					-- O pano da bandeira e dos ecras; aqui so o mastro.
+					piece.Transparency = if on or name == "Flag" then 1 else 0
 				end
 			end
 		end
