@@ -378,7 +378,7 @@ function Football.shoot(f: Footballer, power: number, direction: Vector3?): bool
 end
 
 local function passSpeed(distance: number): number
-	return math.clamp(18 + distance * 0.75, F.passSpeedMin, F.passSpeedMax)
+	return math.clamp(20 + distance * 0.55, F.passSpeedMin, F.passSpeedMax)
 end
 
 function Football.passTo(f: Footballer, target: Footballer): boolean
@@ -1313,11 +1313,15 @@ function Football.step(dt: number)
 		b.CFrame = CFrame.new(piece.spot.X, R + 0.05, piece.spot.Z)
 		b.AssemblyLinearVelocity = Vector3.zero
 	else
-		-- O travao: forte no chao, fraco no ar.
+		-- O travao: um atrito certo no chao mais o ar (proporcional a velocidade).
+		-- A bola corre depressa e so perto do fim e que abranda, como a serio;
+		-- antes era so proporcional, e a bola arrastava-se em camara lenta.
 		local v = b.AssemblyLinearVelocity
 		local onGround = b.Position.Y < R + 0.4
-		local keep = math.exp(-(if onGround then F.rollDrag else F.airDrag) * dt)
-		local horizontalV = Vector3.new(v.X * keep, 0, v.Z * keep)
+		local flatV = Vector3.new(v.X, 0, v.Z)
+		local speed = flatV.Magnitude
+		local slow = (if onGround then F.rollFriction + F.rollDrag * speed else F.airDrag * speed) * dt
+		local horizontalV = if speed > 1e-3 then flatV * (math.max(speed - slow, 0) / speed) else Vector3.zero
 
 		-- O efeito: a bola vai-se desviando para o lado, sempre de lado em
 		-- relacao ao caminho que leva, e o que a faz curvar em vez de derivar.

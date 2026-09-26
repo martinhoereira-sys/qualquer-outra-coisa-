@@ -489,6 +489,10 @@ RunService.RenderStepped:Connect(function(dt)
 		local lightUntil = orders and orders:GetAttribute("Acender_" .. group.teamId)
 		local jumping = type(jumpUntil) == "number" and serverNow < jumpUntil
 		local lighting = type(lightUntil) == "number" and serverNow < lightUntil
+		local crouchUntil = orders and orders:GetAttribute("Agachar_" .. group.teamId)
+		local swayUntil = orders and orders:GetAttribute("Bracos_" .. group.teamId)
+		local crouching = type(crouchUntil) == "number" and serverNow < crouchUntil
+		local swaying = type(swayUntil) == "number" and serverNow < swayUntil
 		local farda = orders ~= nil and orders:GetAttribute("Farda_" .. group.teamId) == true
 		if farda ~= group.dressed then
 			group.dressed = farda
@@ -601,6 +605,12 @@ RunService.RenderStepped:Connect(function(dt)
 			elseif jumping then
 				-- O lider mandou SALTAR: saltam ao compasso do tambor.
 				bob = math.abs(math.sin(beat * math.pi)) * 1.1
+			elseif crouching and not walking then
+				-- O lider mandou AGACHAR: todos em baixo.
+				bob = -1.3
+			elseif swaying then
+				-- O lider mandou BALANCAR: de um lado para o outro, ao compasso.
+				roll = math.sin(beat * math.pi) * 0.3
 			elseif stage == "marcha" then
 				local step = (beat + w.phase * 0.02) * math.pi
 				bob = math.abs(math.sin(step)) * 0.3

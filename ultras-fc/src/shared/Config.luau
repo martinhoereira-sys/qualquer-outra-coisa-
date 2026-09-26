@@ -291,8 +291,8 @@ Config.Football = {
 	-- Correr
 	walkSpeed = 16,
 	sprintSpeed = 24,
-	botSpeed = 15, -- os bonecos a posicionar-se
-	botSprintSpeed = 20, -- a ir a bola; abaixo do sprint de uma pessoa, para se lhes poder fugir
+	botSpeed = 18, -- os bonecos a posicionar-se
+	botSprintSpeed = 22.5, -- a ir a bola; abaixo do sprint de uma pessoa, para se lhes poder fugir
 	botDribbleSpeed = 22, -- com bola, um pouco mais do que quem aperta: foge-se por tras, nao pela frente
 	staminaMax = 100,
 	staminaDrain = 24, -- por segundo, a correr em sprint
@@ -306,8 +306,9 @@ Config.Football = {
 	dribbleDistance = 2.6, -- a que distancia a frente dos pes vai com a posse
 	kickLockout = 0.4, -- quem chutou nao a volta a apanhar logo
 	kickFlight = 0.15, -- ninguem lhe toca logo a saida do pe
-	rollDrag = 0.85, -- travao no chao, por segundo
-	airDrag = 0.12, -- travao no ar
+	rollFriction = 7, -- travao no chao: studs/s perdidos por segundo, sempre
+	rollDrag = 0.3, -- mais isto vezes a velocidade (a bola rapida perde mais)
+	airDrag = 0.08, -- no ar, so a resistencia do ar
 
 	--[[
 		Chutar: um botao para tudo. Segurar carrega a forca, largar chuta; um
@@ -316,7 +317,7 @@ Config.Football = {
 		chapeu; para baixo, rasteira).
 	]]
 	chargeTime = 0.9, -- segundos ate a forca maxima
-	kickSpeedMin = 24, -- um toque
+	kickSpeedMin = 32, -- um toque
 	kickSpeedMax = 112, -- tudo
 	aimPixels = 120, -- quanto se mexe o rato para chegar ao maximo de efeito ou altura
 	liftNeutral = 0.08, -- fracao da velocidade que vai para cima, com o rato parado
@@ -332,8 +333,8 @@ Config.Football = {
 	passRange = 70,
 
 	-- Os passes dos bonecos
-	passSpeedMin = 30,
-	passSpeedMax = 66,
+	passSpeedMin = 34,
+	passSpeedMax = 80,
 
 	-- Roubar
 	tackleRange = 2.8, -- encostar
@@ -352,7 +353,7 @@ Config.Football = {
 	goalDepth = 8, -- funda: a rede fica bem atras da linha, como as de verdade
 
 	-- Os bonecos
-	botThink = 0.35, -- de quanto em quanto tempo quem tem a bola decide
+	botThink = 0.25, -- de quanto em quanto tempo quem tem a bola decide
 	botShootRange = 40,
 	botPressure = 9, -- um adversario a esta distancia aperta
 }
@@ -408,6 +409,9 @@ Config.Lider = {
 	give = { base = 3, max = 15 },
 	giveKinds = { "tocha", "fumo", "bandeira", "faixa", "mastro" }, -- o que pode dar (o mastro nao gasta: e so um, muda de mao)
 	cooldown = 6, -- segundos entre duas ordens iguais
+	-- ACENDER: quantas vezes por jogo (do nivel 1 ao maximo) e o intervalo minimo.
+	lights = { base = 2, max = 8 },
+	lightCooldown = 30,
 	inviteSeconds = 8, -- quanto tempo o aviso fica no ecra de cada um
 	jumpSeconds = 12, -- SALTAR: quanto tempo se salta
 	lightSeconds = 22, -- ACENDER: quanto tempo os bonecos ficam de tocha acesa

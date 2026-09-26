@@ -16,6 +16,7 @@ local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Gear = require(script.Parent:WaitForChild("Gear"))
 local Lider = require(script.Parent:WaitForChild("Lider"))
 local Bandeirao = require(script.Parent:WaitForChild("Bandeirao"))
+local Kit = require(script.Parent:WaitForChild("Kit"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
 local Football = require(script.Parent:WaitForChild("Football"))
 local Bots = require(script.Parent:WaitForChild("Bots"))
@@ -880,6 +881,9 @@ Lider.start({
 	end,
 	phase = MatchLoop.phase,
 })
+-- A roupa muda com o papel: ultra, jogador ou arbitro.
+Kit.start()
+
 -- O bandeirao: o lider manda, uma vez por parte, com o jogo a decorrer.
 Lider.setBandeirao(function(teamId: string): (boolean, string?)
 	return Bandeirao.trigger(teamId, MatchLoop.phase())

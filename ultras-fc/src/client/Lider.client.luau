@@ -215,8 +215,8 @@ toggle.Visible = false
 local panel = Instance.new("Frame")
 panel.Name = "Ordens"
 panel.AnchorPoint = Vector2.new(1, 0.5)
-panel.Position = UDim2.new(1, -14, 0.5, 30)
-panel.Size = UDim2.fromOffset(300, 340)
+panel.Position = UDim2.new(1, -14, 0.5, 62)
+panel.Size = UDim2.fromOffset(300, 404)
 panel.BackgroundColor3 = BG
 panel.BackgroundTransparency = 0.05
 panel.Visible = false
@@ -238,10 +238,10 @@ sub.TextYAlignment = Enum.TextYAlignment.Top
 local grid = Instance.new("Frame")
 grid.BackgroundTransparency = 1
 grid.Position = UDim2.fromOffset(12, 64)
-grid.Size = UDim2.new(1, -24, 0, 264)
+grid.Size = UDim2.new(1, -24, 0, 330)
 grid.Parent = panel
 local layout = Instance.new("UIGridLayout")
-layout.CellSize = UDim2.new(0.5, -5, 0, 58)
+layout.CellSize = UDim2.new(0.5, -5, 0, 56)
 layout.CellPadding = UDim2.fromOffset(10, 8)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Parent = grid
@@ -382,6 +382,8 @@ local ORDERS = {
 	{ id = "formar", text = "FORMAR", colour = Color3.fromRGB(60, 110, 200) },
 	{ id = "marchar", text = "MARCHAR", colour = Color3.fromRGB(40, 150, 90) },
 	{ id = "saltar", text = "SALTAR", colour = Color3.fromRGB(230, 140, 30) },
+	{ id = "agachar", text = "AGACHAR", colour = Color3.fromRGB(200, 160, 40) },
+	{ id = "bracos", text = "BRAÇOS", colour = Color3.fromRGB(40, 150, 170) },
 	{ id = "acender", text = "ACENDER", colour = Color3.fromRGB(210, 50, 40) },
 	{ id = "bandeirao", text = "BANDEIRÃO", colour = Color3.fromRGB(150, 60, 190) },
 	{ id = "musica", text = "MÚSICA ▸", colour = Color3.fromRGB(120, 70, 200) },

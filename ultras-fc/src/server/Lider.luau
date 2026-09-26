@@ -42,8 +42,9 @@ export type Deps = {
 local deps: Deps? = nil
 local bandeiraoHook: ((string) -> (boolean, string?))? = nil
 
--- O que cada lider ja deu neste jogo.
+-- O que cada lider ja deu neste jogo, e quantas vezes mandou acender.
 local given: { [Player]: number } = {}
+local lit: { [Player]: number } = {}
 -- Quando cada ordem pode voltar a ser dada, por claque.
 local nextOrder: { [string]: number } = {}
 -- Os avisos em aberto: quem foi convidado para qual ordem, e ate quando.
@@ -61,6 +62,13 @@ function Lider.budget(player: Player): number
 	local level = if deps then deps.level(player) else 1
 	local t = math.clamp((level - 1) / math.max(Config.Progress.maxLevel - 1, 1), 0, 1)
 	return math.floor(L.give.base + (L.give.max - L.give.base) * t + 0.5)
+end
+
+-- Quantas vezes pode mandar ACENDER num jogo: cresce com o nivel.
+function Lider.lightBudget(player: Player): number
+	local level = if deps then deps.level(player) else 1
+	local t = math.clamp((level - 1) / math.max(Config.Progress.maxLevel - 1, 1), 0, 1)
+	return math.floor(L.lights.base + (L.lights.max - L.lights.base) * t + 0.5)
 end
 
 local function left(player: Player): number
@@ -206,6 +214,8 @@ local TEXTS = {
 	saltar = "O líder mandou SALTAR",
 	acender = "O líder mandou ACENDER as tochas",
 	farda = "O líder mandou vestir a FARDA",
+	agachar = "O líder mandou AGACHAR — todos em baixo!",
+	bracos = "O líder mandou BALANÇAR OS BRAÇOS",
 	bandeirao = "BANDEIRÃO! Acende a tocha por baixo do pano",
 }
 
@@ -266,6 +276,16 @@ local function accept(player: Player, id: number)
 			player:SetAttribute("Emote", "saltar")
 			task.delay(L.jumpSeconds, function()
 				if player:GetAttribute("Emote") == "saltar" then
+					player:SetAttribute("Emote", nil)
+				end
+			end)
+		end
+	elseif order == "agachar" or order == "bracos" then
+		if not player:GetAttribute("Riding") then
+			local emote = if order == "agachar" then "agachado" else "balancar"
+			player:SetAttribute("Emote", emote)
+			task.delay(L.jumpSeconds, function()
+				if player:GetAttribute("Emote") == emote then
 					player:SetAttribute("Emote", nil)
 				end
 			end)
@@ -380,6 +400,27 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 		return
 	end
 
+	-- ACENDER tem o seu proprio limite: poucas vezes por jogo, conforme o nivel.
+	if order == "acender" then
+		local used = lit[player] or 0
+		if used >= Lider.lightBudget(player) then
+			tell(player, "Já mandaste acender " .. used .. " vezes neste jogo. Sobe de nível para poderes mais.")
+			return
+		end
+		local key = teamId .. ":acender"
+		if os.clock() < (nextOrder[key] or 0) then
+			tell(player, "As tochas ainda estão a arder. Espera um bocado.")
+			return
+		end
+		nextOrder[key] = os.clock() + L.lightCooldown
+		lit[player] = used + 1
+		botOrder(teamId, "Acender", L.lightSeconds)
+		invite(player, teamId, "acender")
+		local rest = Lider.lightBudget(player) - lit[player]
+		tell(player, "Tochas no ar! Podes mandar acender mais " .. rest .. " vez" .. (if rest == 1 then "" else "es") .. " neste jogo.")
+		return
+	end
+
 	if not ready(teamId, order) then
 		tell(player, "Espera uns segundos antes de repetir a ordem.")
 		return
@@ -408,10 +449,11 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 		botOrder(teamId, "Saltar", L.jumpSeconds)
 		invite(player, teamId, "saltar")
 		tell(player, "A claque salta.")
-	elseif order == "acender" then
-		botOrder(teamId, "Acender", L.lightSeconds)
-		invite(player, teamId, "acender")
-		tell(player, "Tochas no ar!")
+	elseif order == "agachar" or order == "bracos" then
+		-- As coreografias: a bancada inteira ao mesmo tempo, ao ritmo do tambor.
+		botOrder(teamId, if order == "agachar" then "Agachar" else "Bracos", L.jumpSeconds)
+		invite(player, teamId, order)
+		tell(player, if order == "agachar" then "A claque agacha-se." else "A claque balança os braços.")
 	elseif order == "farda" then
 		botOrder(teamId, "Farda", nil)
 		invite(player, teamId, "farda")
@@ -438,6 +480,7 @@ end
 -- Dia de jogo novo: o material volta a contar do zero, e as fardas saem.
 function Lider.newMatch()
 	table.clear(given)
+	table.clear(lit)
 	local folder = stadium()
 	for _, player in Players:GetPlayers() do
 		Lider.undress(player)
@@ -479,6 +522,7 @@ function Lider.start(d: Deps)
 	Players.PlayerAdded:Connect(watch)
 	Players.PlayerRemoving:Connect(function(player)
 		given[player] = nil
+		lit[player] = nil
 	end)
 
 	-- Os avisos velhos saem.

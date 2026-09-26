@@ -21,7 +21,27 @@ local clothFolder = Instance.new("Folder")
 clothFolder.Name = "BandeirasBancada"
 clothFolder.Parent = workspace
 -- Onde o pano prende ao mastro, relativo ao tronco (o mastro e o do servidor).
-local FLAG_AT = CFrame.new(0.9, 9.3, 0)
+local POLE_BOTTOM = Vector3.new(0.9, 0.5, 0) -- o fundo do mastro (na mao), relativo ao tronco
+local POLE_LENGTH = 9
+
+--[[
+	Como o boneco agita a bandeira, relativo ao tronco: devolve o eixo do mastro
+	e para onde voa o pano. Metade roda o pulso (o mastro as voltas, o pano a
+	dar a volta toda atras da ponta); a outra metade balanca de lado a lado.
+]]
+local function waveOf(phase: number, now: number): (Vector3, Vector3)
+	local twirl = (phase * 7.13) % 1 < 0.5
+	if twirl then
+		local a = now * (5 + (phase * 31) % 2) + phase * 20
+		local axis = (Vector3.yAxis + (Vector3.xAxis * math.cos(a) + Vector3.zAxis * math.sin(a)) * 0.45).Unit
+		local tangent = -Vector3.xAxis * math.sin(a) + Vector3.zAxis * math.cos(a)
+		local fly = -tangent + Vector3.xAxis * 0.3
+		return axis, fly
+	end
+	local w = now * 2.2 + phase * 20
+	local axis = (Vector3.yAxis + Vector3.xAxis * math.sin(w) * 0.5).Unit
+	return axis, -Vector3.xAxis * math.cos(w) + Vector3.zAxis * 0.35
+end
 
 type Person = {
 	model: Model,
@@ -31,6 +51,7 @@ type Person = {
 	parts: { BasePart },
 	offsets: { CFrame },
 	cloth: Pano.Cloth?,
+	pole: number?, -- o indice do mastro nas pecas (mexe-se a parte)
 }
 
 local people: { [Model]: Person } = {}
@@ -64,6 +85,12 @@ local function track(model: Instance)
 		return
 	end
 
+	local pole: number? = nil
+	for i, part in parts do
+		if part.Name == "Pole" then
+			pole = i
+		end
+	end
 	-- Com bandeira: o pano a ondular do mastro para o lado, virado para o campo.
 	local cloth: Pano.Cloth? = nil
 	if model:FindFirstChild("Flag") then
@@ -88,6 +115,7 @@ local function track(model: Instance)
 		parts = parts,
 		offsets = offsets,
 		cloth = cloth,
+		pole = pole,
 	}
 end
 
@@ -174,6 +202,8 @@ RunService.RenderStepped:Connect(function()
 	local drops: { [string]: number } = {}
 	local parties: { [string]: boolean } = {}
 	local covered: { [string]: boolean } = {} -- bandeirao em baixo: as bandeiras recolhem
+	local sways: { [string]: boolean } = {} -- a balancar os bracos, todos ao mesmo tempo
+	local together: { [string]: boolean } = {} -- SALTAR: todos exatamente ao mesmo tempo
 	local now = workspace:GetServerTimeNow()
 	for _, name in Config.TeamOrder do
 		-- Em festa, e sem tifo no ar (quem segura a cartolina nao larga).
@@ -192,9 +222,18 @@ RunService.RenderStepped:Connect(function()
 			local jumpUntil = stadium:GetAttribute("Saltar_" .. name)
 			if type(jumpUntil) == "number" and now < jumpUntil then
 				heights[name] *= 1.9
+				together[name] = true
 			end
 			-- Calados: sentam-se, que e o que se ve de uma bancada que sofreu.
 			drops[name] = crowd:GetAttribute("Sit_" .. name) == true and Config.Crowd.sitDrop or 0
+			-- As coreografias do lider: todos agachados, ou todos a balancar os bracos.
+			local crouchUntil = stadium:GetAttribute("Agachar_" .. name)
+			if type(crouchUntil) == "number" and now < crouchUntil then
+				heights[name] = 0
+				drops[name] = 1.5
+			end
+			local swayUntil = stadium:GetAttribute("Bracos_" .. name)
+			sways[name] = type(swayUntil) == "number" and now < swayUntil
 		end
 	end
 
@@ -207,21 +246,34 @@ RunService.RenderStepped:Connect(function()
 			if parties[person.teamId] then
 				at = chaos(person, now)
 			else
-				local lift = math.abs(math.sin((beat + person.phase) * math.pi)) * heights[person.teamId]
+				local phase = if together[person.teamId] then 0 else person.phase
+				local lift = math.abs(math.sin((beat + phase) * math.pi)) * heights[person.teamId]
 				at = person.base + Vector3.new(0, lift - drops[person.teamId], 0)
+				if sways[person.teamId] then
+					-- De um lado para o outro, ao compasso, a bancada inteira junta.
+					at *= CFrame.Angles(0, 0, math.sin(beat * math.pi) * 0.3)
+				end
 			end
-			for i, part in person.parts do
-				table.insert(moveParts, part)
-				table.insert(moveFrames, at * person.offsets[i])
-			end
+			-- A bandeira: o mastro a rodar ou a balancar, e o pano atras da ponta.
 			local cloth = person.cloth
+			local poleCF: CFrame? = nil
 			if cloth then
-				-- Tifo no ar: as bandeiras recolhem-se.
+				-- Tifo no ar ou bandeirao em baixo: as bandeiras recolhem-se.
 				local down = crowd:GetAttribute("Hold_" .. person.teamId) == true or covered[person.teamId] == true
 				Pano.show(cloth, not down)
 				if not down then
-					Pano.pose(cloth, at * FLAG_AT, now + person.phase * 40, 0.85, moveParts, moveFrames)
+					local axis, fly = waveOf(person.phase, now)
+					fly -= axis * fly:Dot(axis)
+					fly = if fly.Magnitude > 1e-3 then fly.Unit else Vector3.xAxis
+					local side = axis:Cross(fly)
+					poleCF = at * CFrame.fromMatrix(POLE_BOTTOM + axis * (POLE_LENGTH / 2), side, axis)
+					local top = POLE_BOTTOM + axis * (POLE_LENGTH - 0.3)
+					Pano.pose(cloth, at * CFrame.fromMatrix(top, fly, axis), now + person.phase * 40, 1, moveParts, moveFrames)
 				end
+			end
+			for i, part in person.parts do
+				table.insert(moveParts, part)
+				table.insert(moveFrames, if i == person.pole and poleCF then poleCF else at * person.offsets[i])
 			end
 		end
 	end

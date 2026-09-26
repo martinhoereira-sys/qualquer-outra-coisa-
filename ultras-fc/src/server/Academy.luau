@@ -245,11 +245,14 @@ local function stepBall(site: Site, dt: number, now: number)
 		end
 	end
 
-	-- Solta: trava forte no chao, pouco no ar; o efeito desvia-a de lado.
+	-- Solta: o mesmo travao do jogo (atrito certo no chao mais o ar); o
+	-- efeito desvia-a de lado.
 	local v = b.AssemblyLinearVelocity
 	local onGround = b.Position.Y < groundY() + 0.4
-	local keep = math.exp(-(if onGround then F.rollDrag else F.airDrag) * dt)
-	local hv = Vector3.new(v.X * keep, 0, v.Z * keep)
+	local flatV = Vector3.new(v.X, 0, v.Z)
+	local speed = flatV.Magnitude
+	local slow = (if onGround then F.rollFriction + F.rollDrag * speed else F.airDrag * speed) * dt
+	local hv = if speed > 1e-3 then flatV * (math.max(speed - slow, 0) / speed) else Vector3.zero
 	if site.curve ~= 0 and now < site.curveUntil and hv.Magnitude > 4 then
 		hv += hv.Unit:Cross(Vector3.yAxis) * site.curve * dt
 	end

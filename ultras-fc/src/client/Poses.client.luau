@@ -280,7 +280,7 @@ type HeldFlag = {
 local flags: { [Player]: HeldFlag } = {}
 
 local POLE = Color3.fromRGB(70, 60, 48)
-local SMALL_POLE = 3.6 -- o pau da bandeirinha
+local SMALL_POLE = 4.5 -- o pau da bandeirinha
 local MASTRO_POLE = 15 -- o mastro da bandeira grande
 local BIG_POLE = 7.5 -- cada haste da bandeira grande
 local BIG_HEIGHT = 3.4
@@ -323,7 +323,7 @@ local function flagFor(player: Player, kind: string): HeldFlag?
 	local cloth = if kind == "bandeira"
 		then Pano.new(folder, 5.5, BIG_HEIGHT, 7, design, { mode = "pinned", pixels = 24, seed = player.UserId })
 		elseif kind == "mastro" then Pano.new(folder, 8, 5.5, 11, design, { mode = "flag", pixels = 18, seed = player.UserId })
-		else Pano.new(folder, 2.4, 1.6, 4, design, { mode = "flag", pixels = 20, maxDistance = 200, seed = player.UserId })
+		else Pano.new(folder, 3.2, 2.1, 5, design, { mode = "flag", pixels = 20, maxDistance = 220, seed = player.UserId })
 
 	local poles: { BasePart } = {}
 	for _ = 1, if kind == "bandeira" then 2 else 1 do
@@ -374,7 +374,7 @@ local function flyDir(f: HeldFlag, top: Vector3, axis: Vector3, wind: Vector3): 
 		want = wind - axis * wind:Dot(axis)
 	end
 	local current = f.fly or want.Unit
-	local blended = current:Lerp(want.Unit, math.clamp(dt * 7, 0, 1))
+	local blended = current:Lerp(want.Unit, math.clamp(dt * 12, 0, 1))
 	blended -= axis * blended:Dot(axis)
 	f.fly = if blended.Magnitude > 1e-3 then blended.Unit else want.Unit
 	return f.fly :: Vector3
@@ -427,7 +427,7 @@ local function placeFlag(player: Player, character: Model, kind: string, t: numb
 		]]
 		local look = root.CFrame.LookVector
 		local swing = if waving then math.sin(t * 1.7) * 0.95 else math.sin(t * 0.8) * 0.07
-		local pitch = if waving then math.cos(t * 1.7) * 0.22 else 0
+		local pitch = if waving then math.sin(t * 3.4) * 0.32 else 0 -- com o arco, desenha um oito
 		local axis = (CFrame.fromAxisAngle(look, swing) * CFrame.fromAxisAngle(right, pitch)):VectorToWorldSpace(Vector3.yAxis)
 		local grip = (left.Position + rightHand.Position) / 2
 		local cf, top = poleFrame(grip, axis, MASTRO_POLE)
@@ -440,8 +440,15 @@ local function placeFlag(player: Player, character: Model, kind: string, t: numb
 		if not hand then
 			return
 		end
-		local sway = if waving then math.sin(t * 6) * 0.5 else math.sin(t * 2) * 0.08
-		local axis = (Vector3.yAxis + right * sway).Unit
+		--[[
+			Como se agita uma bandeira a serio: o pulso roda e o pau desenha um
+			cone, a ponta as voltas por cima da cabeca. O pano vai sempre atras
+			da ponta (flyDir) e da a volta toda ao pau. Parado, so balanca.
+		]]
+		local look = root.CFrame.LookVector
+		local axis = if waving
+			then (Vector3.yAxis + (right * math.cos(t * 7) + look * math.sin(t * 7)) * 0.6).Unit
+			else (Vector3.yAxis + right * math.sin(t * 2) * 0.08).Unit
 		local cf, top = poleFrame(hand.Position, axis, SMALL_POLE)
 		table.insert(flagParts, f.poles[1])
 		table.insert(flagFrames, cf)
@@ -488,6 +495,10 @@ RunService.Stepped:Connect(function()
 				-- salto por pancada, toda a gente ao mesmo tempo.
 				local beat = beatFor(player:GetAttribute("Team"))
 				play(rig, if beat then beat / 1.8 else t)
+			elseif emote == "balancar" then
+				-- O balanco tambem ao compasso: um lado por pancada.
+				local beat = beatFor(player:GetAttribute("Team"))
+				play(rig, if beat then beat * math.pi / 3 else t)
 			else
 				play(rig, t)
 			end
@@ -534,8 +545,10 @@ RunService.Stepped:Connect(function()
 		elseif hold == "bandeirinha" then
 			-- O braco direito no ar com o pau; a agitar, vai de um lado ao outro.
 			local waving = player:GetAttribute("Wave") == true
-			local swing = if waving then math.sin(t * 6) * math.rad(28) else math.sin(t * 2) * math.rad(6)
-			arm(rig.rightShoulder, 1, RAISED, math.rad(10) + swing)
+			-- A rodar: o braco acompanha a volta do pulso.
+			local swing = if waving then math.cos(t * 7) * math.rad(18) else math.sin(t * 2) * math.rad(6)
+			local lift = if waving then math.sin(t * 7) * math.rad(10) else 0
+			arm(rig.rightShoulder, 1, RAISED + lift, math.rad(10) + swing)
 			set(rig.rightElbow, CFrame.identity)
 			dropScarf(player)
 			placeFlag(player, character, "bandeirinha", t)
