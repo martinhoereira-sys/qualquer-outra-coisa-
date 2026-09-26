@@ -134,6 +134,8 @@ local function load(player: Player)
 	local s = store
 	if not s then
 		profiles[player] = newProfile(M.start)
+		-- Sem DataStore (Studio sem API): joga-se com este, so nao se grava.
+		loaded[player] = true
 		publish(player)
 		if onLoaded then
 			onLoaded(player)
@@ -241,6 +243,30 @@ function Money.spend(player: Player, amount: number): boolean
 	p.escudos -= amount
 	dirty[player] = true
 	publish(player)
+	return true
+end
+
+--[[
+	Enviar Escudos a outra pessoa (os multibancos). Conta sempre o saldo a
+	serio, mesmo para quem tem moedas sem fim: senao um admin fabricava
+	dinheiro para os outros. Os dois perfis tem de estar carregados, para nada
+	se perder a meio.
+]]
+function Money.transfer(from: Player, to: Player, amount: number): boolean
+	local a, b = profiles[from], profiles[to]
+	amount = math.floor(amount)
+	if from == to or amount <= 0 or not a or not b or not loaded[from] or not loaded[to] then
+		return false
+	end
+	if a.escudos < amount then
+		return false
+	end
+	a.escudos -= amount
+	b.escudos += amount
+	dirty[from] = true
+	dirty[to] = true
+	publish(from)
+	publish(to)
 	return true
 end
 

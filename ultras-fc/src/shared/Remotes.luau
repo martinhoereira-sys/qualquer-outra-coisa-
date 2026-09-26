@@ -31,6 +31,7 @@ local NAMES = {
 	"Npc", -- servidor -> cliente: o que um NPC da sede te diz (titulo e linhas)
 	"Academia", -- servidor -> cliente: golo no treino da academia (quem marcou)
 	"Perfil", -- servidor -> cliente: o perfil (niveis, XP, escudos, resumo); cliente -> servidor: escolhas (numero, posicao, botas)
+	"Banco", -- os multibancos: servidor -> cliente abre o ecra; cliente -> servidor pede para enviar escudos
 	"Shop", -- dealer: servidor -> cliente "open"; cliente -> servidor "buy", material
 	"Candle", -- servidor -> todos: esta pessoa disparou um tiro da vela romana
 	"Bike", -- cliente -> servidor: descer da bicicleta

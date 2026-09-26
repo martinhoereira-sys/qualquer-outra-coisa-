@@ -589,6 +589,48 @@ local function nextReward(path: string, level: number): string
 	return if best then "Nivel " .. best.at .. ": " .. best.text else "Tudo desbloqueado"
 end
 
+--[[
+	A recompensa diaria, como nos outros jogos: um calendario de 7 dias. Cada
+	dia seguido da mais (depois do 7 volta ao 1); falhar um dia volta ao 1.
+	Nao se da sozinha: aparece o calendario e recebe-se com o botao (o
+	servidor e que confirma que hoje ainda nao se recebeu).
+]]
+local function today(): number
+	return math.floor(os.time() / 86400)
+end
+
+-- O dia que se recebe hoje (1 a 7), e se ainda se pode receber.
+local function dailyState(player: Player): (number, boolean, number)
+	local profile = Money.profile(player)
+	if not profile then
+		return 1, false, 0
+	end
+	local now = today()
+	if profile.daily.day == now then
+		return profile.daily.streak, false, profile.daily.streak
+	end
+	local day = if profile.daily.day == now - 1 then (profile.daily.streak % #P.daily) + 1 else 1
+	return day, true, profile.daily.streak
+end
+
+local function claimDaily(player: Player)
+	local day, claimable = dailyState(player)
+	if not claimable or not Money.isLoaded(player) then
+		return
+	end
+	local reward = P.daily[day]
+	Money.setDaily(player, today(), day)
+	Money.add(player, reward)
+	notify(player, { kind = "diaria", day = day, reward = reward })
+end
+
+-- O calendario, para o ecra: que dia e, se ja se recebeu, e quanto falta.
+local function dailyPayload(player: Player): { [string]: any }
+	local day, claimable = dailyState(player)
+	local nextAt = (today() + 1) * 86400
+	return { day = day, claimable = claimable, rewards = P.daily, secondsLeft = nextAt - os.time() }
+end
+
 local function snapshot(player: Player): { [string]: any }?
 	local profile = Money.profile(player)
 	if not profile then
@@ -608,6 +650,7 @@ local function snapshot(player: Player): { [string]: any }?
 		paths = paths,
 		prefs = { number = profile.prefs.number, position = profile.prefs.position, boots = profile.prefs.boots },
 		streak = profile.daily.streak,
+		daily = dailyPayload(player),
 	}
 end
 
@@ -626,22 +669,6 @@ local function sendProfile(player: Player)
 	end)
 end
 
--- A recompensa diaria: um dia seguido a mais da mais (volta ao 1 depois do 7).
-local function daily(player: Player)
-	local profile = Money.profile(player)
-	if not profile then
-		return
-	end
-	local today = math.floor(os.time() / 86400)
-	if profile.daily.day == today then
-		return
-	end
-	local streak = if profile.daily.day == today - 1 then (profile.daily.streak % #P.daily) + 1 else 1
-	local reward = P.daily[streak]
-	Money.setDaily(player, today, streak)
-	Money.add(player, reward)
-	notify(player, { kind = "diaria", day = streak, reward = reward })
-end
 
 --[[
 	As escolhas que o ecra pode pedir, validadas aqui contra o nivel: o numero
@@ -674,12 +701,22 @@ end
 function Progress.start()
 	Money.onChanged(sendProfile)
 	Money.onLoaded(function(player)
-		daily(player)
 		sendProfile(player)
+		-- Ha recompensa para receber: mostra-se logo o calendario.
+		local _, claimable = dailyState(player)
+		if claimable then
+			task.delay(3, function()
+				if player.Parent then
+					notify(player, { kind = "diaria_pronta", daily = dailyPayload(player) })
+				end
+			end)
+		end
 	end)
 	Remotes.Perfil.OnServerEvent:Connect(function(player, action, value)
 		if action == "pedir" then
 			sendProfile(player)
+		elseif action == "receber_diaria" then
+			claimDaily(player)
 		else
 			choose(player, action, value)
 		end

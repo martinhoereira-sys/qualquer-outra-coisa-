@@ -293,7 +293,7 @@ end
 local earnBody = infoCard(moneyPage, UDim2.fromOffset(262, 0), UDim2.fromOffset(518, 214), GREEN, "COMO GANHAR ESCUDOS")
 local spendBody = infoCard(moneyPage, UDim2.fromOffset(262, 226), UDim2.fromOffset(518, 134), GOLD, "ONDE GASTAR")
 spendBody.Text = "<b>Dealers na rua</b>: tochas, fumo, estrobo, vela romana e cores. Procura o letreiro DEALER por cima deles (vai-se depressa de bicicleta: pega numa a porta da sede).\nAbre a loja a falar com ele."
-local dailyCard = infoCard(moneyPage, UDim2.fromOffset(0, 162), UDim2.fromOffset(250, 198), Color3.fromRGB(120, 170, 255), "RECOMPENSA DIARIA")
+local dailyCard = infoCard(moneyPage, UDim2.fromOffset(0, 162), UDim2.fromOffset(250, 144), Color3.fromRGB(120, 170, 255), "RECOMPENSA DIARIA")
 
 --------------------------------------------------------------------------------
 -- EQUIPAMENTO: o que o nivel de jogador desbloqueia
@@ -481,6 +481,245 @@ end)
 showTab("niveis")
 
 --------------------------------------------------------------------------------
+-- A carteira: os Escudos sempre a vista, la em cima
+--------------------------------------------------------------------------------
+
+local TweenService = game:GetService("TweenService")
+
+-- 1250 -> "1 250"
+local function grouped(n: number): string
+	local s = tostring(math.floor(n))
+	local out = s:reverse():gsub("(%d%d%d)", "%1 "):reverse()
+	return (out:gsub("^%s+", ""))
+end
+
+local pill = button(gui, "", 1, Color3.fromRGB(20, 18, 16), TEXT, 20)
+pill.AnchorPoint = Vector2.new(0.5, 0)
+pill.Size = UDim2.fromOffset(170, 40)
+pill.Position = UDim2.new(0.5, 0, 0, 12)
+corner(pill, 20)
+local pillStroke = Instance.new("UIStroke")
+pillStroke.Color = GOLD
+pillStroke.Thickness = 2
+pillStroke.Parent = pill
+local coin = box(pill, UDim2.fromOffset(30, 30), UDim2.fromOffset(5, 5), GOLD, 21)
+corner(coin, 15)
+gradient(coin, Color3.fromRGB(255, 226, 120), Color3.fromRGB(220, 150, 30), 45)
+local coinMark = text(coin, "$", 20, Color3.fromRGB(120, 70, 10), Enum.Font.GothamBlack, 22)
+coinMark.TextXAlignment = Enum.TextXAlignment.Center
+coinMark.Size = UDim2.fromScale(1, 1)
+local amount = text(pill, "0", 22, TEXT, Enum.Font.GothamBlack, 21)
+amount.TextXAlignment = Enum.TextXAlignment.Right
+amount.Size = UDim2.new(1, -50, 1, 0)
+amount.Position = UDim2.fromOffset(38, 0)
+-- O ponto vermelho: ha recompensa diaria por receber.
+local dot = box(pill, UDim2.fromOffset(14, 14), UDim2.new(1, -8, 0, -4), Color3.fromRGB(240, 60, 60), 23)
+corner(dot, 7)
+dot.Visible = false
+
+local shown = Instance.new("NumberValue")
+shown.Value = 0
+shown.Changed:Connect(function(v)
+	amount.Text = if player:GetAttribute("MoedasInfinitas") then "∞" else grouped(v)
+end)
+
+-- "+40$" a subir e a apagar-se, ao lado da carteira.
+local function floater(delta: number)
+	local f = text(gui, (if delta > 0 then "+" else "−") .. grouped(math.abs(delta)) .. "$", 22, if delta > 0 then GREEN else Color3.fromRGB(240, 90, 80), Enum.Font.GothamBlack, 24)
+	f.AnchorPoint = Vector2.new(0, 0.5)
+	f.Size = UDim2.fromOffset(160, 30)
+	f.Position = UDim2.new(0.5, 94, 0, 32)
+	f.TextStrokeTransparency = 0.4
+	local info = TweenInfo.new(1.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(f, info, { Position = UDim2.new(0.5, 94, 0, 76), TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+	task.delay(1.7, function()
+		f:Destroy()
+	end)
+	-- A moeda da carteira da um pulo.
+	TweenService:Create(coin, TweenInfo.new(0.12), { Size = UDim2.fromOffset(34, 34), Position = UDim2.fromOffset(3, 3) }):Play()
+	task.delay(0.14, function()
+		TweenService:Create(coin, TweenInfo.new(0.2), { Size = UDim2.fromOffset(30, 30), Position = UDim2.fromOffset(5, 5) }):Play()
+	end)
+end
+
+local lastCoins: number? = nil
+local function updateWallet()
+	local value = player:GetAttribute("Moedas")
+	if type(value) ~= "number" then
+		return
+	end
+	if lastCoins ~= nil and value ~= lastCoins then
+		floater(value - lastCoins)
+	end
+	lastCoins = value
+	TweenService:Create(shown, TweenInfo.new(0.6, Enum.EasingStyle.Quad), { Value = value }):Play()
+end
+player:GetAttributeChangedSignal("Moedas"):Connect(updateWallet)
+player:GetAttributeChangedSignal("MoedasInfinitas"):Connect(function()
+	amount.Text = if player:GetAttribute("MoedasInfinitas") then "∞" else grouped(shown.Value)
+end)
+updateWallet()
+
+pill.Activated:Connect(function()
+	panel.Visible = true
+	showTab("dinheiro")
+	Remotes.Perfil:FireServer("pedir")
+end)
+
+--------------------------------------------------------------------------------
+-- O calendario da recompensa diaria
+--------------------------------------------------------------------------------
+
+local calendar = box(gui, UDim2.fromOffset(700, 360), UDim2.fromScale(0.5, 0.5), BG, 50)
+calendar.AnchorPoint = Vector2.new(0.5, 0.5)
+calendar.Visible = false
+corner(calendar, 16)
+local calStroke = Instance.new("UIStroke")
+calStroke.Color = GOLD
+calStroke.Thickness = 3
+calStroke.Parent = calendar
+local calTop = box(calendar, UDim2.new(1, 0, 0, 70), UDim2.fromOffset(0, 0), GOLD, 51)
+corner(calTop, 16)
+gradient(calTop, Color3.fromRGB(255, 200, 70), Color3.fromRGB(240, 120, 40), 0)
+local calTitle = text(calTop, "🎁 RECOMPENSA DIARIA", 28, BG, Enum.Font.GothamBlack, 52)
+calTitle.Size = UDim2.new(1, -80, 0, 40)
+calTitle.Position = UDim2.fromOffset(22, 6)
+local calSub = text(calTop, "Entra todos os dias: cada dia seguido da mais! Falhar um dia volta ao dia 1.", 14, BG, Enum.Font.GothamBold, 52)
+calSub.Size = UDim2.new(1, -80, 0, 18)
+calSub.Position = UDim2.fromOffset(22, 44)
+local calClose = button(calTop, "X", 18, Color3.fromRGB(40, 30, 20), TEXT, 53)
+calClose.AnchorPoint = Vector2.new(1, 0.5)
+calClose.Size = UDim2.fromOffset(38, 38)
+calClose.Position = UDim2.new(1, -14, 0.5, 0)
+
+type DayCard = { frame: Frame, stroke: UIStroke, label: TextLabel, reward: TextLabel, check: TextLabel, badge: TextLabel }
+local days: { DayCard } = {}
+local x = 20
+for i = 1, #P.daily do
+	local big = i == #P.daily
+	local w = if big then 136 else 76
+	local card = box(calendar, UDim2.fromOffset(w, 150), UDim2.fromOffset(x, 90), CARD, 51)
+	corner(card, 12)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = GOLD
+	stroke.Thickness = 0
+	stroke.Parent = card
+	local label = text(card, "DIA " .. i, 13, MUTED, Enum.Font.GothamBlack, 52)
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.Size = UDim2.new(1, 0, 0, 18)
+	label.Position = UDim2.fromOffset(0, 8)
+	local icon = text(card, if big then "🎁" else "💰", if big then 44 else 30, TEXT, Enum.Font.GothamBlack, 52)
+	icon.TextXAlignment = Enum.TextXAlignment.Center
+	icon.Size = UDim2.new(1, 0, 0, 56)
+	icon.Position = UDim2.fromOffset(0, 32)
+	local reward = text(card, "+" .. P.daily[i] .. "$", if big then 22 else 17, GOLD, Enum.Font.GothamBlack, 52)
+	reward.TextXAlignment = Enum.TextXAlignment.Center
+	reward.Size = UDim2.new(1, 0, 0, 24)
+	reward.Position = UDim2.fromOffset(0, 94)
+	local badge = text(card, "", 12, BG, Enum.Font.GothamBlack, 53)
+	badge.TextXAlignment = Enum.TextXAlignment.Center
+	badge.BackgroundTransparency = 0
+	badge.BackgroundColor3 = GOLD
+	badge.Size = UDim2.new(1, -16, 0, 20)
+	badge.Position = UDim2.fromOffset(8, 122)
+	corner(badge, 6)
+	local check = text(card, "✓", 60, GREEN, Enum.Font.GothamBlack, 54)
+	check.TextXAlignment = Enum.TextXAlignment.Center
+	check.Size = UDim2.fromScale(1, 1)
+	check.TextStrokeTransparency = 0.3
+	check.Visible = false
+	days[i] = { frame = card, stroke = stroke, label = label, reward = reward, check = check, badge = badge }
+	x += w + 8
+end
+
+local claim = button(calendar, "RECEBER", 22, GREEN, BG, 52)
+claim.AnchorPoint = Vector2.new(0.5, 1)
+claim.Size = UDim2.fromOffset(320, 56)
+claim.Position = UDim2.new(0.5, 0, 1, -22)
+corner(claim, 14)
+
+local dailyInfo: { [string]: any }? = nil
+local dailyReceivedAt = 0
+
+local function clock(seconds: number): string
+	seconds = math.max(0, math.floor(seconds))
+	return string.format("%02d:%02d:%02d", seconds // 3600, (seconds % 3600) // 60, seconds % 60)
+end
+
+local function paintCalendar()
+	local d = dailyInfo
+	if not d then
+		return
+	end
+	for i, card in days do
+		local claimed = if d.claimable then i < d.day else i <= d.day
+		local isToday = i == d.day
+		card.check.Visible = claimed
+		card.frame.BackgroundColor3 = if claimed then Color3.fromRGB(34, 60, 44) elseif isToday then Color3.fromRGB(70, 56, 24) else CARD
+		card.stroke.Thickness = if isToday and d.claimable then 3 else 0
+		card.badge.Visible = isToday or claimed
+		card.badge.Text = if claimed then "RECEBIDO" elseif isToday then "HOJE" else ""
+		card.badge.BackgroundColor3 = if claimed then GREEN else GOLD
+		card.label.TextColor3 = if isToday then GOLD else MUTED
+	end
+	if d.claimable then
+		claim.Text = "RECEBER  +" .. P.daily[d.day] .. "$"
+		claim.BackgroundColor3 = GREEN
+		claim.Active = true
+		claim.AutoButtonColor = true
+	else
+		local left = (d.secondsLeft or 0) - (os.clock() - dailyReceivedAt)
+		claim.Text = "VOLTA AMANHA  ·  " .. clock(left)
+		claim.BackgroundColor3 = Color3.fromRGB(70, 74, 90)
+		claim.Active = false
+		claim.AutoButtonColor = false
+	end
+	dot.Visible = d.claimable == true
+end
+
+-- O relogio do "volta amanha" anda sozinho.
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if calendar.Visible then
+			paintCalendar()
+		end
+	end
+end)
+
+claim.Activated:Connect(function()
+	local d = dailyInfo
+	if d and d.claimable then
+		Remotes.Perfil:FireServer("receber_diaria")
+		claim.Text = "..."
+	end
+end)
+calClose.Activated:Connect(function()
+	calendar.Visible = false
+end)
+dot.Active = false
+
+local function openCalendar()
+	calendar.Visible = true
+	paintCalendar()
+end
+
+-- O botao do calendario, no separador do dinheiro.
+local calButton = button(moneyPage, "📅 VER CALENDARIO", 14, Color3.fromRGB(120, 170, 255), BG, 33)
+calButton.Size = UDim2.fromOffset(214, 34)
+calButton.Position = UDim2.fromOffset(18, 314)
+calButton.Activated:Connect(openCalendar)
+
+local function onDaily(d: any)
+	if type(d) ~= "table" then
+		return
+	end
+	dailyInfo = d
+	dailyReceivedAt = os.clock()
+	paintCalendar()
+end
+
+--------------------------------------------------------------------------------
 -- Avisos: subir de nivel, recompensa diaria, resumo do jogo
 --------------------------------------------------------------------------------
 
@@ -545,6 +784,10 @@ Remotes.Perfil.OnClientEvent:Connect(function(data)
 	if data.kind == "perfil" then
 		profile = data
 		paint()
+		onDaily(data.daily)
+	elseif data.kind == "diaria_pronta" then
+		onDaily(data.daily)
+		openCalendar()
 	elseif data.kind == "nivel" then
 		showToast("⭐ SUBISTE DE NIVEL!", (PATH_TITLE[data.path] or "") .. "  ·  NIVEL " .. tostring(data.level), 4)
 	elseif data.kind == "diaria" then

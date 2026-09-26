@@ -37,6 +37,7 @@ local AcademyBuilder = require(script.Parent:WaitForChild("AcademyBuilder"))
 local Transit = require(script.Parent:WaitForChild("Transit"))
 local TransitBuilder = require(script.Parent:WaitForChild("TransitBuilder"))
 local Progress = require(script.Parent:WaitForChild("Progress"))
+local Bank = require(script.Parent:WaitForChild("Bank"))
 local StadiumPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 --[[
@@ -939,6 +940,7 @@ local function refreshLook(player: Player)
 end
 Progress.onLookChanged(refreshLook)
 Progress.start()
+Bank.start()
 -- De 5 em 5 s: a bracadeira passa de um para outro, o tambor muda de dono sem lider.
 task.spawn(function()
 	while true do
