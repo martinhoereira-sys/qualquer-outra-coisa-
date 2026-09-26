@@ -14,6 +14,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Gear = require(script.Parent:WaitForChild("Gear"))
+local Lider = require(script.Parent:WaitForChild("Lider"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
 local Football = require(script.Parent:WaitForChild("Football"))
 local Bots = require(script.Parent:WaitForChild("Bots"))
@@ -384,6 +385,7 @@ MatchLoop.onChange(function(snapshot)
 		end
 		Gear.refill()
 		Tifo.refill()
+		Lider.newMatch()
 		Football.resetClock()
 		Squad.resetMatch()
 		for _, teamId in Config.TeamOrder do
@@ -869,6 +871,13 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 Gear.start()
+-- O lider: o letreiro, as ordens (a claque decide sempre) e o material que da.
+Lider.start({
+	level = function(player: Player): number
+		return Progress.level(player, "adepto")
+	end,
+	phase = MatchLoop.phase,
+})
 Money.start()
 
 --[[

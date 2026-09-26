@@ -829,6 +829,41 @@ local function drop(player: Player, kind: string)
 end
 
 --[[
+	O lider mandou acender e a pessoa aceitou: pega na tocha (ou, sem tochas,
+	no fumo) e acende. Devolve o que acendeu, ou nil se nao tem nada. Espera
+	pelo objecto estar na mao (pode demorar um instante).
+]]
+function Gear.lightNow(player: Player): string?
+	local mine = tools[player]
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not mine or not humanoid or not character then
+		return nil
+	end
+	for _, kind in { "tocha", "fumo" } do
+		local tool = mine[kind]
+		if tool and Gear.remaining(player, kind) ~= 0 then
+			if lit[tool] then
+				return kind
+			end
+			if tool.Parent ~= character then
+				humanoid:EquipTool(tool)
+			end
+			local waited = 0
+			while not held[tool] and waited < 1.5 do
+				waited += task.wait(0.05)
+			end
+			if not held[tool] then
+				return nil
+			end
+			activate(player, tool, kind)
+			return if lit[tool] then kind else nil
+		end
+	end
+	return nil
+end
+
+--[[
 	Poe na barra de cada um o que lhe cabe, e tira o que ja nao cabe; e o
 	cachecol ao pescoco de quem e de claque. Pode ser chamado as vezes que for
 	preciso: so mexe no que falta ou esta a mais.

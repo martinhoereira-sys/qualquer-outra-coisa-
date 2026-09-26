@@ -394,6 +394,37 @@ Config.Entrance = {
 }
 
 --[[
+	O LIDER (o capo): de costas para o campo, virado para a claque, a dirigir.
+
+	So ele ve os botoes das ordens. REGRA: o lider NUNCA obriga ninguem. Os
+	bonecos obedecem sempre; as pessoas recebem um aviso e decidem ("carrega
+	E para entrar"); quem ignora, fica como esta.
+
+	O material que da e limitado por jogo, e cresce com o nivel de adepto
+	dele: `give.base` no nivel 1 ate `give.max` no nivel maximo.
+]]
+Config.Lider = {
+	give = { base = 3, max = 15 },
+	giveKinds = { "tocha", "fumo", "bandeira", "faixa" }, -- o que pode dar
+	cooldown = 6, -- segundos entre duas ordens iguais
+	inviteSeconds = 8, -- quanto tempo o aviso fica no ecra de cada um
+	jumpSeconds = 12, -- SALTAR: quanto tempo se salta
+	lightSeconds = 22, -- ACENDER: quanto tempo os bonecos ficam de tocha acesa
+	lightBots = 14, -- quantos bonecos da bancada acendem
+	musicSeconds = 120, -- MUSICA: quanto tempo toca o cantico
+	-- Os canticos: so audio que o Roblox deixa usar em qualquer jogo (APM,
+	-- Pro Sound Effects). Para trocar, muda-se o numero aqui.
+	canticos = {
+		{ name = "Tambores da curva", id = 84302571478690 },
+		{ name = "Marcha dos tambores", id = 1836342097 },
+		{ name = "Tambor sozinho", id = 140393706670152 },
+		{ name = "A bancada a cantar", id = 9112766203 },
+		{ name = "Festa com buzinas", id = 9112779173 },
+	},
+	farda = Color3.fromRGB(20, 20, 24), -- o casaco da farda (o cachecol e da cor da claque)
+}
+
+--[[
 	O material da claque.
 
 	Tudo o que aqui esta empurra o ambiente para cima enquanto dura, e e por isso

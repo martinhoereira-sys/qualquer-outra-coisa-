@@ -184,6 +184,11 @@ RunService.RenderStepped:Connect(function()
 			beats[name] = beat + rate * elapsed
 			-- Tifo no ar: seguram a cartolina, nao saltam.
 			heights[name] = crowd:GetAttribute("Hold_" .. name) == true and 0 or height
+			-- O lider mandou SALTAR: a bancada inteira salta muito mais alto.
+			local jumpUntil = stadium:GetAttribute("Saltar_" .. name)
+			if type(jumpUntil) == "number" and now < jumpUntil then
+				heights[name] *= 1.9
+			end
 			-- Calados: sentam-se, que e o que se ve de uma bancada que sofreu.
 			drops[name] = crowd:GetAttribute("Sit_" .. name) == true and Config.Crowd.sitDrop or 0
 		end
@@ -267,6 +272,93 @@ local function putOutFlares()
 		end)
 	end
 	table.clear(flares)
+end
+
+--[[
+	As ordens do lider (atributos na pasta Stadium): os bonecos obedecem sempre.
+	- ACENDER: uns quantos bonecos da claque acendem tocha durante um bocado.
+	- FARDA: casaco e calcas escuras, iguais, em todos.
+]]
+local ordered: { [string]: { Instance } } = {}
+
+local function lightTeam(teamId: string, count: number, seconds: number)
+	local list: { Person } = {}
+	for _, person in people do
+		if person.teamId == teamId then
+			table.insert(list, person)
+		end
+	end
+	-- Os mesmos em todos os ecras: pelo desfasamento de cada um.
+	table.sort(list, function(a, b)
+		return hash(a.phase * 31.7) < hash(b.phase * 31.7)
+	end)
+	local team = Config.Teams[teamId]
+	local made: { Instance } = {}
+	for i = 1, math.min(count, #list) do
+		local arm = list[i].model:FindFirstChild("ArmR")
+		if arm and arm:IsA("BasePart") then
+			local tip = Instance.new("Attachment")
+			tip.Name = "Tocha"
+			tip.Position = Vector3.new(0, arm.Size.Y / 2 + 0.4, 0)
+			tip.Parent = arm
+			if i % 6 == 0 then
+				Pyro.smoke(tip, team.color)
+				task.delay(3, function()
+					Pyro.settle(tip)
+				end)
+			else
+				Pyro.flare(tip, team.color)
+			end
+			Pyro.light(tip, team.color, 5, 28, i - 1)
+			table.insert(made, tip)
+		end
+	end
+	ordered[teamId] = made
+	task.delay(seconds, function()
+		if ordered[teamId] ~= made then
+			return
+		end
+		ordered[teamId] = nil
+		for _, tip in made do
+			Pyro.fade(tip, 4)
+			task.delay(Pyro.LINGER, function()
+				tip:Destroy()
+			end)
+		end
+	end)
+end
+
+local FARDA_PARTS = { Torso = true, ArmL = true, ArmR = true, Legs = true }
+local original: { [BasePart]: Color3 } = {}
+
+local function dressTeam(teamId: string, on: boolean)
+	for _, person in people do
+		if person.teamId == teamId then
+			for _, part in person.parts do
+				if FARDA_PARTS[part.Name] then
+					if on then
+						original[part] = original[part] or part.Color
+						part.Color = Config.Lider.farda
+					elseif original[part] then
+						part.Color = original[part]
+						original[part] = nil
+					end
+				end
+			end
+		end
+	end
+end
+
+for _, teamId in Config.TeamOrder do
+	stadium:GetAttributeChangedSignal("Acender_" .. teamId):Connect(function()
+		local untilAt = stadium:GetAttribute("Acender_" .. teamId)
+		if type(untilAt) == "number" and untilAt > workspace:GetServerTimeNow() then
+			lightTeam(teamId, Config.Lider.lightBots, untilAt - workspace:GetServerTimeNow())
+		end
+	end)
+	stadium:GetAttributeChangedSignal("Farda_" .. teamId):Connect(function()
+		dressTeam(teamId, stadium:GetAttribute("Farda_" .. teamId) == true)
+	end)
 end
 
 workspace:GetAttributeChangedSignal("EntranceLine"):Connect(function()

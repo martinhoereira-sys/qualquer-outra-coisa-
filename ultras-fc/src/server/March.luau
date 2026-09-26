@@ -58,6 +58,8 @@ type Banner = {
 
 local banners: { [string]: Banner } = {}
 local credit: { [Player]: number } = {} -- 0 a 1: quanto do percurso acompanhou
+-- A quem o lider deu a faixa (DAR MATERIAL), neste corteo.
+local granted: { [Player]: boolean } = {}
 local active = false
 local armedAt = 0
 local root: Folder? = nil
@@ -131,6 +133,7 @@ function March.arm(parent: Instance)
 
 	table.clear(credit)
 	active = true
+	table.clear(granted)
 	armedAt = os.clock()
 
 	for _, teamId in Config.TeamOrder do
@@ -181,8 +184,15 @@ function March.setHoldRule(fn: (Player) -> boolean)
 	holdRule = fn
 end
 
+function March.grantHold(player: Player)
+	granted[player] = true
+end
+
 local function mayHold(player: Player, teamId: string): boolean
 	if Teams.leader(teamId) == player then
+		return true
+	end
+	if granted[player] and Teams.get(player) == teamId then
 		return true
 	end
 	local rule = holdRule

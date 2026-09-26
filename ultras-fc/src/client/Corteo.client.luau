@@ -72,6 +72,7 @@ type Group = {
 	trail: { Vector3 }, -- o caminho da faixa, do mais recente para o mais antigo
 	arrivedAt: number?,
 	lastStage: string?,
+	dressed: boolean?, -- de farda (ordem do lider)
 }
 
 local groups: { [BasePart]: Group } = {}
@@ -330,18 +331,19 @@ local function putOut(w: Walker)
 end
 
 -- Em cada janela de tempo, alguns bonecos (os mesmos em todos os ecras) acendem.
-local function updateTorch(w: Walker, group: Group, marching: boolean, serverNow: number)
-	local window = math.floor(serverNow / TORCH_WINDOW)
+local function updateTorch(w: Walker, group: Group, marching: boolean, serverNow: number, ordered: boolean)
+	-- Com a ordem ACENDER do lider, muitos mais acendem (e a janela muda ja).
+	local window = math.floor(serverNow / TORCH_WINDOW) * 2 + (if ordered then 1 else 0)
 	if window == w.torchWindow then
 		return
 	end
 	w.torchWindow = window
 	putOut(w)
-	if not marching or w.holder or not w.hand then
+	if not (marching or ordered) or w.holder or not w.hand then
 		return
 	end
 	local roll = hash(window * 7.31 + w.index * 1.93 + #group.teamId)
-	if roll >= TORCH_SHARE then
+	if roll >= (if ordered then 0.6 else TORCH_SHARE) then
 		return
 	end
 	local hand = w.parts[w.hand :: number]
@@ -477,6 +479,31 @@ RunService.RenderStepped:Connect(function(dt)
 		-- Com o lider a guiar, e ele que leva o tambor: o boneco do tambor sai.
 		local led = banner:GetAttribute("Led") == true
 		local beat = beatOf(group.teamId, serverNow)
+		-- As ordens do lider: os bonecos obedecem sempre.
+		local orders = workspace:FindFirstChild("Stadium")
+		local jumpUntil = orders and orders:GetAttribute("Saltar_" .. group.teamId)
+		local lightUntil = orders and orders:GetAttribute("Acender_" .. group.teamId)
+		local jumping = type(jumpUntil) == "number" and serverNow < jumpUntil
+		local lighting = type(lightUntil) == "number" and serverNow < lightUntil
+		local farda = orders ~= nil and orders:GetAttribute("Farda_" .. group.teamId) == true
+		if farda ~= group.dressed then
+			group.dressed = farda
+			for _, w in group.walkers do
+				for _, part in w.parts do
+					if part.Name == "Torso" or part.Name == "ArmL" or part.Name == "ArmR" or part.Name == "Legs" then
+						if farda then
+							part:SetAttribute("Cor", part.Color)
+							part.Color = Config.Lider.farda
+						else
+							local before = part:GetAttribute("Cor")
+							if typeof(before) == "Color3" then
+								part.Color = before
+							end
+						end
+					end
+				end
+			end
+		end
 
 		for _, w in group.walkers do
 			if w.drum and led then
@@ -487,7 +514,7 @@ RunService.RenderStepped:Connect(function(dt)
 				continue
 			end
 
-			updateTorch(w, group, stage == "marcha", serverNow)
+			updateTorch(w, group, stage == "marcha", serverNow, lighting and stage ~= "corrida")
 
 			local target: Vector3
 			local speed = M.speed + 5
@@ -555,6 +582,9 @@ RunService.RenderStepped:Connect(function(dt)
 			if stage == "corrida" then
 				bob = math.abs(math.sin(now * 11 + w.phase)) * 0.55
 				roll = math.sin(now * 11 + w.phase) * 0.08
+			elseif jumping then
+				-- O lider mandou SALTAR: saltam ao compasso do tambor.
+				bob = math.abs(math.sin(beat * math.pi)) * 1.1
 			elseif stage == "marcha" then
 				local step = (beat + w.phase * 0.02) * math.pi
 				bob = math.abs(math.sin(step)) * 0.3

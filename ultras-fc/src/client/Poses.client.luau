@@ -111,6 +111,22 @@ local function set(joint: Joint?, cf: CFrame)
 	end
 end
 
+-- O compasso do tambor de uma claque (pasta Stadium.Crowd), em pancadas.
+local function beatFor(teamId: any): number?
+	local stadium = workspace:FindFirstChild("Stadium")
+	local crowd = stadium and stadium:FindFirstChild("Crowd")
+	if type(teamId) ~= "string" or not crowd then
+		return nil
+	end
+	local stamp = crowd:GetAttribute("Stamp")
+	local beat = crowd:GetAttribute("Beat_" .. teamId)
+	local rate = crowd:GetAttribute("Rate_" .. teamId)
+	if type(stamp) ~= "number" or type(beat) ~= "number" or type(rate) ~= "number" then
+		return nil
+	end
+	return beat + rate * (workspace:GetServerTimeNow() - stamp)
+end
+
 -- Um numero entre 0 e 1 fixo por pessoa, para nao fazerem todos o mesmo ao mesmo tempo.
 local function phaseOf(player: Player): number
 	return (player.UserId % 97) / 97
@@ -416,7 +432,14 @@ RunService.Stepped:Connect(function()
 			Remotes.Emote:FireServer("")
 		end
 		if play then
-			play(rig, t)
+			if emote == "saltar" then
+				-- O salto vai ao compasso do tambor da claque (o da bancada): um
+				-- salto por pancada, toda a gente ao mesmo tempo.
+				local beat = beatFor(player:GetAttribute("Team"))
+				play(rig, if beat then beat / 1.8 else t)
+			else
+				play(rig, t)
+			end
 		end
 
 		-- O guarda-redes a atirar-se: os dois bracos esticados por cima da cabeca,

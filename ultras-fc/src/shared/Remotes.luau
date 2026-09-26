@@ -35,6 +35,7 @@ local NAMES = {
 	"Shop", -- dealer: servidor -> cliente "open"; cliente -> servidor "buy", material
 	"Candle", -- servidor -> todos: esta pessoa disparou um tiro da vela romana
 	"Bike", -- cliente -> servidor: descer da bicicleta
+	"Lider", -- lider -> servidor: as ordens; servidor -> claque: o aviso ("carrega E"); cliente -> servidor: aceito
 }
 
 local folder: Folder
