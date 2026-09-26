@@ -525,14 +525,115 @@ Config.GearStock = {
 }
 
 --[[
-	O dinheiro do jogo (moedas). Ganha-se a jogar e gasta-se nos dealers da
-	rua. Nao se compra com Robux.
+	O dinheiro do jogo: Escudos (mostram-se como 25$). Ganha-se a jogar (o
+	salario no fim de cada jogo, a recompensa diaria, roubar caixas) e gasta-se
+	nos dealers da rua. Nao se compra com Robux.
 ]]
 Config.Money = {
 	start = 50, -- quem entra pela primeira vez
 	perMatch = 20, -- cada pessoa de claque no apito inicial
 	perCorteo = 30, -- a mais, por ter feito o corteo inteiro (proporcional)
 	perGoal = 5, -- cada golo da propria equipa
+}
+
+--[[
+	Niveis e salarios. Tres caminhos que nao se misturam: adepto, jogador e
+	arbitro. Todo o XP e dinheiro e contado no servidor (Progress, Profile).
+
+	Para passar do nivel n ao n+1 precisa-se de xpBase + xpStep * (n - 1) XP;
+	do 1 ao 30 sao ~13 000 XP, uns 40 a 50 jogos.
+
+	REGRA: o nivel de jogador nunca o torna melhor a jogar. So da coisas que
+	se veem ou escolhas (numero, posicao, bracadeira).
+]]
+Config.Progress = {
+	maxLevel = 30,
+	xpBase = 100,
+	xpStep = 25,
+
+	-- Estar "ativo": ter-se mexido pelo menos isto nos ultimos `activeWindow`
+	-- segundos, ou ter feito alguma coisa (tambor, tocha, chuto...). Parado nao
+	-- ganha XP de bancada nem de minutos.
+	activeWindow = 90,
+	activeDistance = 6,
+
+	adepto = {
+		corteoTick = 10, -- de quantos em quantos segundos se conta o corteo
+		corteoNear = 12, -- a esta distancia da faixa...
+		corteoNearXP = 4,
+		corteoFar = 25, -- ...ou a esta
+		corteoFarXP = 2,
+		corteoCap = 60,
+		standTick = 30, -- na bancada durante o jogo
+		standXP = 2,
+		standCap = 60,
+		kickoffXP = 20, -- na bancada no apito inicial
+		pyroXP = 15, -- tocha ou fumo no momento certo
+		pyroCap = 3,
+		pyroMoment = 20, -- segundos depois de um golo da equipa
+		loudAt = 0.6, -- ambiente medio da claque no jogo
+		loudXP = 40,
+		louderAt = 0.8,
+		louderXP = 70,
+	},
+	jogador = {
+		minuteXP = 10,
+		goalXP = 50,
+		assistXP = 30,
+		assistWindow = 8,
+		stealXP = 8,
+		stealCap = 10,
+		saveXP = 15,
+		saveCap = 10,
+		winXP = 40,
+		drawXP = 20,
+	},
+	arbitro = {
+		fullMatchXP = 150, -- proporcional aos minutos, com pelo menos metade
+		rightCallXP = 15, -- decisao igual a do arbitro automatico
+		cleanXP = 100, -- acabar sem ser apanhado
+	},
+
+	-- O salario, no fim de cada jogo, a quem participou.
+	salary = {
+		adepto = { base = 20, perLevel = 1, minXP = 30 }, -- mais o corteo (Money.perCorteo)
+		jogador = { base = 30, perLevel = 2, perGoal = 10, minMinutes = 3 },
+		arbitro = { base = 40, perLevel = 3 }, -- com pelo menos metade do jogo apitado
+	},
+
+	-- O que cada nivel da. Adepto: material e direitos na claque.
+	perks = {
+		tochaAt = { 5, 15, 25 }, -- mais uma tocha por jogo em cada um
+		fumoAt = { 10, 20 },
+		velaAt = { 30 },
+		bannerAt = 8, -- pode segurar a faixa do corteo
+		bigFlareAt = 12, -- tocha grande
+		longCandleAt = 18, -- vela romana com 15 tiros
+		longCandleShots = 15,
+		exclusiveColoursAt = 25, -- dourado e prateado na loja
+		-- Jogador: so coisas que se veem ou escolhas.
+		numberAt = 3,
+		positionAt = 5,
+		bootsAt = 7,
+		captainAt = 10,
+		celebrationAt = { 12, 20 },
+		nameAt = 15,
+		goldBootsAt = 30,
+	},
+
+	-- A recompensa diaria: dia 1 a 7 seguidos (depois volta ao 1).
+	daily = { 20, 30, 40, 50, 60, 80, 120 },
+}
+
+-- As cores das botas (nivel de jogador 7).
+Config.BootColours = {
+	{ name = "Pretas", color = Color3.fromRGB(24, 24, 26) },
+	{ name = "Brancas", color = Color3.fromRGB(240, 240, 240) },
+	{ name = "Vermelhas", color = Color3.fromRGB(210, 40, 40) },
+	{ name = "Azuis", color = Color3.fromRGB(40, 100, 220) },
+	{ name = "Verdes", color = Color3.fromRGB(40, 170, 80) },
+	{ name = "Laranja", color = Color3.fromRGB(255, 130, 30) },
+	{ name = "Rosa", color = Color3.fromRGB(255, 100, 180) },
 }
 
 --[[
@@ -616,6 +717,9 @@ Config.PyroColours = {
 	{ name = "Roxo", color = Color3.fromRGB(150, 60, 220) :: Color3? },
 	{ name = "Rosa", color = Color3.fromRGB(255, 90, 170) :: Color3? },
 	{ name = "Branco", color = Color3.fromRGB(245, 245, 245) :: Color3? },
+	-- So a partir do nivel 25 de adepto (Config.Progress.perks.exclusiveColoursAt).
+	{ name = "Dourado", color = Color3.fromRGB(255, 196, 60) :: Color3?, exclusive = true },
+	{ name = "Prateado", color = Color3.fromRGB(200, 208, 220) :: Color3?, exclusive = true },
 }
 
 Config.Gear = {

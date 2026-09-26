@@ -279,11 +279,32 @@ end
 	A camisola. Numa pessoa, a roupa do avatar sai (camisa, calcas, roupa em
 	camadas) e o corpo fica com as cores da equipa; o cabelo e o resto ficam.
 ]]
+export type Look = { number: number?, boots: Color3?, name: string?, captain: boolean? }
+local lookHook: ((Footballer) -> Look?)? = nil
+
+--[[
+	O que os niveis de jogador mudam no equipamento (Progress): o numero
+	escolhido, a cor das botas, o nome nas costas e a bracadeira de capitao.
+	So aspeto: nada disto mexe no jogo.
+]]
+function Squad.setLookHook(fn: (Footballer) -> Look?)
+	lookHook = fn
+end
+
+-- O numero que se ve na camisola (o escolhido, ou o do lugar).
+function Squad.shirtNumber(f: Footballer): number
+	local hook = lookHook
+	local look = if hook and f.player then hook(f) else nil
+	return if look and look.number then look.number else f.number
+end
+
 local function dress(f: Footballer)
 	local model = f.model
 	if not model then
 		return
 	end
+	local hook = lookHook
+	local look: Look = (if hook and f.player then hook(f) else nil) or {}
 	local team = Config.Teams[f.teamId]
 	-- O guarda-redes veste outra cor, para se ver quem pode agarrar a bola.
 	local shirt = if f.keeper then team.keeperColor else team.color
@@ -311,11 +332,84 @@ local function dress(f: Footballer)
 	bc.LeftLegColor3 = SHORTS
 	bc.RightLegColor3 = SHORTS
 
+	local number = look.number or f.number
+	if f.player then
+		f.player:SetAttribute("Number", number)
+	end
 	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
 	if torso and torso:IsA("BasePart") then
-		numberOn(torso, f.number, Enum.NormalId.Back)
-		numberOn(torso, f.number, Enum.NormalId.Front)
+		numberOn(torso, number, Enum.NormalId.Back)
+		numberOn(torso, number, Enum.NormalId.Front)
+		-- O nome nas costas, por cima do numero.
+		local old = torso:FindFirstChild("NomeCostas")
+		if old then
+			old:Destroy()
+		end
+		if look.name then
+			local gui = Instance.new("SurfaceGui")
+			gui.Name = "NomeCostas"
+			gui.Face = Enum.NormalId.Back
+			gui.CanvasSize = Vector2.new(200, 200)
+			gui.LightInfluence = 0.6
+			gui.Parent = torso
+			local t = Instance.new("TextLabel")
+			t.Size = UDim2.fromScale(0.9, 0.18)
+			t.Position = UDim2.fromScale(0.05, 0.0)
+			t.BackgroundTransparency = 1
+			t.Font = Enum.Font.GothamBlack
+			t.TextScaled = true
+			t.TextColor3 = Color3.fromRGB(248, 248, 248)
+			t.Text = string.upper(look.name)
+			t.Parent = gui
+		end
 	end
+
+	-- As botas: os pes na cor escolhida.
+	for _, footName in { "LeftFoot", "RightFoot" } do
+		local foot = model:FindFirstChild(footName)
+		if foot and foot:IsA("BasePart") and look.boots then
+			foot.Color = look.boots
+		end
+	end
+
+	-- A bracadeira de capitao, no braco esquerdo.
+	local arm = model:FindFirstChild("LeftUpperArm") or model:FindFirstChild("Left Arm")
+	local band = model:FindFirstChild("Bracadeira")
+	if band and not look.captain then
+		band:Destroy()
+	elseif look.captain and not band and arm and arm:IsA("BasePart") then
+		local p = Instance.new("Part")
+		p.Name = "Bracadeira"
+		p.Size = Vector3.new(arm.Size.X + 0.1, 0.35, arm.Size.Z + 0.1)
+		p.Color = Color3.fromRGB(255, 210, 40)
+		p.Material = Enum.Material.Fabric
+		p.CanCollide = false
+		p.CanQuery = false
+		p.Massless = true
+		p.CFrame = arm.CFrame * CFrame.new(0, arm.Size.Y * 0.15, 0)
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = arm
+		weld.Part1 = p
+		weld.Parent = p
+		p.Parent = model
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Left
+		gui.CanvasSize = Vector2.new(60, 30)
+		gui.Parent = p
+		local c = Instance.new("TextLabel")
+		c.Size = UDim2.fromScale(1, 1)
+		c.BackgroundTransparency = 1
+		c.Font = Enum.Font.GothamBlack
+		c.TextScaled = true
+		c.TextColor3 = Color3.fromRGB(30, 30, 30)
+		c.Text = "C"
+		c.Parent = gui
+	end
+end
+
+-- Volta a vestir (mudou o numero, as botas ou o capitao).
+function Squad.redress(f: Footballer)
+	dress(f)
 end
 
 --------------------------------------------------------------------------------
@@ -459,6 +553,22 @@ local connections: { [Player]: RBXScriptConnection } = {}
 	para tras, que e onde quem chega quer jogar. A baliza so a quem a pede
 	(`keeper`); se ninguem a quiser, fica la um boneco. Lugar ocupado, nao entra.
 ]]
+local positionHook: ((Player) -> string?)? = nil
+function Squad.setPositionHook(fn: (Player) -> string?)
+	positionHook = fn
+end
+
+-- A zona do campo de um lugar: "ataque", "meio" ou "defesa".
+function Squad.zoneOf(f: Footballer): string
+	local spot = F.formation[f.slot]
+	if spot.x < 0.3 then
+		return "ataque"
+	elseif spot.x < 0.6 then
+		return "meio"
+	end
+	return "defesa"
+end
+
 function Squad.join(player: Player, teamId: string, keeper: boolean?): boolean
 	local list = slots[teamId]
 	if not list then
@@ -471,10 +581,22 @@ function Squad.join(player: Player, teamId: string, keeper: boolean?): boolean
 	end
 
 	local free: Footballer? = nil
-	for _, f in list do
-		if not f.player and not f.sentOff and f.keeper == wantsGoal then
-			free = f
-			break
+	-- Quem ja pode escolher (Progress) fica, se houver, com um lugar da zona que quer.
+	local wanted = if positionHook and not wantsGoal then positionHook(player) else nil
+	if wanted then
+		for _, f in list do
+			if not f.player and not f.sentOff and f.keeper == wantsGoal and Squad.zoneOf(f) == wanted then
+				free = f
+				break
+			end
+		end
+	end
+	if not free then
+		for _, f in list do
+			if not f.player and not f.sentOff and f.keeper == wantsGoal then
+				free = f
+				break
+			end
 		end
 	end
 	if not free then
@@ -490,7 +612,7 @@ function Squad.join(player: Player, teamId: string, keeper: boolean?): boolean
 	player.DevEnableMouseLock = false
 	player:SetAttribute("Team", "jogador")
 	player:SetAttribute("PitchTeam", teamId)
-	player:SetAttribute("Number", f.number)
+	player:SetAttribute("Number", Squad.shirtNumber(f))
 	player:SetAttribute("Keeper", f.keeper)
 
 	connections[player] = player.CharacterAdded:Connect(function(character)

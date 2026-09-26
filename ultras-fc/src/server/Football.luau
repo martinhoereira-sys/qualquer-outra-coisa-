@@ -92,6 +92,34 @@ local state = {
 local onGoal: ((string, Footballer?) -> ())? = nil
 
 -- Um golo que conta: de que equipa, e quem o marcou (se se souber).
+--[[
+	O que se passou com a bola, para o XP (Progress): "steal" (roubou a bola
+	a um adversario) e "save" (o guarda-redes agarrou um remate).
+]]
+local onEvent: ((string, Footballer) -> ())? = nil
+function Football.onEvent(fn: (string, Footballer) -> ())
+	onEvent = fn
+end
+local function emit(kind: string, f: Footballer)
+	if onEvent then
+		task.spawn(onEvent :: (string, Footballer) -> (), kind, f)
+	end
+end
+
+-- O ultimo chuto (para as defesas e as assistencias) e o ultimo passe recebido.
+local lastKick: { f: Footballer, at: number }? = nil
+local passFrom: { from: Footballer, to: Footballer, at: number }? = nil
+
+-- Quem fez a assistencia para o golo de `scorer`: o colega que lhe passou a
+-- bola, se foi ha pouco (Config.Progress.jogador.assistWindow).
+function Football.assistFor(scorer: Footballer): Footballer?
+	local pass = passFrom
+	if pass and pass.to == scorer and os.clock() - pass.at <= Config.Progress.jogador.assistWindow then
+		return pass.from
+	end
+	return nil
+end
+
 function Football.onGoal(fn: (string, Footballer?) -> ())
 	onGoal = fn
 end
@@ -232,6 +260,7 @@ local function release(f: Footballer, direction: Vector3, speed: number, lift: n
 	state.carrier = nil
 	state.lastTouch = f.teamId
 	state.lastToucher = f
+	lastKick = { f = f, at = os.clock() }
 	state.noClaim[f] = os.clock() + F.kickLockout
 	-- Ninguem lhe toca no primeiro instante: sem isto, quem estava colado a
 	-- quem chutou ficava com a bola antes de ela sair dos pes.
@@ -788,6 +817,16 @@ local function claim(b: BasePart, now: number)
 	state.carrier = best
 	state.lastTouch = best.teamId
 	state.lastToucher = best
+	-- Passe (de um colega) ou defesa (o guarda-redes agarra um remate do outro lado).
+	local kick = lastKick
+	lastKick = nil
+	if kick and now - kick.at <= Config.Progress.jogador.assistWindow then
+		if kick.f.teamId == best.teamId and kick.f ~= best then
+			passFrom = { from = kick.f, to = best, at = now }
+		elseif kick.f.teamId ~= best.teamId and keeperCatch and state.live and now - kick.at <= 2.5 then
+			emit("save", best)
+		end
+	end
 	if keeperCatch then
 		state.heldBy = best
 		state.heldUntil = now + F.keeperHoldTime
@@ -1017,7 +1056,9 @@ local function tackle(carrier: Footballer, now: number): Footballer
 				state.carrier = f
 				state.lastTouch = f.teamId
 				state.lastToucher = f
+				lastKick = nil
 				if state.live then
+					emit("steal", f)
 					checkFoul(carrier, f, root.Position, root.CFrame.LookVector, other)
 				end
 				return f

@@ -140,13 +140,51 @@ end
 --------------------------------------------------------------------------------
 
 -- Quantos restam deste tipo. -1 quer dizer sem limite.
+--[[
+	O que os niveis de adepto dao (Progress): mais material por jogo, a tocha
+	grande, a vela com mais tiros, e quem fica com o tambor quando nao ha
+	lider. Quem liga isto e o Main; sem nada ligado, fica tudo como era.
+]]
+export type Perks = { bigFlare: boolean, candleShots: number }
+local bonusHook: ((Player, string) -> number)? = nil
+local perksHook: ((Player) -> Perks)? = nil
+local drumHook: ((Player) -> boolean)? = nil
+local igniteHook: ((Player, string) -> ())? = nil
+
+function Gear.setBonus(fn: (Player, string) -> number)
+	bonusHook = fn
+end
+function Gear.setPerks(fn: (Player) -> Perks)
+	perksHook = fn
+end
+function Gear.setDrumRule(fn: (Player) -> boolean)
+	drumHook = fn
+end
+-- Chamado sempre que alguem acende alguma coisa.
+function Gear.onIgnite(fn: (Player, string) -> ())
+	igniteHook = fn
+end
+
+-- Tem direito ao tambor: o lider, ou (sem lider) quem o Progress disser.
+function Gear.hasDrum(player: Player): boolean
+	if Teams.isLeader(player) then
+		return true
+	end
+	local rule = drumHook
+	return rule ~= nil and rule(player)
+end
+
 function Gear.remaining(player: Player, kind: string): number
 	if Config.GearStock.unlimited then
 		return -1
 	end
 	local mine = remaining[player]
 	local stock = mine and mine[kind]
-	return if stock ~= nil then stock else KINDS[kind].perMatch
+	if stock ~= nil then
+		return stock
+	end
+	local bonus = if bonusHook then bonusHook(player, kind) else 0
+	return KINDS[kind].perMatch + bonus
 end
 
 local function spend(player: Player, kind: string)
@@ -166,7 +204,7 @@ end
 
 function Gear.counts(player: Player): { [string]: number }
 	local counts: { [string]: number } = {
-		tambor = if Teams.isLeader(player) then 1 else 0,
+		tambor = if Gear.hasDrum(player) then 1 else 0,
 	}
 	for kind in PYRO do
 		counts[kind] = if Teams.get(player) then Gear.remaining(player, kind) else 0
@@ -615,8 +653,24 @@ local function ignite(player: Player, tool: Tool, kind: string, teamId: string)
 	effects.Position = Vector3.new(0, 0.1, 0)
 	effects.Parent = h.tip
 
+	local perks = if perksHook then perksHook(player) else nil
+	if igniteHook then
+		task.spawn(igniteHook :: (Player, string) -> (), player, kind)
+	end
 	if kind == "tocha" then
 		flareEffects(effects, colour)
+		-- A tocha grande (nivel de adepto): chama e brilho maiores.
+		if perks and perks.bigFlare then
+			for _, e in effects:GetChildren() do
+				if e:IsA("ParticleEmitter") then
+					local keys = {}
+					for _, k in e.Size.Keypoints do
+						table.insert(keys, NumberSequenceKeypoint.new(k.Time, k.Value * 1.4, k.Envelope * 1.4))
+					end
+					e.Size = NumberSequence.new(keys)
+				end
+			end
+		end
 	elseif kind == "vela" then
 		candleEffects(effects, colour)
 	elseif kind == "estrobo" then
@@ -735,7 +789,9 @@ local function activate(player: Player, tool: Tool, kind: string)
 	if burning then
 		if kind == "vela" and os.clock() >= (candleNext[tool] or 0) then
 			candleNext[tool] = os.clock() + CANDLE_GAP
-			candleShots[tool] = (candleShots[tool] or CANDLE_SHOTS) - 1
+			local perks = if perksHook then perksHook(player) else nil
+			local shots = if perks then perks.candleShots else CANDLE_SHOTS
+			candleShots[tool] = (candleShots[tool] or shots) - 1
 			Remotes.Candle:FireAllClients(player)
 			if candleShots[tool] <= 0 then
 				candleShots[tool] = nil
@@ -854,7 +910,7 @@ function Gear.sync(player: Player)
 	end
 
 	for _, kind in ORDER do
-		local wanted = teamId ~= nil and (kind ~= "tambor" or Teams.isLeader(player))
+		local wanted = teamId ~= nil and (kind ~= "tambor" or Gear.hasDrum(player))
 		local tool = mine[kind]
 
 		-- Mudou de lado: o material do outro lado tinha a cor errada.

@@ -93,6 +93,20 @@ function Referee.onWindowClosed(fn: (Window, boolean, boolean) -> ())
 	onWindowClosed = fn
 end
 
+--[[
+	Cada decisao de uma pessoa com o apito, para o XP (Progress): se bate
+	certo com o que o arbitro automatico decidiria, e se foi apanhada.
+]]
+local onDecision: ((Player, boolean, boolean) -> ())? = nil
+function Referee.onDecision(fn: (Player, boolean, boolean) -> ())
+	onDecision = fn
+end
+local function decided(ref: Player?, correct: boolean, caught: boolean)
+	if ref and onDecision then
+		task.spawn(onDecision :: (Player, boolean, boolean) -> (), ref, correct, caught)
+	end
+end
+
 function Referee.onState(fn: () -> ())
 	onState = fn
 end
@@ -274,7 +288,10 @@ local function closeWindow(whistled: boolean, byReferee: boolean)
 
 	local caught = false
 	if byReferee then
+		local ref = whistle
+		local correct = whistled == w.fair()
 		caught = judge(if whistled then w.favours else w.against)
+		decided(ref, correct, caught)
 		if caught then
 			-- Apanhado: vale o que o arbitro automatico teria feito.
 			whistled = w.fair()
@@ -380,7 +397,10 @@ resolve = function(choice: string, byReferee: boolean)
 	local caught = false
 	local option = optionById(incident, choice)
 	if byReferee and option then
+		local ref = whistle
+		local correct = choice == incident.fair
 		caught = judge(option.favours)
+		decided(ref, correct, caught)
 		if caught then
 			choice = incident.fair
 		end

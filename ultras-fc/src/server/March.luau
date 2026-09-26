@@ -169,6 +169,43 @@ local function leaderRoot(player: Player): (Humanoid?, BasePart?)
 end
 
 -- O lider deixa de guiar: volta a andar ao seu passo, e a faixa segue sozinha.
+--[[
+	Quem, alem do lider, pode segurar a faixa (Progress: nivel de adepto). O
+	lider tem sempre prioridade: chegando, fica ele com ela.
+]]
+local holdRule: ((Player) -> boolean)? = nil
+function March.setHoldRule(fn: (Player) -> boolean)
+	holdRule = fn
+end
+
+local function mayHold(player: Player, teamId: string): boolean
+	if Teams.leader(teamId) == player then
+		return true
+	end
+	local rule = holdRule
+	return Teams.get(player) == teamId and rule ~= nil and rule(player)
+end
+
+-- Alguem da claque que pode segurar a faixa e esta mesmo ao pe dela.
+local function holderNear(teamId: string, at: Vector3): Player?
+	local leader = Teams.leader(teamId)
+	if leader then
+		local _, hrp = leaderRoot(leader)
+		if hrp and (hrp.Position - at).Magnitude <= M.takeRadius then
+			return leader
+		end
+	end
+	for _, player in Players:GetPlayers() do
+		if player ~= leader and mayHold(player, teamId) then
+			local _, hrp = leaderRoot(player)
+			if hrp and (hrp.Position - at).Magnitude <= M.takeRadius then
+				return player
+			end
+		end
+	end
+	return nil
+end
+
 local function releaseLeader(banner: Banner)
 	local leader = banner.leader
 	banner.leader = nil
@@ -264,7 +301,7 @@ function March.step(dt: number)
 			faixa saiu sozinha, ou se ele se atrasou, basta ir ter com ela.
 		]]
 		if not banner.leader and not banner.model:GetAttribute("Arrived") then
-			local candidate = Teams.leader(teamId)
+			local candidate = holderNear(teamId, banner.model.Position)
 			local humanoid, hrp
 			if candidate then
 				humanoid, hrp = leaderRoot(candidate)
@@ -283,7 +320,11 @@ function March.step(dt: number)
 		local leader = banner.leader
 		if leader then
 			local humanoid, hrp = leaderRoot(leader)
-			if not humanoid or not hrp or not leader.Parent or Teams.leader(teamId) ~= leader then
+			local newLeader = Teams.leader(teamId)
+			if not humanoid or not hrp or not leader.Parent or not mayHold(leader, teamId) then
+				releaseLeader(banner)
+			elseif newLeader and newLeader ~= leader and holderNear(teamId, banner.model.Position) == newLeader then
+				-- Chegou o lider: passa a ser ele.
 				releaseLeader(banner)
 			else
 				local at = hrp.Position

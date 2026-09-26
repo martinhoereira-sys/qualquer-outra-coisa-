@@ -36,6 +36,7 @@ local Academy = require(script.Parent:WaitForChild("Academy"))
 local AcademyBuilder = require(script.Parent:WaitForChild("AcademyBuilder"))
 local Transit = require(script.Parent:WaitForChild("Transit"))
 local TransitBuilder = require(script.Parent:WaitForChild("TransitBuilder"))
+local Progress = require(script.Parent:WaitForChild("Progress"))
 local StadiumPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 --[[
@@ -260,6 +261,7 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 end)
 
 Gear.onDrumHit(function(player)
+	Progress.markActive(player)
 	local teamId = Teams.get(player)
 	if not teamId then
 		return
@@ -345,6 +347,7 @@ local lastPhase = ""
 local lastGoalStamp = 0
 
 MatchLoop.onChange(function(snapshot)
+	Progress.phaseChanged(snapshot.phase)
 	Remotes.MatchState:FireAllClients(snapshot)
 
 	playing = snapshot.phase == "first" or snapshot.phase == "second"
@@ -466,12 +469,8 @@ MatchLoop.onChange(function(snapshot)
 		end
 		Atmosphere.kickOff(bonus)
 
-		-- Moedas para quem veio com a claque: o jogo, e mais o corteo que fez.
-		for _, player in Players:GetPlayers() do
-			if Teams.get(player) then
-				Money.add(player, Config.Money.perMatch + Config.Money.perCorteo * March.creditFor(player))
-			end
-		end
+		-- O que a claque ganha pelo jogo e pelo corteo paga-se agora no fim do
+		-- jogo, como salario (Progress), conforme o nivel.
 		March.stop()
 	end
 
@@ -584,6 +583,7 @@ Tifo.build(workspace:WaitForChild("Stadium"))
 
 -- O lider dispara o tifo; cada um levanta a sua cartolina.
 Remotes.Tifo.OnServerEvent:Connect(function(player, action, designId)
+	Progress.markActive(player)
 	if action == "launch" and type(designId) == "string" then
 		Tifo.launch(player, designId)
 	elseif action == "lift" then
@@ -596,6 +596,23 @@ end)
 	o ve.
 ]]
 Football.onGoal(function(teamId, scorer)
+	local scorerPlayer = if scorer and scorer.player and scorer.teamId == teamId then scorer.player else nil
+	local assist = if scorer and scorerPlayer then Football.assistFor(scorer) else nil
+	Progress.goal(teamId, scorerPlayer, if assist and assist.teamId == teamId then assist.player else nil)
+	-- O festejo desbloqueado pelo nivel de jogador (so aspeto): maos no ar, depois saltos.
+	if scorerPlayer then
+		local level = Progress.level(scorerPlayer, "jogador")
+		local steps = Config.Progress.perks.celebrationAt
+		local emote = if level >= steps[2] then "saltar" elseif level >= steps[1] then "maos" else nil
+		if emote then
+			scorerPlayer:SetAttribute("Emote", emote)
+			task.delay(6, function()
+				if scorerPlayer.Parent and scorerPlayer:GetAttribute("Emote") == emote then
+					scorerPlayer:SetAttribute("Emote", nil)
+				end
+			end)
+		end
+	end
 	-- Uma entrada ainda em aberto ja nao se apita: o golo conta.
 	Whistle.cancel()
 	MatchLoop.scoreGoal(teamId)
@@ -732,6 +749,7 @@ end)
 
 -- O que o jogador faz com a bola. O servidor e que sabe se ele a tem.
 Remotes.Football.OnServerEvent:Connect(function(player, action, value)
+	Progress.markActive(player)
 	local f = Squad.byPlayer(player)
 	if not f then
 		return
@@ -790,6 +808,7 @@ for _, emote in Config.Emotes do
 	EMOTE_IDS[emote.id] = true
 end
 Remotes.Emote.OnServerEvent:Connect(function(player, id)
+	Progress.markActive(player)
 	if type(id) ~= "string" or player:GetAttribute("Riding") then
 		return
 	end
@@ -819,7 +838,10 @@ Remotes.Shop.OnServerEvent:Connect(function(player, action, kind, choice)
 	end
 	if action == "cor" then
 		-- A cor fica a valer para esse material (Gear le o atributo ao acender).
-		local colour = Config.PyroColours[choice]
+		local colour = Config.PyroColours[choice] :: any
+		if colour and colour.exclusive and not Progress.exclusiveColours(player) then
+			return
+		end
 		if colour then
 			player:SetAttribute("Cor_" .. kind, colour.color)
 		end
@@ -847,6 +869,93 @@ end)
 
 Gear.start()
 Money.start()
+
+--[[
+	Os niveis (Progress): o que cada sistema lhes diz, e o que eles dao. Tudo
+	no servidor; o jogador so ve.
+]]
+Progress.link({
+	bannerPosition = March.bannerPosition,
+	footballerOf = function(player)
+		local f = Squad.byPlayer(player)
+		return if f then { teamId = f.teamId, keeper = f.keeper } else nil
+	end,
+	referee = Referee.current,
+	atmosphere = Atmosphere.fraction,
+	winner = MatchLoop.winner,
+	corteoCredit = March.creditFor,
+})
+Football.onEvent(function(kind, f)
+	local who = f.player
+	if who then
+		Progress.footballEvent(kind, who)
+	end
+end)
+Referee.onDecision(Progress.refDecision)
+Gear.setBonus(Progress.gearBonus)
+Gear.setPerks(Progress.gearPerks)
+Gear.setDrumRule(Progress.drumWithoutLeader)
+Gear.onIgnite(Progress.ignite)
+March.setHoldRule(Progress.canHoldBanner)
+Squad.setPositionHook(Progress.preferredPosition)
+
+-- O aspeto de cada jogador (numero, botas, nome, bracadeira): so aspeto.
+local function takenNumbers(teamId: string, me: Player): { [number]: boolean }
+	local taken: { [number]: boolean } = {}
+	for _, other in Squad.team(teamId) do
+		local who = other.player
+		if who ~= me then
+			-- O numero do lugar de um boneco, ou o que uma pessoa ja tem vestido.
+			local n = if who then who:GetAttribute("Number") else other.number
+			if type(n) == "number" then
+				taken[n] = true
+			end
+		end
+	end
+	return taken
+end
+Squad.setLookHook(function(f)
+	local who = f.player
+	if not who then
+		return nil
+	end
+	local look = Progress.lookFor(who, f.teamId, takenNumbers(f.teamId, who))
+	return look
+end)
+local function lookKey(f: any): string
+	local who = f.player
+	if not who then
+		return ""
+	end
+	local look = Progress.lookFor(who, f.teamId, takenNumbers(f.teamId, who))
+	return tostring(look.number) .. "|" .. tostring(look.boots) .. "|" .. tostring(look.name) .. "|" .. tostring(look.captain)
+end
+local function refreshLook(player: Player)
+	local f = Squad.byPlayer(player)
+	if f and f.model then
+		player:SetAttribute("LookKey", lookKey(f))
+		Squad.redress(f)
+	end
+end
+Progress.onLookChanged(refreshLook)
+Progress.start()
+-- De 5 em 5 s: a bracadeira passa de um para outro, o tambor muda de dono sem lider.
+task.spawn(function()
+	while true do
+		task.wait(5)
+		for _, f in Squad.humans() do
+			local who = f.player
+			if who and f.model and who:GetAttribute("LookKey") ~= lookKey(f) then
+				refreshLook(who)
+			end
+		end
+		for _, player in Players:GetPlayers() do
+			if Teams.get(player) then
+				Gear.sync(player)
+			end
+		end
+	end
+end)
 Bikes.start()
 Shops.start()
 

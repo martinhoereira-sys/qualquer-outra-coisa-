@@ -684,7 +684,7 @@ local function updateGearLabel()
 	if stock.tambor > 0 then
 		table.insert(pieces, "tambor")
 	end
-	table.insert(pieces, (if player:GetAttribute("MoedasInfinitas") then "∞" else tostring(coins())) .. " moedas")
+	table.insert(pieces, (if player:GetAttribute("MoedasInfinitas") then "∞" else tostring(coins())) .. "$")
 	gearLabel.Text = table.concat(pieces, "   ·   ")
 	gearLabel.TextColor3 = BRASS
 end
@@ -785,7 +785,7 @@ shopTitle.Size = UDim2.fromOffset(300, 30)
 shopTitle.Position = UDim2.fromOffset(20, 16)
 shopTitle.ZIndex = 21
 
-local shopSub = label(shop, "material da rua · paga-se em moedas do jogo", 13, MUTED)
+local shopSub = label(shop, "material da rua · paga-se em escudos", 13, MUTED)
 shopSub.Font = Enum.Font.Gotham
 shopSub.TextXAlignment = Enum.TextXAlignment.Left
 shopSub.Size = UDim2.fromOffset(340, 16)
@@ -1019,7 +1019,7 @@ for index, item in Config.Shop do
 	name.Position = UDim2.fromOffset(32, 12)
 	name.ZIndex = 22
 
-	local price = label(card, item.price .. " moedas", 14, BRASS)
+	local price = label(card, item.price .. "$", 14, BRASS)
 	price.TextXAlignment = Enum.TextXAlignment.Left
 	price.Size = UDim2.fromOffset(120, 18)
 	price.Position = UDim2.fromOffset(32, 38)
@@ -1040,14 +1040,20 @@ end
 
 -- As cores: um circulo por cor, a escolhida com aro.
 for index, entry in Config.PyroColours do
-	local col = (index - 1) % 9
-	local swatch = textButton(detail, if entry.color then "" else "EQ", 11, INK, Color3.new(1, 1, 1))
+	local col = index - 1
+	local swatch = textButton(detail, if entry.color then "" else "EQ", 10, INK, Color3.new(1, 1, 1))
 	swatch.Font = Enum.Font.GothamBlack
-	swatch.Size = UDim2.fromOffset(30, 30)
-	swatch.Position = UDim2.fromOffset(14 + col * 38, 194)
-	corner(swatch, 15)
+	swatch.Size = UDim2.fromOffset(26, 26)
+	swatch.Position = UDim2.fromOffset(14 + col * 30.5, 196)
+	corner(swatch, 13)
 	local stroke = outline(swatch, Color3.new(1, 1, 1), 0)
 	swatch.Activated:Connect(function()
+		-- As exclusivas so a partir do nivel de adepto certo (o servidor confirma).
+		if (entry :: any).exclusive and ((player:GetAttribute("Nivel_adepto") :: number?) or 1) < Config.Progress.perks.exclusiveColoursAt then
+			feedback.TextColor3 = SHOP_BAD
+			feedback.Text = entry.name .. ": so a partir do nivel " .. Config.Progress.perks.exclusiveColoursAt .. " de adepto"
+			return
+		end
 		Remotes.Shop:FireServer("cor", selectedKind, index)
 		feedback.TextColor3 = TEXT
 		feedback.Text = "cor escolhida: " .. entry.name
@@ -1067,7 +1073,7 @@ for index, pack in Config.ShopPacks do
 		local cost = item.price * pack.pay
 		if not rich() and coins() < cost then
 			feedback.TextColor3 = SHOP_BAD
-			feedback.Text = "faltam " .. (cost - coins()) .. " moedas"
+			feedback.Text = "faltam " .. (cost - coins()) .. "$"
 			return
 		end
 		Remotes.Shop:FireServer("buy", selectedKind, index)
@@ -1078,7 +1084,7 @@ for index, pack in Config.ShopPacks do
 end
 
 refreshShop = function()
-	shopCoins.Text = coinsText() .. " moedas"
+	shopCoins.Text = coinsText() .. "$"
 	local item = itemFor(selectedKind)
 	local chosen = chosenIndex(selectedKind)
 	local colour = colourAt(chosen)
@@ -1105,6 +1111,10 @@ refreshShop = function()
 	for index, swatch in swatches do
 		swatch.button.Visible = hasColour
 		swatch.button.BackgroundColor3 = colourAt(index)
+		local entry = Config.PyroColours[index] :: any
+		local locked = entry.exclusive and ((player:GetAttribute("Nivel_adepto") :: number?) or 1) < Config.Progress.perks.exclusiveColoursAt
+		swatch.button.Text = if locked then "25" elseif entry.color then "" else "EQ"
+		swatch.button.BackgroundTransparency = if locked then 0.5 else 0
 		swatch.stroke.Thickness = if index == chosen then 3 else 0
 	end
 
