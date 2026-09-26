@@ -15,6 +15,7 @@ local Teams = require(script.Parent:WaitForChild("Teams"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Gear = require(script.Parent:WaitForChild("Gear"))
 local Lider = require(script.Parent:WaitForChild("Lider"))
+local Bandeirao = require(script.Parent:WaitForChild("Bandeirao"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
 local Football = require(script.Parent:WaitForChild("Football"))
 local Bots = require(script.Parent:WaitForChild("Bots"))
@@ -386,6 +387,7 @@ MatchLoop.onChange(function(snapshot)
 		Gear.refill()
 		Tifo.refill()
 		Lider.newMatch()
+		Bandeirao.newMatch()
 		Football.resetClock()
 		Squad.resetMatch()
 		for _, teamId in Config.TeamOrder do
@@ -878,6 +880,10 @@ Lider.start({
 	end,
 	phase = MatchLoop.phase,
 })
+-- O bandeirao: o lider manda, uma vez por parte, com o jogo a decorrer.
+Lider.setBandeirao(function(teamId: string): (boolean, string?)
+	return Bandeirao.trigger(teamId, MatchLoop.phase())
+end)
 Money.start()
 
 --[[

@@ -173,6 +173,7 @@ RunService.RenderStepped:Connect(function()
 	local heights: { [string]: number } = {}
 	local drops: { [string]: number } = {}
 	local parties: { [string]: boolean } = {}
+	local covered: { [string]: boolean } = {} -- bandeirao em baixo: as bandeiras recolhem
 	local now = workspace:GetServerTimeNow()
 	for _, name in Config.TeamOrder do
 		-- Em festa, e sem tifo no ar (quem segura a cartolina nao larga).
@@ -184,6 +185,9 @@ RunService.RenderStepped:Connect(function()
 			beats[name] = beat + rate * elapsed
 			-- Tifo no ar: seguram a cartolina, nao saltam.
 			heights[name] = crowd:GetAttribute("Hold_" .. name) == true and 0 or height
+			local banner = stadium:GetAttribute("Bandeirao_" .. name)
+			local B = Config.Lider.bandeirao
+			covered[name] = type(banner) == "number" and now >= banner and now - banner < B.unroll + B.hold + B.rollup
 			-- O lider mandou SALTAR: a bancada inteira salta muito mais alto.
 			local jumpUntil = stadium:GetAttribute("Saltar_" .. name)
 			if type(jumpUntil) == "number" and now < jumpUntil then
@@ -213,7 +217,7 @@ RunService.RenderStepped:Connect(function()
 			local cloth = person.cloth
 			if cloth then
 				-- Tifo no ar: as bandeiras recolhem-se.
-				local down = crowd:GetAttribute("Hold_" .. person.teamId) == true
+				local down = crowd:GetAttribute("Hold_" .. person.teamId) == true or covered[person.teamId] == true
 				Pano.show(cloth, not down)
 				if not down then
 					Pano.pose(cloth, at * FLAG_AT, now + person.phase * 40, 0.85, moveParts, moveFrames)

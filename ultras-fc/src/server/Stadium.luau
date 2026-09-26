@@ -20,6 +20,7 @@ local Budget = require(script.Parent:WaitForChild("Budget"))
 local City = require(script.Parent:WaitForChild("City"))
 local StadiumBuilder = require(script.Parent:WaitForChild("StadiumBuilder"))
 local Faixas = require(script.Parent:WaitForChild("Faixas"))
+local Bandeirao = require(script.Parent:WaitForChild("Bandeirao"))
 local Plan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 local Stadium = {}
@@ -184,6 +185,8 @@ function Stadium.build()
 	local building = workspace:FindFirstChild("Estadio") or StadiumBuilder.build(workspace)
 	-- As faixas de pano na vedacao das claques (so faz as que faltam).
 	Faixas.build(building)
+	-- O rolo do bandeirao no cimo das curvas das claques.
+	Bandeirao.build(building)
 	tunnelGate = building:FindFirstChild("TunnelGate", true) :: BasePart?
 
 	-- A pasta do que e do jogo e muda (adeptos, tifo, corteo, bola).

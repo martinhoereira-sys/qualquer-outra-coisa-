@@ -422,6 +422,13 @@ Config.Lider = {
 		{ name = "Festa com buzinas", id = 9112779173 },
 	},
 	farda = Color3.fromRGB(20, 20, 24), -- o casaco da farda (o cachecol e da cor da claque)
+	--[[
+		O BANDEIRAO: o pano gigante enrolado no cimo da curva que desce por cima
+		da claque inteira. Uma vez por parte. Tempos em segundos; `headroom` e a
+		altura do pano por cima do degrau (tem de passar por cima das cabecas).
+		`columns` x `rows` sao os bocados de pano (o emblema e pintado neles).
+	]]
+	bandeirao = { unroll = 4, hold = 25, rollup = 3, headroom = 8.5, columns = 28, rows = 16, t0 = 0.04, t1 = 0.96 },
 }
 
 --[[

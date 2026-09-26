@@ -206,6 +206,7 @@ local TEXTS = {
 	saltar = "O líder mandou SALTAR",
 	acender = "O líder mandou ACENDER as tochas",
 	farda = "O líder mandou vestir a FARDA",
+	bandeirao = "BANDEIRÃO! Acende a tocha por baixo do pano",
 }
 
 local function invite(leader: Player, teamId: string, order: string)
@@ -269,7 +270,7 @@ local function accept(player: Player, id: number)
 				end
 			end)
 		end
-	elseif order == "acender" then
+	elseif order == "acender" or order == "bandeirao" then
 		task.spawn(function()
 			local lit = Gear.lightNow(player)
 			if not lit then
@@ -416,6 +417,11 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 			return
 		end
 		local ok, why = hook(teamId)
+		if ok then
+			-- Por baixo do pano, a claque de tochas acesas: a luz passa pelo pano.
+			botOrder(teamId, "Acender", L.bandeirao.unroll + L.bandeirao.hold)
+			invite(player, teamId, "bandeirao")
+		end
 		tell(player, if ok then "O bandeirão está a descer!" else (why or "Agora não dá."))
 	end
 end
