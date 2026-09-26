@@ -350,12 +350,14 @@ end
 -- Levanta toda a gente sentada neste autocarro.
 local function unseatAll(bus: Bus)
 	for _, seat in bus.model:GetDescendants() do
-		if seat:IsA("Seat") and seat.Occupant then
+		-- Guarda quem la vai antes: tirar a solda apaga o Occupant.
+		local occupant = if seat:IsA("Seat") then seat.Occupant else nil
+		if occupant then
 			local weld = seat:FindFirstChild("SeatWeld")
 			if weld then
 				weld:Destroy()
 			end
-			seat.Occupant.Sit = false
+			occupant.Sit = false
 		end
 	end
 end
