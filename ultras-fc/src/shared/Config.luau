@@ -365,6 +365,7 @@ Config.March = {
 	readyNeeded = 3, -- quantos tem de estar na sede para o lider poder sair (ou todos, se forem menos)
 	autoStartAfter = 20, -- sem lider a dar a ordem, a faixa forma e sai sozinha, com folga para chegar
 	formSeconds = 8, -- a formatura: filas direitas, quietos, antes de sair
+	formAhead = 20, -- ao formar, a faixa avanca isto pela rua: as filas ficam atras dela, fora da sede
 	runDistance = 55, -- a esta distancia da porta acaba a marcha e corre-se para dentro
 	runSpeed = 20, -- a corrida para dentro
 	runBoost = 24, -- quem vai no corteo pode correr assim uns segundos (so se quiser)
@@ -405,7 +406,7 @@ Config.Entrance = {
 ]]
 Config.Lider = {
 	give = { base = 3, max = 15 },
-	giveKinds = { "tocha", "fumo", "bandeira", "faixa" }, -- o que pode dar
+	giveKinds = { "tocha", "fumo", "bandeira", "faixa", "mastro" }, -- o que pode dar (o mastro nao gasta: e so um, muda de mao)
 	cooldown = 6, -- segundos entre duas ordens iguais
 	inviteSeconds = 8, -- quanto tempo o aviso fica no ecra de cada um
 	jumpSeconds = 12, -- SALTAR: quanto tempo se salta
@@ -813,6 +814,12 @@ Config.Gear = {
 		duration = math.huge,
 		cooldown = 0,
 		gainPerSecond = 0.4, -- a agitar
+	},
+	mastro = {
+		perMatch = 1, -- so ha uma por claque: quem o lider escolher
+		duration = math.huge,
+		cooldown = 0,
+		gainPerSecond = 2.2, -- a agitar
 	},
 	bandeira = {
 		perMatch = 0, -- a de duas hastes: so do dealer ou dada pelo lider; nao se gasta

@@ -272,12 +272,16 @@ type HeldFlag = {
 	cloth: Pano.Cloth,
 	poles: { BasePart },
 	folder: Folder,
+	fly: Vector3?, -- para onde o pano voa (atras do movimento do mastro)
+	lastTop: Vector3?,
+	lastT: number?,
 }
 
 local flags: { [Player]: HeldFlag } = {}
 
 local POLE = Color3.fromRGB(70, 60, 48)
 local SMALL_POLE = 3.6 -- o pau da bandeirinha
+local MASTRO_POLE = 15 -- o mastro da bandeira grande
 local BIG_POLE = 7.5 -- cada haste da bandeira grande
 local BIG_HEIGHT = 3.4
 
@@ -314,17 +318,20 @@ local function flagFor(player: Player, kind: string): HeldFlag?
 
 	local folder = Instance.new("Folder")
 	folder.Name = "Bandeira_" .. player.Name
-	local design = Pano.designFor(if kind == "bandeira" then "bandeira" else "bandeirinha", teamId)
+	local design = Pano.designFor(if kind == "bandeirinha" then "bandeirinha" else kind, teamId)
 	design.colour = colour
 	local cloth = if kind == "bandeira"
 		then Pano.new(folder, 5.5, BIG_HEIGHT, 7, design, { mode = "pinned", pixels = 24, seed = player.UserId })
-		else Pano.new(folder, 2.4, 1.6, 3, design, { mode = "flag", pixels = 20, maxDistance = 200, seed = player.UserId })
+		elseif kind == "mastro" then Pano.new(folder, 8, 5.5, 11, design, { mode = "flag", pixels = 18, seed = player.UserId })
+		else Pano.new(folder, 2.4, 1.6, 4, design, { mode = "flag", pixels = 20, maxDistance = 200, seed = player.UserId })
 
 	local poles: { BasePart } = {}
 	for _ = 1, if kind == "bandeira" then 2 else 1 do
 		local pole = Instance.new("Part")
 		pole.Name = "Haste"
-		pole.Size = Vector3.new(0.14, if kind == "bandeira" then BIG_POLE else SMALL_POLE, 0.14)
+		pole.Size = if kind == "mastro"
+			then Vector3.new(0.26, MASTRO_POLE, 0.26)
+			else Vector3.new(0.14, if kind == "bandeira" then BIG_POLE else SMALL_POLE, 0.14)
 		pole.Color = POLE
 		pole.Material = Enum.Material.Wood
 		pole.Anchored = true
@@ -348,6 +355,29 @@ local function poleFrame(from: Vector3, axis: Vector3, length: number): (CFrame,
 	local mid = from + axis * (length / 2 - 0.6)
 	local side = if math.abs(axis:Dot(Vector3.zAxis)) < 0.95 then Vector3.zAxis else Vector3.xAxis
 	return CFrame.fromMatrix(mid, axis:Cross(side).Unit, axis), top
+end
+
+--[[
+	Para onde voa o pano: para tras do movimento da ponta do mastro (quem
+	agita da uma chicotada e o pano segue atras), com um pouco de vento para o
+	lado. Alisado, para nao saltar de um lado para o outro.
+]]
+local function flyDir(f: HeldFlag, top: Vector3, axis: Vector3, wind: Vector3): Vector3
+	local now = os.clock()
+	local dt = math.clamp(now - (f.lastT or now), 1 / 240, 0.1)
+	local velocity = (top - (f.lastTop or top)) / dt
+	f.lastTop = top
+	f.lastT = now
+	local want = wind * 0.6 - velocity * 0.12
+	want -= axis * want:Dot(axis)
+	if want.Magnitude < 0.05 then
+		want = wind - axis * wind:Dot(axis)
+	end
+	local current = f.fly or want.Unit
+	local blended = current:Lerp(want.Unit, math.clamp(dt * 7, 0, 1))
+	blended -= axis * blended:Dot(axis)
+	f.fly = if blended.Magnitude > 1e-3 then blended.Unit else want.Unit
+	return f.fly :: Vector3
 end
 
 local flagParts: { BasePart } = {}
@@ -384,6 +414,27 @@ local function placeFlag(player: Player, character: Model, kind: string, t: numb
 		end
 		Pano.resize(f.cloth, (tops[2] - tops[1]).Magnitude)
 		Pano.pose(f.cloth, Pano.between(tops[1], tops[2], Vector3.yAxis), t, if waving then 1 else 0.45, flagParts, flagFrames)
+	elseif kind == "mastro" then
+		local left = character:FindFirstChild("LeftHand") :: BasePart?
+		local rightHand = character:FindFirstChild("RightHand") :: BasePart?
+		if not left or not rightHand then
+			return
+		end
+		--[[
+			O mastro nas duas maos. A agitar: grandes arcos de um lado para o
+			outro por cima da claque (e um pouco para a frente e para tras); o
+			pano chicoteia atras do movimento. Parado: quase direito.
+		]]
+		local look = root.CFrame.LookVector
+		local swing = if waving then math.sin(t * 1.7) * 0.95 else math.sin(t * 0.8) * 0.07
+		local pitch = if waving then math.cos(t * 1.7) * 0.22 else 0
+		local axis = (CFrame.fromAxisAngle(look, swing) * CFrame.fromAxisAngle(right, pitch)):VectorToWorldSpace(Vector3.yAxis)
+		local grip = (left.Position + rightHand.Position) / 2
+		local cf, top = poleFrame(grip, axis, MASTRO_POLE)
+		table.insert(flagParts, f.poles[1])
+		table.insert(flagFrames, cf)
+		local base = CFrame.fromMatrix(top, flyDir(f, top, axis, right), axis)
+		Pano.pose(f.cloth, base, t, if waving then 1 else 0.5, flagParts, flagFrames)
 	else
 		local hand = character:FindFirstChild("RightHand") :: BasePart?
 		if not hand then
@@ -394,8 +445,8 @@ local function placeFlag(player: Player, character: Model, kind: string, t: numb
 		local cf, top = poleFrame(hand.Position, axis, SMALL_POLE)
 		table.insert(flagParts, f.poles[1])
 		table.insert(flagFrames, cf)
-		-- O pano sai do pau para o lado, virado para a frente de quem a segura.
-		local base = CFrame.fromMatrix(top, right, axis)
+		-- O pano sai do pau para o lado e segue atras do movimento do pau.
+		local base = CFrame.fromMatrix(top, flyDir(f, top, axis, right), axis)
 		Pano.pose(f.cloth, base, t, if waving then 1 else 0.55, flagParts, flagFrames)
 	end
 	workspace:BulkMoveTo(flagParts, flagFrames, Enum.BulkMoveMode.FireCFrameChanged)
@@ -488,6 +539,16 @@ RunService.Stepped:Connect(function()
 			set(rig.rightElbow, CFrame.identity)
 			dropScarf(player)
 			placeFlag(player, character, "bandeirinha", t)
+		elseif hold == "mastro" then
+			-- As duas maos no mastro, por cima da cabeca, a acompanhar os arcos.
+			local waving = player:GetAttribute("Wave") == true
+			local swing = if waving then math.sin(t * 1.7) * math.rad(30) else 0
+			arm(rig.rightShoulder, 1, math.rad(168), math.rad(8) + swing)
+			arm(rig.leftShoulder, -1, math.rad(168), math.rad(8) - swing)
+			set(rig.rightElbow, CFrame.identity)
+			set(rig.leftElbow, CFrame.identity)
+			dropScarf(player)
+			placeFlag(player, character, "mastro", t)
 		elseif hold == "bandeira" then
 			-- Os dois bracos no ar, abertos, uma haste em cada mao.
 			local waving = player:GetAttribute("Wave") == true

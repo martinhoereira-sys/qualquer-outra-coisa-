@@ -301,7 +301,7 @@ local budgetText = "?"
 local giveInfo: TextLabel? = nil
 local chosenTarget: Player? = nil
 
-local ITEM_LABEL = { tocha = "🔥 Tocha", fumo = "💨 Fumo", bandeira = "🚩 Bandeira", faixa = "🎌 Faixa" }
+local ITEM_LABEL = { tocha = "🔥 Tocha", fumo = "💨 Fumo", bandeira = "🚩 Bandeira", faixa = "🎌 Faixa", mastro = "🏴 Mastro (só 1)" }
 
 local function showGive()
 	grid.Visible = false

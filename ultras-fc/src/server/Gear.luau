@@ -49,7 +49,7 @@ local Gear = {}
 local KINDS = Config.Gear
 
 -- A ordem na barra: tocha, fumo, vela romana, estrobo, cachecol e (lider) tambor.
-local ORDER = { "tocha", "fumo", "vela", "estrobo", "cachecol", "bandeirinha", "bandeira", "tambor" }
+local ORDER = { "tocha", "fumo", "vela", "estrobo", "cachecol", "bandeirinha", "bandeira", "mastro", "tambor" }
 
 -- O que se acende e se segura no ar.
 local PYRO: { [string]: boolean } = { tocha = true, fumo = true, vela = true, estrobo = true }
@@ -60,7 +60,13 @@ local PYRO: { [string]: boolean } = { tocha = true, fumo = true, vela = true, es
 	A bandeirinha e de toda a gente; a de duas hastes e grande, tem de se ter
 	(dealer ou o lider) e quem a segura fica no lugar.
 ]]
-local FLAGS: { [string]: boolean } = { bandeirinha = true, bandeira = true }
+local FLAGS: { [string]: boolean } = { bandeirinha = true, bandeira = true, mastro = true }
+
+--[[
+	A bandeira do mastro: a grande, a que se agita por cima da claque. So ha
+	uma por claque, e quem a segura e quem o lider escolher (DAR MATERIAL).
+]]
+local mastroHolder: { [string]: Player } = {}
 
 local LABEL: { [string]: string } = {
 	tocha = "Tocha",
@@ -70,6 +76,7 @@ local LABEL: { [string]: string } = {
 	cachecol = "Cachecol",
 	bandeirinha = "Bandeirinha",
 	bandeira = "Bandeira",
+	mastro = "Mastro",
 	tambor = "Tambor",
 }
 
@@ -178,6 +185,23 @@ end
 -- Chamado sempre que alguem acende alguma coisa.
 function Gear.onIgnite(fn: (Player, string) -> ())
 	igniteHook = fn
+end
+
+--[[
+	O lider escolhe quem agita a bandeira do mastro. So um por claque: quem a
+	tinha perde-a.
+]]
+function Gear.setMastro(teamId: string, player: Player)
+	local before = mastroHolder[teamId]
+	mastroHolder[teamId] = player
+	if before and before ~= player and before.Parent then
+		Gear.sync(before)
+	end
+	Gear.sync(player)
+end
+
+function Gear.mastroHolder(teamId: string): Player?
+	return mastroHolder[teamId]
 end
 
 -- Tem direito ao tambor: o lider, ou (sem lider) quem o Progress disser.
@@ -640,7 +664,7 @@ local function raiseFlag(player: Player, kind: string)
 	setHold(player, kind)
 	player:SetAttribute("Wave", nil)
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	if kind == "bandeira" and humanoid and not rooted[player] then
+	if (kind == "bandeira" or kind == "mastro") and humanoid and not rooted[player] then
 		rooted[player] = { walk = humanoid.WalkSpeed, jump = humanoid.JumpHeight }
 		humanoid.WalkSpeed = 0
 		humanoid.JumpHeight = 0
@@ -898,6 +922,7 @@ function Gear.sync(player: Player)
 		local wanted = teamId ~= nil
 			and (kind ~= "tambor" or Gear.hasDrum(player))
 			and (kind ~= "bandeira" or Gear.remaining(player, kind) ~= 0)
+			and (kind ~= "mastro" or (teamId ~= nil and mastroHolder[teamId] == player))
 		local tool = mine[kind]
 
 		-- Mudou de lado: o material do outro lado tinha a cor errada.
@@ -992,6 +1017,8 @@ end
 
 -- Dia de jogo novo: stock cheio outra vez.
 function Gear.refill()
+	-- A bandeira do mastro volta ao lider escolher de novo.
+	table.clear(mastroHolder)
 	for _, player in Players:GetPlayers() do
 		remaining[player] = {}
 		nextAllowed[player] = {}
@@ -1010,6 +1037,11 @@ function Gear.forget(player: Player)
 	remaining[player] = nil
 	nextAllowed[player] = nil
 	rooted[player] = nil
+	for teamId, holder in mastroHolder do
+		if holder == player then
+			mastroHolder[teamId] = nil
+		end
+	end
 end
 
 return Gear

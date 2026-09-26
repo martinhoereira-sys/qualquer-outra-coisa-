@@ -258,12 +258,30 @@ function March.form(teamId: string): boolean
 	if not (active and banner) or banner.stage ~= "espera" then
 		return false
 	end
-	local here = banner.model.Position
-	local ahead = banner.waypoints[2] or here + Vector3.new(0, 0, -1)
-	local look = Vector3.new(ahead.X - here.X, 0, ahead.Z - here.Z)
-	if look.Magnitude > 0.1 then
-		banner.model.CFrame = CFrame.lookAt(here, here + look.Unit)
+	--[[
+		A faixa avanca pela rua `formAhead` studs e vira-se para o caminho: as
+		filas formam atras dela, na rua. (A porta da sede fica mesmo atras da
+		faixa: formar ali metia as filas dentro do edificio.)
+	]]
+	local left = M.formAhead
+	local points = banner.waypoints
+	local at, look = points[1], Vector3.new(0, 0, -1)
+	for i = 1, #points - 1 do
+		local a, b = points[i], points[i + 1]
+		local segment = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+		if segment.Magnitude < 0.1 then
+			continue
+		end
+		look = segment.Unit
+		banner.leg = i
+		if segment.Magnitude >= left then
+			at = a + look * left
+			break
+		end
+		left -= segment.Magnitude
+		at = b
 	end
+	banner.model.CFrame = CFrame.lookAt(Vector3.new(at.X, banner.model.Position.Y, at.Z), Vector3.new(at.X, banner.model.Position.Y, at.Z) + look)
 	banner.formedAt = os.clock()
 	setStage(banner, "formatura")
 	return true

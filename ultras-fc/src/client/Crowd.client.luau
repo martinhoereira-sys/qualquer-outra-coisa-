@@ -67,7 +67,7 @@ local function track(model: Instance)
 	-- Com bandeira: o pano a ondular do mastro para o lado, virado para o campo.
 	local cloth: Pano.Cloth? = nil
 	if model:FindFirstChild("Flag") then
-		cloth = Pano.new(clothFolder, 5, 3.4, 5, Pano.designFor("bandeira", teamId), {
+		cloth = Pano.new(clothFolder, 5, 3.4, 7, Pano.designFor("bandeira", teamId), {
 			mode = "flag",
 			pixels = 16,
 			maxDistance = 260,
@@ -285,7 +285,24 @@ end
 ]]
 local ordered: { [string]: { Instance } } = {}
 
+local function fadeSet(set: { Instance })
+	for _, tip in set do
+		if tip.Parent and not tip:GetAttribute("Apagada") then
+			tip:SetAttribute("Apagada", true)
+			Pyro.fade(tip, 4)
+			task.delay(Pyro.LINGER, function()
+				tip:Destroy()
+			end)
+		end
+	end
+end
+
 local function lightTeam(teamId: string, count: number, seconds: number)
+	-- Uma ordem nova: as tochas da anterior apagam-se (nao ficam duas na mesma mao).
+	local previous = ordered[teamId]
+	if previous then
+		fadeSet(previous)
+	end
 	local list: { Person } = {}
 	for _, person in people do
 		if person.teamId == teamId then
@@ -318,17 +335,13 @@ local function lightTeam(teamId: string, count: number, seconds: number)
 		end
 	end
 	ordered[teamId] = made
+	-- Cada tocha apaga-se sempre ao fim do tempo, mesmo que o lider volte a
+	-- mandar acender entretanto (antes ficavam acesas para sempre).
 	task.delay(seconds, function()
-		if ordered[teamId] ~= made then
-			return
+		if ordered[teamId] == made then
+			ordered[teamId] = nil
 		end
-		ordered[teamId] = nil
-		for _, tip in made do
-			Pyro.fade(tip, 4)
-			task.delay(Pyro.LINGER, function()
-				tip:Destroy()
-			end)
-		end
+		fadeSet(made)
 	end)
 end
 

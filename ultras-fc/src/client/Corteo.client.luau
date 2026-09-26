@@ -38,6 +38,7 @@ local MARCH_ROW = 2.2
 local TORCH_WINDOW = 14
 local TORCH_SHARE = 0.14 -- em cada janela, esta parte dos bonecos acende
 local SMOKE_SHARE = 0.03
+local TORCH_BURN = 9 -- cada tocha arde isto e apaga-se (nao ficam acesas para sempre)
 
 type Walker = {
 	index: number,
@@ -59,6 +60,7 @@ type Walker = {
 	ground: number,
 	nextCheck: number,
 	torch: Attachment?,
+	litAt: number,
 	torchWindow: number,
 }
 
@@ -154,6 +156,7 @@ local function makeWalker(index: number, colour: Color3, parent: Instance, drum:
 		ground = 0,
 		nextCheck = 0,
 		torch = nil,
+		litAt = 0,
 		torchWindow = -1,
 	}
 end
@@ -361,6 +364,7 @@ local function updateTorch(w: Walker, group: Group, marching: boolean, serverNow
 	else
 		Pyro.flare(at, group.colour)
 	end
+	w.litAt = serverNow
 	if Pyro.light(at, group.colour, 4, 24, lights) then
 		lights += 1
 	end
@@ -515,6 +519,9 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 
 			updateTorch(w, group, stage == "marcha", serverNow, lighting and stage ~= "corrida")
+			if w.torch and serverNow - w.litAt > TORCH_BURN then
+				putOut(w)
+			end
 
 			local target: Vector3
 			local speed = M.speed + 5
@@ -529,7 +536,16 @@ RunService.RenderStepped:Connect(function(dt)
 				end
 			elseif stage == "formatura" then
 				-- Filas direitas atras da faixa, todos virados para a frente.
-				target = (banner.CFrame * CFrame.new(w.formSide, 0, w.formBack)).Position
+				-- (Filas direitas, mas sem entrar nas paredes se a rua for estreita.)
+				if now >= w.nextCheck then
+					w.nextCheck = now + 0.4 + math.random() * 0.2
+					local lineAt = (banner.CFrame * CFrame.new(0, 0, w.formBack)).Position
+					local from = Vector3.new(lineAt.X, w.ground + 3, lineAt.Z)
+					w.limit = roomTo(from, banner.CFrame.RightVector, if w.formSide >= 0 then 1 else -1, math.abs(w.formSide))
+					w.ground = groundAt(w.at, w.ground)
+				end
+				local side = math.clamp(w.formSide, -w.limit, w.limit)
+				target = (banner.CFrame * CFrame.new(side, 0, w.formBack)).Position
 				face = forward
 			elseif stage == "marcha" then
 				-- O bloco: o seu lugar no caminho da faixa, desalinhado, a
@@ -571,7 +587,7 @@ RunService.RenderStepped:Connect(function(dt)
 				w.facing = face
 			end
 
-			if stage ~= "marcha" and now >= w.nextCheck then
+			if stage ~= "marcha" and stage ~= "formatura" and now >= w.nextCheck then
 				w.nextCheck = now + 0.4 + math.random() * 0.2
 				w.ground = groundAt(w.at, w.ground)
 			end

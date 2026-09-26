@@ -100,6 +100,26 @@ function Pano.draw(canvas: GuiObject, design: Design)
 		frame(canvas, WHITE, UDim2.fromScale(1, 0.025), UDim2.fromScale(0, 0.14))
 		frame(canvas, WHITE, UDim2.fromScale(1, 0.025), UDim2.fromScale(0, 0.835))
 		label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.94, 0.62), UDim2.fromScale(0.03, 0.19))
+	elseif kind == "mastro" then
+		-- A bandeira grande do mastro: cor da claque com uma moldura branca, o
+		-- emblema redondo enorme ao meio e o nome da claque em baixo.
+		canvas.BackgroundColor3 = c
+		local border = frame(canvas, c, UDim2.fromScale(0.94, 0.9), UDim2.fromScale(0.03, 0.05))
+		border.BackgroundTransparency = 1
+		local line = Instance.new("UIStroke")
+		line.Color = WHITE
+		line.Thickness = 8
+		line.Parent = border
+		local badge = frame(canvas, WHITE, UDim2.fromScale(0.42, 0.6), UDim2.fromScale(0.29, 0.1))
+		local round = Instance.new("UICorner")
+		round.CornerRadius = UDim.new(0.5, 0)
+		round.Parent = badge
+		local ring = Instance.new("UIStroke")
+		ring.Color = DARK
+		ring.Thickness = 10
+		ring.Parent = badge
+		label(badge, design.short or "", c, UDim2.fromScale(0.8, 0.5), UDim2.fromScale(0.1, 0.25))
+		label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.86, 0.17), UDim2.fromScale(0.07, 0.74))
 	elseif kind == "bandeira" then
 		-- Tres bandas ao alto e o emblema redondo ao meio.
 		canvas.BackgroundColor3 = WHITE
@@ -274,25 +294,37 @@ function Pano.pose(cloth: Cloth, base: CFrame, t: number, amp: number, outParts:
 	local mode = cloth.mode
 
 	if mode == "flag" then
-		-- Presa ao mastro: cada tira dobra um pouco em relacao a anterior, e a
-		-- onda corre do mastro para a ponta, cada vez mais forte.
-		local ex, ez = 0, 0
+		--[[
+			Presa ao mastro. Como uma bandeira a serio:
+			- a onda corre do mastro para a ponta, cada vez mais forte (a ponta
+			  solta e que chicoteia);
+			- sem vento o pano cai com o peso: a ponta descai para baixo, e
+			  quanto mais forte se agita, mais se estica na horizontal;
+			- cada tira tambem balanca de cima a baixo, com atraso da do lado.
+		]]
+		local sagBase = 0.1 + 0.75 * math.clamp(1 - amp, 0, 1)
+		local ex, ey, ez = 0, 0, 0
 		for i = 1, n do
 			local u = (i - 0.5) / n
 			local k = i - 1
-			local yaw = amp * (0.25 + 0.75 * u) * (0.55 * math.sin(t * 3.4 - k * 0.8 + ph) + 0.2 * math.sin(t * 5.3 - k * 1.4 + ph * 2))
-			local tilt = 0.04 + amp * 0.22 * u * math.sin(t * 2.5 - k * 0.9 + ph)
+			local whip = amp * (0.3 + 0.9 * u)
+			local yaw = whip * (0.6 * math.sin(t * 3.8 - k * 0.95 + ph) + 0.25 * math.sin(t * 6.4 - k * 1.7 + ph * 2))
+			-- O peso: a ponta descai, e sobe um pouco quando a onda passa.
+			local sag = sagBase * u * (0.85 + 0.15 * math.sin(t * 2.2 - k * 0.6 + ph))
+			local tilt = amp * 0.25 * u * math.sin(t * 2.7 - k * 1.1 + ph)
 			local len = cloth.lens[i]
 			local cf = base
-				* CFrame.new(ex, 0, ez)
+				* CFrame.new(ex, ey, ez)
 				* CFrame.Angles(0, yaw, 0)
+				* CFrame.Angles(0, 0, -sag)
 				* CFrame.new(w / 2, 0, 0)
 				* CFrame.Angles(tilt, 0, 0)
 				* CFrame.new(0, -len / 2, 0)
 			table.insert(parts, cloth.strips[i])
 			table.insert(frames, cf)
-			ex += w * math.cos(yaw)
-			ez -= w * math.sin(yaw)
+			ex += w * math.cos(yaw) * math.cos(sag)
+			ey -= w * math.sin(sag)
+			ez -= w * math.sin(yaw) * math.cos(sag)
 		end
 	else
 		-- Pendurado pela beira de cima: cada tira balanca para a frente e para

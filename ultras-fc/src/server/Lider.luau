@@ -317,6 +317,13 @@ local function give(leader: Player, teamId: string, targetId: any, kind: any)
 		tell(leader, "Essa pessoa não é da claque.")
 		return
 	end
+	-- A bandeira do mastro nao se gasta: e so uma, e muda de mao.
+	if kind == "mastro" then
+		Gear.setMastro(teamId, target)
+		Remotes.Lider:FireClient(target, { kind = "aviso", text = "O líder escolheu-te para agitar a bandeira do mastro! Está na tua barra." })
+		tell(leader, target.DisplayName .. " agita agora a bandeira do mastro.")
+		return
+	end
 	if left(leader) <= 0 then
 		tell(leader, "Já deste tudo o que podias neste jogo. Sobe de nível para dares mais.")
 		return
