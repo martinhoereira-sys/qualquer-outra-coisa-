@@ -34,6 +34,7 @@ type Line = {
 	nodes: { Vector2 },
 	stops: { Stop },
 	buses: number,
+	team: string?, -- o autocarro de um clube (leva quem joga da academia ao estadio)
 }
 
 local LINES: { Line } = {
@@ -47,7 +48,7 @@ local LINES: { Line } = {
 			{ name = "Avenida Norte", lines = "1", at = Vector2.new(0, 580) },
 			{ name = "Zona Nova", lines = "1", at = Vector2.new(630, 250) },
 			{ name = "Sede Azul", lines = "1", at = Vector2.new(630, -540) },
-			{ name = "Mercado", lines = "1", at = Vector2.new(0, -600) },
+			{ name = "Academia LES", lines = "1", at = Vector2.new(-110, -600) },
 			{ name = "Bairro Velho", lines = "1", at = Vector2.new(-630, -100) },
 		},
 		buses = 2,
@@ -60,19 +61,32 @@ local LINES: { Line } = {
 		stops = {
 			{ name = "Estadio Principal", lines = "2", at = Vector2.new(0, -165) },
 			{ name = "Estadio Nascente", lines = "2", at = Vector2.new(200, 20) },
-			{ name = "Academia", lines = "2", at = Vector2.new(100, 440) },
+			{ name = "Academia AGN", lines = "2", at = Vector2.new(100, 440) },
 			{ name = "Estadio Poente", lines = "2", at = Vector2.new(-200, 20) },
 		},
 		buses = 1,
 	},
 	{
-		id = "E",
-		colour = Color3.fromRGB(30, 30, 34),
-		destination = "EQUIPAS · ESTADIO",
+		id = "EN",
+		team = "home",
+		colour = Config.Teams.home.color,
+		destination = "EQUIPA · ESTADIO",
 		nodes = { Vector2.new(-200, 440), Vector2.new(200, 440), Vector2.new(200, -165), Vector2.new(-200, -165) },
 		stops = {
-			{ name = "Academia · Equipa", lines = "E", at = Vector2.new(-40, 440) },
-			{ name = "Estadio · Jogadores", lines = "E", at = Vector2.new(60, -165) },
+			{ name = "Academia AGN · Equipa", lines = "EN", at = Vector2.new(40, 440) },
+			{ name = "Estadio · Jogadores AGN", lines = "EN", at = Vector2.new(60, -165) },
+		},
+		buses = 1,
+	},
+	{
+		id = "ES",
+		team = "away",
+		colour = Config.Teams.away.color,
+		destination = "EQUIPA · ESTADIO",
+		nodes = { Vector2.new(200, -600), Vector2.new(-200, -600), Vector2.new(-200, -165), Vector2.new(200, -165) },
+		stops = {
+			{ name = "Academia LES · Equipa", lines = "ES", at = Vector2.new(-40, -600) },
+			{ name = "Estadio · Jogadores LES", lines = "ES", at = Vector2.new(-60, -165) },
 		},
 		buses = 1,
 	},
@@ -178,7 +192,7 @@ local function buildStop(stop: Stop, line: Line, parent: Instance)
 		label.Font = Enum.Font.GothamBlack
 		label.TextScaled = true
 		label.TextColor3 = Color3.fromRGB(250, 250, 250)
-		label.Text = string.upper(stop.name) .. "   ·   " .. (if stop.lines == "E" then "EQUIPAS" else "LINHA " .. stop.lines)
+		label.Text = string.upper(stop.name) .. "   ·   " .. (if line.team then "SO EQUIPA" else "LINHA " .. stop.lines)
 		label.Parent = gui
 	end
 	part("PosteSinal", Vector3.new(0.3, 10, 0.3), cf * CFrame.new(-7.5, 5, -1.6), STEEL, model, Enum.Material.Metal)
@@ -300,13 +314,14 @@ function Builder.build(parent: Instance): (Folder, number)
 			local d = (b - a).Unit
 			local right = Vector3.new(d.X, 0, d.Y):Cross(Vector3.yAxis)
 			local at = v3(a + d * 60, ROAD_Y) + right * T.laneOffset
-			if line.id == "E" then
+			if line.team then
 				-- O da equipa espera na paragem da academia.
 				at = v3(line.stops[1].at, ROAD_Y) + right * T.laneOffset
 			end
 			local bus = BusBuilder.build({ colour = line.colour, line = line.id, destination = line.destination }, CFrame.lookAt(at, at + Vector3.new(d.X, 0, d.Y)), buses)
 			bus.Name = "Autocarro " .. line.id .. (if line.buses > 1 then "-" .. n else "")
 			bus:SetAttribute("Line", line.id)
+			bus:SetAttribute("Team", line.team)
 		end
 	end
 

@@ -2073,7 +2073,8 @@ Remotes.Academia.OnClientEvent:Connect(function(info)
 	end
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not root or (root.Position - Config.Academy.centre).Magnitude > 260 then
+	local at = if typeof(info.at) == "Vector3" then info.at else Vector3.zero
+	if not root or (root.Position - at).Magnitude > 260 then
 		return
 	end
 	trainingScorer.Text = if type(info.name) == "string" then info.name .. " marcou no treino" else "no treino"

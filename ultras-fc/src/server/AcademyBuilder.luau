@@ -24,6 +24,11 @@ local Builder = {}
 
 local A = Config.Academy
 
+-- A academia que se esta a construir: onde, e de que clube.
+local CENTRE = Vector3.zero
+local TEAM_NAME = ""
+local TEAM_COLOUR = Color3.new(1, 1, 1)
+
 local GRASS_A = Color3.fromRGB(64, 122, 62)
 local GRASS_B = Color3.fromRGB(76, 138, 72)
 local LINE = Color3.fromRGB(236, 240, 236)
@@ -104,7 +109,7 @@ end
 
 local function buildPitch(root: Instance)
 	local folder = folderIn(root, "Relvado")
-	local c = A.centre
+	local c = CENTRE
 	local y = A.groundY
 	local L, W = A.pitchLength, A.pitchWidth
 
@@ -195,7 +200,7 @@ end
 ]]
 local function buildFence(root: Instance)
 	local folder = folderIn(root, "Vedacao")
-	local c = A.centre
+	local c = CENTRE
 	local y = A.groundY
 	local hx = A.pitchLength / 2 + 10
 	local hz = A.pitchWidth / 2 + 8
@@ -236,7 +241,7 @@ local function buildFence(root: Instance)
 		door.CollisionGroup = "BallWall"
 	end)
 	local arch = part("Portico", Vector3.new(gate * 2 + 1, 1.4, 0.6), CFrame.new(c.X, y + 8.5, c.Z - hz), Color3.fromRGB(30, 34, 40), folder)
-	label(arch, Enum.NormalId.Front, "ACADEMIA · CAMPO DE TREINO", Color3.fromRGB(240, 240, 240))
+	label(arch, Enum.NormalId.Front, "ACADEMIA " .. TEAM_NAME .. " · CAMPO DE TREINO", Color3.fromRGB(240, 240, 240))
 	for _, s in { -1, 1 } do
 		part("PorticoPoste", Vector3.new(0.6, 9, 0.6), CFrame.new(c.X + s * gate, y + 4.5, c.Z - hz), STEEL, folder, { material = Enum.Material.Metal })
 	end
@@ -245,7 +250,7 @@ end
 -- A bancada pequena, a norte, virada para o relvado.
 local function buildStand(root: Instance)
 	local folder = folderIn(root, "Bancada")
-	local c = A.centre
+	local c = CENTRE
 	local y = A.groundY
 	local z0 = c.Z + A.pitchWidth / 2 + 10
 	local length = 60
@@ -264,7 +269,7 @@ end
 -- O edificio da academia, a poente do relvado.
 local function buildHouse(root: Instance)
 	local folder = folderIn(root, "Edificio")
-	local c = A.centre
+	local c = CENTRE
 	local y = A.groundY
 	local centre = Vector3.new(c.X - A.pitchLength / 2 - 60, y, c.Z)
 	local sx, sz, h = 64, 76, 20
@@ -286,7 +291,7 @@ local function buildHouse(root: Instance)
 	part("Piso1", Vector3.new(sx - 2, 0.6, sz - 2), CFrame.new(centre.X, y + 10, centre.Z), Color3.fromRGB(200, 198, 194), folder)
 	-- O nome, na fachada da rua e na do relvado.
 	local sign = part("Nome", Vector3.new(44, 4, 0.4), CFrame.new(centre.X, y + h - 3.5, centre.Z - sz / 2 - 0.7), Color3.fromRGB(30, 34, 40), folder)
-	label(sign, Enum.NormalId.Front, "ACADEMIA ULTRAS FC", Color3.fromRGB(236, 200, 110))
+	label(sign, Enum.NormalId.Front, "ACADEMIA " .. TEAM_NAME, TEAM_COLOUR:Lerp(Color3.new(1, 1, 1), 0.35))
 	local sign2 = part("NomeRelvado", Vector3.new(0.4, 3, 40), CFrame.new(ex + 0.7, y + h - 3, centre.Z), Color3.fromRGB(30, 34, 40), folder)
 	label(sign2, Enum.NormalId.Right, "ACADEMIA", Color3.fromRGB(236, 200, 110))
 	-- A rececao e bancos, por dentro.
@@ -299,7 +304,7 @@ end
 -- Cones e o resto do treino, e os lugares de quem fica a ver.
 local function buildExtras(root: Instance)
 	local folder = folderIn(root, "Treino")
-	local c = A.centre
+	local c = CENTRE
 	local y = A.groundY
 	for i = 0, 9 do
 		local x = c.X - 30 + i * 6
@@ -325,18 +330,41 @@ local function buildExtras(root: Instance)
 	dummy("GuardaRedes", CFrame.lookAt(Vector3.new(gx, y, c.Z), Vector3.new(c.X, y, c.Z)), Color3.fromRGB(46, 160, 82), root)
 end
 
-function Builder.build(parent: Instance): Folder
-	local old = parent:FindFirstChild("Academia")
+--[[
+	A academia de um clube (Config.Academies[teamId]), em
+	Workspace.Academia_<clube>. Constroi-se sempre virada para o mesmo lado e,
+	se `turn`, roda-se meia volta a volta do meio do relvado.
+]]
+function Builder.build(parent: Instance, teamId: string): Folder
+	local site = Config.Academies[teamId]
+	local team = Config.Teams[teamId]
+	local name = "Academia_" .. teamId
+	local old = parent:FindFirstChild(name)
 	if old then
 		old:Destroy()
 	end
+	CENTRE = site.centre
+	TEAM_NAME = string.upper(team.name)
+	TEAM_COLOUR = team.color
+
 	local root = Instance.new("Folder")
-	root.Name = "Academia"
+	root.Name = name
+	root:SetAttribute("Team", teamId)
 	buildPitch(root)
 	buildFence(root)
 	buildStand(root)
 	buildHouse(root)
 	buildExtras(root)
+
+	if site.turn then
+		local pivot = CFrame.new(CENTRE.X, 0, CENTRE.Z)
+		local half = pivot * CFrame.Angles(0, math.pi, 0) * pivot:Inverse()
+		for _, d in root:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.CFrame = half * d.CFrame
+			end
+		end
+	end
 	root.Parent = parent
 	return root
 end

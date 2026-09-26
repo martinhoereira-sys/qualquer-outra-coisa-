@@ -53,11 +53,12 @@ type Bus = {
 	halfLength: number,
 	wheelRadius: number,
 	nextOwnerCheck: number?,
+	team: string?, -- o autocarro de um clube
 }
 
 local buses: { Bus } = {}
-local teamBus: Bus? = nil
-local onTeamArrived: (() -> ())? = nil
+local teamBuses: { [string]: Bus } = {}
+local onTeamArrived: ((string) -> ())? = nil
 
 --------------------------------------------------------------------------------
 -- O percurso
@@ -386,12 +387,13 @@ local function step(bus: Bus, dt: number, now: number)
 				bus.dwellUntil = now + T.dwell
 				setDoors(bus, true)
 				bus.nextStop = bus.nextStop % #bus.stops + 1
-				if bus == teamBus then
+				local team = bus.team
+				if team then
 					if stop.name:find("Academia") then
 						bus.holding = true -- espera pela proxima ida
 					elseif onTeamArrived then
 						unseatAll(bus)
-						task.delay(0.6, onTeamArrived :: () -> ())
+						task.delay(0.6, onTeamArrived :: (string) -> (), team)
 					end
 				end
 				return
@@ -440,8 +442,8 @@ end
 --------------------------------------------------------------------------------
 
 -- O autocarro da equipa: abre as portas na academia e, passado `wait`, arranca.
-function Transit.boardTeamBus(wait: number)
-	local bus = teamBus
+function Transit.boardTeamBus(teamId: string, wait: number)
+	local bus = teamBuses[teamId]
 	if not bus then
 		return
 	end
@@ -454,8 +456,8 @@ function Transit.boardTeamBus(wait: number)
 end
 
 -- Quanto demora a viagem da academia ao estadio (segundos, por alto).
-function Transit.teamTripTime(): number
-	local bus = teamBus
+function Transit.teamTripTime(teamId: string): number
+	local bus = teamBuses[teamId]
 	if not bus then
 		return 60
 	end
@@ -476,13 +478,13 @@ function Transit.teamTripTime(): number
 end
 
 -- Chama-se quando o autocarro da equipa chega ao estadio.
-function Transit.onTeamArrived(fn: () -> ())
+function Transit.onTeamArrived(fn: (string) -> ())
 	onTeamArrived = fn
 end
 
 -- Quem esta dentro do autocarro da equipa (sentado ou de pe).
-function Transit.teamPassengers(): { Player }
-	local bus = teamBus
+function Transit.teamPassengers(teamId: string): { Player }
+	local bus = teamBuses[teamId]
 	local list: { Player } = {}
 	if not bus then
 		return list
@@ -586,7 +588,7 @@ function Transit.start()
 			s = s,
 			v = 0,
 			dwellUntil = 0,
-			holding = line == "E",
+			holding = model:GetAttribute("Team") ~= nil,
 			align = align,
 			turn = turn,
 			motors = motors,
@@ -598,8 +600,10 @@ function Transit.start()
 		}
 		addBoarding(bus)
 		table.insert(buses, bus)
-		if line == "E" then
-			teamBus = bus
+		local team = model:GetAttribute("Team")
+		if type(team) == "string" then
+			bus.team = team
+			teamBuses[team] = bus
 			-- Parado na academia: a primeira paragem que conta e a do estadio.
 			for i, stop in stops do
 				if stop.name:find("Estadio") then

@@ -371,9 +371,12 @@ MatchLoop.onChange(function(snapshot)
 	-- sao para o momento, nao para acumular.
 	if entered and snapshot.phase == "clubhouse" then
 		-- Dia de jogo novo: quem joga volta a academia, a treinar.
-		Academy.setOpen(true)
+		Academy.setOpen(nil, true)
 		for _, f in Squad.humans() do
-			Squad.place(f, Academy.spotFor(f.teamId, f.slot))
+			local spot = Academy.spotFor(f.teamId, f.slot)
+			if spot then
+				Squad.place(f, spot)
+			end
 		end
 		Gear.refill()
 		Tifo.refill()
@@ -396,26 +399,32 @@ MatchLoop.onChange(function(snapshot)
 	-- balneario esperar pela entrada em campo.
 	if entered and snapshot.phase == "corteo" then
 		March.arm(workspace:WaitForChild("Stadium"))
-		-- Quem joga esta na academia: vai no autocarro da equipa, que abre as
-		-- portas agora e arranca passado um bocado.
-		local byBus = Academy.isOpen()
-		Entrance.prepare(byBus)
-		if byBus then
-			-- Sai a tempo de chegar uns 30 s antes do fim do corteo (a claque
-			-- tem o corteo inteiro), mas nunca antes do tempo minimo de embarque.
-			local wait = math.max(Config.Academy.boardingTime, Config.Match.corteoLength - Transit.teamTripTime() - 30)
-			Transit.boardTeamBus(wait)
-			for _, f in Squad.humans() do
-				local who = f.player
-				if who then
-					Remotes.Npc:FireClient(who, {
-						title = "O autocarro da equipa chegou",
-						lines = {
-							"Esta a porta da academia, de portas abertas.",
-							"Arranca para o estadio daqui a " .. math.floor(math.max(Config.Academy.boardingTime, Config.Match.corteoLength - Transit.teamTripTime() - 30)) .. " segundos.",
-						},
-					})
+		-- Quem joga esta na academia do seu clube: vai no autocarro do clube,
+		-- que abre as portas agora e arranca a tempo de chegar uns 30 s antes do
+		-- fim do corteo (a claque tem o corteo inteiro).
+		Entrance.prepare(Academy.anyOpen())
+		for _, teamId in Config.TeamOrder do
+			if Academy.isOpen(teamId) then
+				local wait = math.max(Config.Academy.boardingTime, Config.Match.corteoLength - Transit.teamTripTime(teamId) - 30)
+				Transit.boardTeamBus(teamId, wait)
+				for _, f in Squad.humans() do
+					local who = f.player
+					if who and f.teamId == teamId then
+						Remotes.Npc:FireClient(who, {
+							title = "O autocarro do clube chegou",
+							lines = {
+								"Esta a porta da academia, de portas abertas.",
+								"Arranca para o estadio daqui a " .. math.floor(wait) .. " segundos.",
+							},
+						})
+					end
 				end
+			end
+		end
+		-- Quem nao tem academia (nao esta no mapa) vai logo para o balneario.
+		for _, f in Squad.humans() do
+			if not Academy.isOpen(f.teamId) then
+				Squad.place(f, Stadium.lockerSpot(f.teamId, f.slot), Vector3.new(0, 0, -Stadium.mainSide()))
 			end
 		end
 	end
@@ -432,8 +441,8 @@ MatchLoop.onChange(function(snapshot)
 	if entered and snapshot.phase == "entrada" then
 		March.stop()
 		-- O autocarro ainda nao chegou (ou a fase foi saltada): ja ninguem espera.
-		if Academy.isOpen() then
-			Academy.setOpen(false)
+		if Academy.anyOpen() then
+			Academy.setOpen(nil, false)
 			Squad.sendAllToLocker()
 		end
 		Entrance.start()
@@ -442,7 +451,7 @@ MatchLoop.onChange(function(snapshot)
 	-- Com o jogo a decorrer a academia esta fechada (tambem quando se salta
 	-- fases: o salto do corteo vai direto a 1a parte, sem entrada em campo).
 	if entered and (snapshot.phase == "first" or snapshot.phase == "halftime" or snapshot.phase == "second" or snapshot.phase == "fulltime") then
-		Academy.setOpen(false)
+		Academy.setOpen(nil, false)
 	end
 
 	if entered and snapshot.phase == "first" then
@@ -522,8 +531,10 @@ end)
 
 Stadium.build()
 -- A academia e os transportes estao no mapa; se faltarem, fazem-se agora.
-if not workspace:FindFirstChild("Academia") then
-	AcademyBuilder.build(workspace)
+for _, teamId in Config.TeamOrder do
+	if Config.Academies[teamId] and not workspace:FindFirstChild("Academia_" .. teamId) then
+		AcademyBuilder.build(workspace, teamId)
+	end
 end
 if not workspace:FindFirstChild("Transportes") then
 	TransitBuilder.build(workspace)
@@ -532,25 +543,29 @@ Academy.start()
 Transit.start()
 -- Antes do jogo, quem joga aparece na academia.
 Squad.setStartOverride(function(f)
-	if f.player and Academy.isOpen() then
+	if f.player and Academy.isOpen(f.teamId) then
 		return Academy.spotFor(f.teamId, f.slot)
 	end
 	return nil
 end)
--- O autocarro da equipa chegou ao estadio: toda a gente para o balneario.
-Transit.onTeamArrived(function()
-	if not Academy.isOpen() then
+-- O autocarro de um clube chegou ao estadio: a gente dele para o balneario.
+-- Quando ja nao ha nenhum a caminho, 30 s depois entra-se em campo.
+Transit.onTeamArrived(function(teamId)
+	if not Academy.isOpen(teamId) then
 		return
 	end
-	Academy.setOpen(false)
-	Squad.sendAllToLocker()
-	-- Ninguem fica muito tempo a espera: 30 s no balneario e entra-se em campo.
-	MatchLoop.entranceIn(30)
+	Academy.setOpen(teamId, false)
 	for _, f in Squad.humans() do
-		local who = f.player
-		if who then
-			Remotes.Npc:FireClient(who, { title = "Chegaram ao estadio", lines = { "Balneario. Daqui a 30 segundos entram em campo." } })
+		if f.teamId == teamId then
+			Squad.place(f, Stadium.lockerSpot(f.teamId, f.slot), Vector3.new(0, 0, -Stadium.mainSide()))
+			local who = f.player
+			if who then
+				Remotes.Npc:FireClient(who, { title = "Chegaram ao estadio", lines = { "Balneario. Daqui a pouco entram em campo." } })
+			end
 		end
+	end
+	if not Academy.anyOpen() then
+		MatchLoop.entranceIn(30)
 	end
 end)
 -- Os bonecos a ver o treino: um por cada lugar ainda sem pessoa.

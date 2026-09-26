@@ -554,6 +554,15 @@ Config.Academy = {
 }
 
 --[[
+	Uma academia por clube (as medidas de cima valem para as duas). `turn`
+	vira-a ao contrario, para a entrada dar para a rua do lado do estadio.
+]]
+Config.Academies = {
+	home = { centre = Vector3.new(40, 0, 510), turn = false }, -- a norte do estadio
+	away = { centre = Vector3.new(-40, 0, -681.5), turn = true }, -- a sul (o edificio fica antes da loja e do cafe)
+}
+
+--[[
 	Os autocarros. Andam sozinhos pelos percursos do mapa
 	(Workspace.Transportes.Rotas, que se mexem no Studio) e param nas
 	paragens que ficam ao lado deles. Conduz-se pela direita.
