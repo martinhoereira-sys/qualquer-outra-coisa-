@@ -98,6 +98,7 @@ machine.Visible = false
 machine.ZIndex = 60
 machine.Parent = gui
 corner(machine, 18)
+machine.BackgroundColor3 = Color3.new(1, 1, 1)
 local shell = Instance.new("UIGradient")
 shell.Color = ColorSequence.new(Color3.fromRGB(96, 100, 110), Color3.fromRGB(46, 48, 56))
 shell.Rotation = 90
@@ -112,6 +113,7 @@ screen.BorderSizePixel = 0
 screen.ZIndex = 60
 screen.Parent = machine
 corner(screen, 12)
+screen.BackgroundColor3 = Color3.new(1, 1, 1)
 local glow = Instance.new("UIGradient")
 glow.Color = ColorSequence.new(SCREEN_2, SCREEN)
 glow.Rotation = 90

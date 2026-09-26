@@ -88,6 +88,10 @@ local function corner(parent: Instance, r: number)
 end
 
 local function gradient(parent: Instance, a: Color3, b: Color3, rotation: number?)
+	-- O degrade multiplica a cor de fundo: com fundo branco, as cores saem como sao.
+	if parent:IsA("GuiObject") then
+		parent.BackgroundColor3 = Color3.new(1, 1, 1)
+	end
 	local g = Instance.new("UIGradient")
 	g.Color = ColorSequence.new(a, b)
 	g.Rotation = rotation or 90
@@ -137,10 +141,9 @@ end
 -- O botao e o painel
 --------------------------------------------------------------------------------
 
-local open = button(gui, "⭐ PERFIL", 15, GOLD, BG, 10)
-open.AnchorPoint = Vector2.new(0, 0.5)
-open.Size = UDim2.fromOffset(112, 38)
-open.Position = UDim2.new(0, 16, 0.5, 60)
+local open = button(gui, "⭐ PERFIL", 13, GOLD, BG, 10)
+open.Size = UDim2.fromOffset(110, 28)
+open.Position = UDim2.fromOffset(16, 204)
 
 local panel = box(gui, UDim2.fromOffset(820, 500), UDim2.fromScale(0.5, 0.5), BG, 30)
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -291,8 +294,35 @@ local function infoCard(parent: Instance, pos: UDim2, size: UDim2, colour: Color
 end
 
 local earnBody = infoCard(moneyPage, UDim2.fromOffset(262, 0), UDim2.fromOffset(518, 214), GREEN, "COMO GANHAR ESCUDOS")
+earnBody.Visible = false
+-- Uma linha por maneira de ganhar: icone, nome, explicacao e o valor.
+local earnRows: { [string]: TextLabel } = {}
+for i, row in {
+	{ id = "salario", icon = "🏁", title = "Salario no fim do jogo", note = "sobe com o nivel de cada papel" },
+	{ id = "diaria", icon = "🎁", title = "Recompensa diaria", note = "entra todos os dias seguidos" },
+	{ id = "caixa", icon = "🏪", title = "Assaltar caixas", note = "nas lojas da cidade" },
+	{ id = "golo", icon = "⚽", title = "Golos da tua equipa", note = "toda a claque ganha" },
+} do
+	local line = box(earnBody.Parent :: Instance, UDim2.new(1, -40, 0, 38), UDim2.fromOffset(26, 36 + (i - 1) * 43), Color3.fromRGB(40, 44, 58), 33)
+	corner(line, 8)
+	local icon = text(line, row.icon, 22, TEXT, Enum.Font.GothamBlack, 34)
+	icon.TextXAlignment = Enum.TextXAlignment.Center
+	icon.Size = UDim2.fromOffset(38, 38)
+	local name = text(line, row.title, 15, TEXT, Enum.Font.GothamBlack, 34)
+	name.Size = UDim2.new(1, -170, 0, 20)
+	name.Position = UDim2.fromOffset(42, 2)
+	local note = text(line, row.note, 12, MUTED, Enum.Font.GothamBold, 34)
+	note.Size = UDim2.new(1, -170, 0, 14)
+	note.Position = UDim2.fromOffset(42, 21)
+	local value = text(line, "", 16, GREEN, Enum.Font.GothamBlack, 34)
+	value.TextXAlignment = Enum.TextXAlignment.Right
+	value.Size = UDim2.fromOffset(150, 38)
+	value.Position = UDim2.new(1, -160, 0, 0)
+	earnRows[row.id] = value
+end
 local spendBody = infoCard(moneyPage, UDim2.fromOffset(262, 226), UDim2.fromOffset(518, 134), GOLD, "ONDE GASTAR")
-spendBody.Text = "<b>Dealers na rua</b>: tochas, fumo, estrobo, vela romana e cores. Procura o letreiro DEALER por cima deles (vai-se depressa de bicicleta: pega numa a porta da sede).\nAbre a loja a falar com ele."
+spendBody.TextSize = 15
+spendBody.Text = "🔥 <b>Dealers na rua</b>: tochas, fumo, estrobo, vela romana e cores.\n📍 Procura o letreiro DEALER por cima deles. De bicicleta chegas depressa (ha bicicletas a porta da sede).\n🏧 <b>Multibanco</b>: envia escudos a um amigo."
 local dailyCard = infoCard(moneyPage, UDim2.fromOffset(0, 162), UDim2.fromOffset(250, 144), Color3.fromRGB(120, 170, 255), "RECOMPENSA DIARIA")
 
 --------------------------------------------------------------------------------
@@ -424,6 +454,13 @@ local function paint()
 	end
 
 	earnBody.Text = salaryText(p)
+	-- O salario que se ganha agora: o do papel mais alto.
+	local S = P.salary
+	local best = math.max(S.adepto.base + S.adepto.perLevel * p.paths.adepto.level, S.jogador.base + S.jogador.perLevel * p.paths.jogador.level, S.arbitro.base + S.arbitro.perLevel * p.paths.arbitro.level)
+	earnRows.salario.Text = "ate " .. best .. "$ +"
+	earnRows.diaria.Text = P.daily[1] .. "$ a " .. P.daily[#P.daily] .. "$"
+	earnRows.caixa.Text = "15$ a 35$"
+	earnRows.golo.Text = "+" .. Config.Money.perGoal .. "$"
 	local streak = p.streak or 0
 	local nextDay = (streak % #P.daily) + 1
 	dailyCard.Text = "Hoje: dia <b>" .. math.max(streak, 1) .. "</b> de " .. #P.daily .. " seguidos.\n\nAmanha, se voltares: <b>+" .. P.daily[nextDay] .. "$</b>\nFalhar um dia volta ao dia 1.\nO dia 7 da " .. P.daily[#P.daily] .. "$!"
@@ -509,8 +546,8 @@ local coinMark = text(coin, "$", 20, Color3.fromRGB(120, 70, 10), Enum.Font.Goth
 coinMark.TextXAlignment = Enum.TextXAlignment.Center
 coinMark.Size = UDim2.fromScale(1, 1)
 local amount = text(pill, "0", 22, TEXT, Enum.Font.GothamBlack, 21)
-amount.TextXAlignment = Enum.TextXAlignment.Right
-amount.Size = UDim2.new(1, -50, 1, 0)
+amount.TextXAlignment = Enum.TextXAlignment.Center
+amount.Size = UDim2.new(1, -46, 1, 0)
 amount.Position = UDim2.fromOffset(38, 0)
 -- O ponto vermelho: ha recompensa diaria por receber.
 local dot = box(pill, UDim2.fromOffset(14, 14), UDim2.new(1, -8, 0, -4), Color3.fromRGB(240, 60, 60), 23)
@@ -594,7 +631,7 @@ calClose.Position = UDim2.new(1, -14, 0.5, 0)
 
 type DayCard = { frame: Frame, stroke: UIStroke, label: TextLabel, reward: TextLabel, check: TextLabel, badge: TextLabel }
 local days: { DayCard } = {}
-local x = 20
+local x = (700 - (6 * 76 + 136 + 6 * 8)) / 2
 for i = 1, #P.daily do
 	local big = i == #P.daily
 	local w = if big then 136 else 76
@@ -617,6 +654,10 @@ for i = 1, #P.daily do
 	reward.Size = UDim2.new(1, 0, 0, 24)
 	reward.Position = UDim2.fromOffset(0, 94)
 	local badge = text(card, "", 12, BG, Enum.Font.GothamBlack, 53)
+	badge.TextScaled = true
+	local badgeSize = Instance.new("UITextSizeConstraint")
+	badgeSize.MaxTextSize = 12
+	badgeSize.Parent = badge
 	badge.TextXAlignment = Enum.TextXAlignment.Center
 	badge.BackgroundTransparency = 0
 	badge.BackgroundColor3 = GOLD

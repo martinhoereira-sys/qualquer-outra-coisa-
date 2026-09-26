@@ -170,6 +170,7 @@ end
 --------------------------------------------------------------------------------
 
 local phase = "clubhouse"
+local firstStartedAt = -math.huge -- quando comecou a 1a parte (para o apito inicial)
 local lastGoal: { [string]: number } = {}
 local atmosphereSum: { [string]: number } = {}
 local atmosphereSamples = 0
@@ -211,6 +212,25 @@ local function corteoTick()
 			if xp > 0 then
 				s.corteo += xp
 				gain(player, "adepto", xp)
+			end
+		end
+	end
+end
+
+-- Nos primeiros 30 s da 1a parte: quem esta na sua curva estava la no apito.
+local function kickoffTick()
+	if phase ~= "first" or os.clock() - firstStartedAt > 30 then
+		return
+	end
+	for _, player in Players:GetPlayers() do
+		local teamId = claqueOf(player)
+		local root = rootOf(player)
+		if teamId and root then
+			local s = statsFor(player)
+			if not s.kickoff and StadiumPlan.inClaque(teamId, root.Position) then
+				s.kickoff = true
+				s.claque = teamId
+				gain(player, "adepto", P.adepto.kickoffXP)
 			end
 		end
 	end
@@ -417,18 +437,15 @@ function Progress.phaseChanged(newPhase: string)
 		table.clear(lastGoal)
 		atmosphereSamples = 0
 	elseif newPhase == "first" and L then
-		-- O apito inicial: quem esta na sua curva, e o que fez do corteo.
+		-- O apito inicial: guarda o que cada um fez do corteo; quem estiver na
+		-- sua curva nos primeiros 30 s ganha o XP do apito (kickoffTick).
+		firstStartedAt = os.clock()
 		for _, player in Players:GetPlayers() do
 			local teamId = claqueOf(player)
-			local root = rootOf(player)
 			if teamId then
 				local s = statsFor(player)
 				s.claque = teamId
 				s.corteoCredit = L.corteoCredit(player)
-				if root and not s.kickoff and StadiumPlan.inClaque(teamId, root.Position) then
-					s.kickoff = true
-					gain(player, "adepto", P.adepto.kickoffXP)
-				end
 			end
 		end
 	elseif newPhase == "fulltime" then
@@ -734,6 +751,7 @@ function Progress.start()
 			task.wait(1)
 			t += 1
 			watchMovement()
+			kickoffTick()
 			local playing = phase == "first" or phase == "second"
 			if phase == "corteo" and t % P.adepto.corteoTick == 0 then
 				corteoTick()
