@@ -535,6 +535,40 @@ Config.Money = {
 	perGoal = 5, -- cada golo da propria equipa
 }
 
+--[[
+	A academia: o campo de treino onde quem joga aparece antes do jogo, a norte
+	do estadio. Dali o autocarro da equipa leva-os ao estadio no corteo.
+	(O edificio vive no mapa, em Workspace.Academia: AcademyBuilder.)
+]]
+Config.Academy = {
+	centre = Vector3.new(40, 0, 510), -- o meio do relvado de treino
+	pitchLength = 110, -- ao longo de X
+	pitchWidth = 64, -- ao longo de Z
+	groundY = 0.3, -- o passeio do quarteirao
+	goalHalfWidth = 8,
+	goalHeight = 8.4,
+	goalDepth = 6,
+	kickSpeed = 70, -- a bola de treino, com a barra toda
+	keeperSpeed = 13, -- o guarda-redes de treino, a acompanhar a bola
+	boardingTime = 45, -- segundos com o autocarro da equipa de portas abertas
+}
+
+--[[
+	Os autocarros. Andam sozinhos pelos percursos do mapa
+	(Workspace.Transportes.Rotas, que se mexem no Studio) e param nas
+	paragens que ficam ao lado deles. Conduz-se pela direita.
+]]
+Config.Transit = {
+	cruise = 26, -- studs/s em recta
+	turnSpeed = 9, -- nas curvas
+	accel = 6, -- studs/s2 a arrancar
+	brake = 10, -- a travar
+	dwell = 9, -- segundos parado numa paragem, de portas abertas
+	laneOffset = 6.5, -- do meio da rua ao meio da faixa
+	cornerRadius = 11, -- o raio das curvas nos cruzamentos
+	stopReach = 16, -- uma paragem a esta distancia da faixa serve o percurso
+}
+
 -- As bicicletas das sedes: a velocidade de quem pedala (a pe e 16).
 Config.Bikes = {
 	speed = 34,

@@ -32,6 +32,10 @@ local DayNight = require(script.Parent:WaitForChild("DayNight"))
 local Money = require(script.Parent:WaitForChild("Money"))
 local Bikes = require(script.Parent:WaitForChild("Bikes"))
 local Shops = require(script.Parent:WaitForChild("Shops"))
+local Academy = require(script.Parent:WaitForChild("Academy"))
+local AcademyBuilder = require(script.Parent:WaitForChild("AcademyBuilder"))
+local Transit = require(script.Parent:WaitForChild("Transit"))
+local TransitBuilder = require(script.Parent:WaitForChild("TransitBuilder"))
 local StadiumPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 --[[
@@ -360,6 +364,11 @@ MatchLoop.onChange(function(snapshot)
 	-- volta a sua sede. Guardar as tochas do jogo anterior nao faria sentido:
 	-- sao para o momento, nao para acumular.
 	if entered and snapshot.phase == "clubhouse" then
+		-- Dia de jogo novo: quem joga volta a academia, a treinar.
+		Academy.setOpen(true)
+		for _, f in Squad.humans() do
+			Squad.place(f, Academy.spotFor(f.teamId, f.slot))
+		end
 		Gear.refill()
 		Tifo.refill()
 		Football.resetClock()
@@ -381,7 +390,25 @@ MatchLoop.onChange(function(snapshot)
 	-- balneario esperar pela entrada em campo.
 	if entered and snapshot.phase == "corteo" then
 		March.arm(workspace:WaitForChild("Stadium"))
-		Entrance.prepare()
+		-- Quem joga esta na academia: vai no autocarro da equipa, que abre as
+		-- portas agora e arranca passado um bocado.
+		local byBus = Academy.isOpen()
+		Entrance.prepare(byBus)
+		if byBus then
+			Transit.boardTeamBus(Config.Academy.boardingTime)
+			for _, f in Squad.humans() do
+				local who = f.player
+				if who then
+					Remotes.Npc:FireClient(who, {
+						title = "O autocarro da equipa chegou",
+						lines = {
+							"Esta a porta da academia, de portas abertas.",
+							"Arranca para o estadio daqui a " .. Config.Academy.boardingTime .. " segundos.",
+						},
+					})
+				end
+			end
+		end
 	end
 
 	-- Acabou a caminhada: espera-se que as bancadas estejam nos seus lugares.
@@ -395,6 +422,11 @@ MatchLoop.onChange(function(snapshot)
 	]]
 	if entered and snapshot.phase == "entrada" then
 		March.stop()
+		-- O autocarro ainda nao chegou (ou a fase foi saltada): ja ninguem espera.
+		if Academy.isOpen() then
+			Academy.setOpen(false)
+			Squad.sendAllToLocker()
+		end
 		Entrance.start()
 	end
 
@@ -474,6 +506,43 @@ Clubhouse.onStartMarch(function(teamId)
 end)
 
 Stadium.build()
+-- A academia e os transportes estao no mapa; se faltarem, fazem-se agora.
+if not workspace:FindFirstChild("Academia") then
+	AcademyBuilder.build(workspace)
+end
+if not workspace:FindFirstChild("Transportes") then
+	TransitBuilder.build(workspace)
+end
+Academy.start()
+Transit.start()
+-- Antes do jogo, quem joga aparece na academia.
+Squad.setStartOverride(function(f)
+	if f.player and Academy.isOpen() then
+		return Academy.spotFor(f.teamId, f.slot)
+	end
+	return nil
+end)
+-- O autocarro da equipa chegou ao estadio: toda a gente para o balneario.
+Transit.onTeamArrived(function()
+	if not Academy.isOpen() then
+		return
+	end
+	Academy.setOpen(false)
+	Squad.sendAllToLocker()
+	for _, f in Squad.humans() do
+		local who = f.player
+		if who then
+			Remotes.Npc:FireClient(who, { title = "Chegaram ao estadio", lines = { "Para o balneario: a entrada em campo e ja a seguir." } })
+		end
+	end
+end)
+-- Os bonecos a ver o treino: um por cada lugar ainda sem pessoa.
+task.spawn(function()
+	while true do
+		Academy.setWatchers(Squad.botSlots())
+		task.wait(2)
+	end
+end)
 -- As horas a andar, com o estadio e a cidade ja de pe (para achar as luzes).
 DayNight.start()
 Squad.build(workspace:WaitForChild("Stadium"))
@@ -642,6 +711,10 @@ Remotes.Football.OnServerEvent:Connect(function(player, action, value)
 	elseif action == "kick" and type(value) == "table" then
 		local power, curve, height = value.power, value.curve, value.height
 		if type(power) == "number" and type(curve) == "number" and type(height) == "number" then
+			-- Na academia, e a bola de treino.
+			if Academy.kick(player, power, height) then
+				return
+			end
 			Football.kick(f, power, curve, height)
 		end
 	end

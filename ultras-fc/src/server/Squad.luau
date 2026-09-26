@@ -142,12 +142,39 @@ function Squad.inLocker(): boolean
 	return inLocker
 end
 
--- Onde aparece quem entra agora: no balneario, ou no seu lugar no relvado.
+--[[
+	Um sitio que vem antes de tudo o resto, se o Main o der: antes do jogo,
+	quem joga aparece na academia (e o Main que sabe quando).
+]]
+local startOverride: ((Footballer) -> Vector3?)? = nil
+function Squad.setStartOverride(fn: (Footballer) -> Vector3?)
+	startOverride = fn
+end
+
+-- Onde aparece quem entra agora: na academia, no balneario, ou no seu lugar no relvado.
 function Squad.startSpot(f: Footballer): Vector3
+	local override = startOverride
+	if override then
+		local at = override(f)
+		if at then
+			return at
+		end
+	end
 	if inLocker then
 		return Stadium.lockerSpot(f.teamId, f.slot)
 	end
 	return Squad.homeSpot(f)
+end
+
+-- So os bonecos para o balneario (as pessoas ainda vem de autocarro).
+function Squad.sendBotsToLocker()
+	for _, list in slots do
+		for _, f in list do
+			if not f.player then
+				Squad.place(f, Stadium.lockerSpot(f.teamId, f.slot), Vector3.new(0, 0, -Stadium.mainSide()))
+			end
+		end
+	end
 end
 
 -- Toda a gente para o balneario, virada para a porta do tunel.
@@ -580,6 +607,32 @@ end
 --------------------------------------------------------------------------------
 
 -- Quem esta de pe e pronto a jogar, com corpo no mundo.
+-- Os lugares ainda sem pessoa (os dos bonecos): equipa e numero.
+function Squad.botSlots(): { { teamId: string, number: number } }
+	local out = {}
+	for _, teamId in Config.TeamOrder do
+		for _, f in slots[teamId] or {} do
+			if not f.player then
+				table.insert(out, { teamId = f.teamId, number = f.number })
+			end
+		end
+	end
+	return out
+end
+
+-- As pessoas que estao a jogar.
+function Squad.humans(): { Footballer }
+	local out = {}
+	for _, list in slots do
+		for _, f in list do
+			if f.player then
+				table.insert(out, f)
+			end
+		end
+	end
+	return out
+end
+
 function Squad.active(): { Footballer }
 	local out = {}
 	for _, list in slots do

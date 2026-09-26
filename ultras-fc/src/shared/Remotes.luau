@@ -29,6 +29,7 @@ local NAMES = {
 	"Home", -- cliente -> servidor: leva-me a minha sede
 	"Emote", -- cliente -> servidor: a animacao de adepto que escolhi ("" para parar)
 	"Npc", -- servidor -> cliente: o que um NPC da sede te diz (titulo e linhas)
+	"Academia", -- servidor -> cliente: golo no treino da academia (quem marcou)
 	"Shop", -- dealer: servidor -> cliente "open"; cliente -> servidor "buy", material
 	"Candle", -- servidor -> todos: esta pessoa disparou um tiro da vela romana
 	"Bike", -- cliente -> servidor: descer da bicicleta

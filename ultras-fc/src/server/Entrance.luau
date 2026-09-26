@@ -145,11 +145,16 @@ end
 	Comeca o corteo: toda a gente que joga vai para o balneario e espera, com a
 	grade do tunel fechada. Os bonecos ficam quietos la dentro.
 ]]
-function Entrance.prepare()
+function Entrance.prepare(humansComeByBus: boolean?)
 	Squad.setLocker(true)
 	Bots.setPaused(true)
 	Stadium.setTunnelOpen(false)
-	Squad.sendAllToLocker()
+	-- As pessoas que estao na academia vem no autocarro da equipa.
+	if humansComeByBus then
+		Squad.sendBotsToLocker()
+	else
+		Squad.sendAllToLocker()
+	end
 
 	local _, _, root = refereeCharacter()
 	if root then

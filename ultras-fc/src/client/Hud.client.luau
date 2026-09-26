@@ -2044,3 +2044,45 @@ RunService.RenderStepped:Connect(function()
 		cardPrompt.Visible = false
 	end
 end)
+
+--------------------------------------------------------------------------------
+-- O golo no treino da academia
+--------------------------------------------------------------------------------
+
+--[[
+	Quem marca no treino: "GOLO" grande a meio do ecra, e o nome por baixo.
+	So para quem esta na academia (perto dela); no estadio nao se ve.
+]]
+local trainingGoal = label(gui, "GOLO!", 72, Color3.fromRGB(255, 214, 90))
+trainingGoal.Font = Enum.Font.GothamBlack
+trainingGoal.AnchorPoint = Vector2.new(0.5, 0.5)
+trainingGoal.Size = UDim2.fromOffset(600, 90)
+trainingGoal.Position = UDim2.fromScale(0.5, 0.36)
+trainingGoal.TextStrokeTransparency = 0.2
+trainingGoal.Visible = false
+
+local trainingScorer = label(trainingGoal, "", 22, TEXT)
+trainingScorer.Size = UDim2.new(1, 0, 0, 28)
+trainingScorer.Position = UDim2.new(0, 0, 1, 2)
+trainingScorer.TextStrokeTransparency = 0.4
+
+local goalShownAt = 0
+Remotes.Academia.OnClientEvent:Connect(function(info)
+	if type(info) ~= "table" or info.kind ~= "golo" then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root or (root.Position - Config.Academy.centre).Magnitude > 260 then
+		return
+	end
+	trainingScorer.Text = if type(info.name) == "string" then info.name .. " marcou no treino" else "no treino"
+	trainingGoal.Visible = true
+	local stamp = os.clock()
+	goalShownAt = stamp
+	task.delay(2.6, function()
+		if goalShownAt == stamp then
+			trainingGoal.Visible = false
+		end
+	end)
+end)
