@@ -116,28 +116,42 @@ end
 	sitio. Sentado, a pessoa esta soldada ao banco: mexe-la arrastava o banco
 	e tudo o que esta preso a ele (o autocarro inteiro ia parar ao estadio).
 ]]
-function Squad.unseat(character: Model?)
+function Squad.unseat(character: Model?): boolean
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
-		return
+		return false
 	end
 	local seat = humanoid.SeatPart
-	if seat then
-		local weld = seat:FindFirstChild("SeatWeld")
-		if weld then
-			weld:Destroy()
-		end
-		humanoid.Sit = false
+	if not seat then
+		return false
 	end
+	local weld = seat:FindFirstChild("SeatWeld")
+	if weld then
+		weld:Destroy()
+	end
+	humanoid.Sit = false
+	return true
 end
+
+-- Quanto se espera depois de levantar alguem, ate a solda sumir tambem no
+-- ecra dele (senao o ecra ainda arrasta o banco quando a pessoa muda de sitio).
+Squad.UNSEAT_WAIT = 0.5
 
 function Squad.place(f: Footballer, at: Vector3, facingDir: Vector3?)
 	local model = f.model
 	if not model then
 		return
 	end
-	Squad.unseat(model)
 	local facing = facingDir or Vector3.new(Squad.attackSign(f.teamId), 0, 0)
+	if Squad.unseat(model) then
+		-- Estava sentado: primeiro solta-se, depois muda de sitio.
+		task.delay(Squad.UNSEAT_WAIT, function()
+			if f.model == model then
+				model:PivotTo(groundCFrame(at, facing, hipHeight(f) + 0.1))
+			end
+		end)
+		return
+	end
 	model:PivotTo(groundCFrame(at, facing, hipHeight(f) + 0.1))
 	local root = f.root
 	if root then

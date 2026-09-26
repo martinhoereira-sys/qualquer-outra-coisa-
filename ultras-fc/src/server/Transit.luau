@@ -52,6 +52,7 @@ type Bus = {
 	ride: number, -- a altura do chassis acima da estrada
 	halfLength: number,
 	wheelRadius: number,
+	nextOwnerCheck: number?,
 }
 
 local buses: { Bus } = {}
@@ -345,6 +346,19 @@ local function blocked(bus: Bus, heading: Vector3, reach: number): boolean
 	return false
 end
 
+-- Levanta toda a gente sentada neste autocarro.
+local function unseatAll(bus: Bus)
+	for _, seat in bus.model:GetDescendants() do
+		if seat:IsA("Seat") and seat.Occupant then
+			local weld = seat:FindFirstChild("SeatWeld")
+			if weld then
+				weld:Destroy()
+			end
+			seat.Occupant.Sit = false
+		end
+	end
+end
+
 local function step(bus: Bus, dt: number, now: number)
 	local path = bus.path
 
@@ -376,7 +390,8 @@ local function step(bus: Bus, dt: number, now: number)
 					if stop.name:find("Academia") then
 						bus.holding = true -- espera pela proxima ida
 					elseif onTeamArrived then
-						task.spawn(onTeamArrived :: () -> ())
+						unseatAll(bus)
+						task.delay(0.6, onTeamArrived :: () -> ())
 					end
 				end
 				return
@@ -399,6 +414,21 @@ local function step(bus: Bus, dt: number, now: number)
 	local at = (frontAxle + rearAxle) / 2 + Vector3.new(0, bus.ride, 0)
 	local between = Vector3.new(frontAxle.X - rearAxle.X, 0, frontAxle.Z - rearAxle.Z)
 	local heading = if between.Magnitude > 1e-3 then between.Unit else headingAt(path, bus.s)
+	--[[
+		Quem manda no autocarro e o servidor, sempre (quem vai sentado nao o
+		pode arrastar). E se mesmo assim ele sair da estrada, os passageiros
+		levantam-se e ele volta para a faixa.
+	]]
+	if now >= (bus.nextOwnerCheck or 0) then
+		bus.nextOwnerCheck = now + 1
+		pcall(function()
+			bus.chassis:SetNetworkOwner(nil)
+		end)
+	end
+	if (bus.chassis.Position - at).Magnitude > 15 then
+		unseatAll(bus)
+		bus.model:PivotTo(CFrame.lookAt(at, at + heading) * bus.chassis.PivotOffset)
+	end
 	bus.align.Position = at
 	bus.turn.CFrame = CFrame.lookAt(Vector3.zero, heading)
 	for _, motor in bus.motors do
