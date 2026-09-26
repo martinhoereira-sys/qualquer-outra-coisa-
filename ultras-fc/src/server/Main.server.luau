@@ -771,7 +771,24 @@ Remotes.Football.OnServerEvent:Connect(function(player, action, value)
 			if Academy.kick(player, power, curve, height) then
 				return
 			end
-			Football.kick(f, power, curve, height)
+			--[[
+				Para onde e de onde: o ecra de quem chuta ve-se a si proprio sem
+				atraso, o servidor nao. Aceita-se o que o ecra diz, mas so dentro
+				do razoavel (direcao horizontal, e de perto de onde o servidor o ve).
+			]]
+			local dir: Vector3? = nil
+			if typeof(value.dir) == "Vector3" then
+				local flatDir = Vector3.new(value.dir.X, 0, value.dir.Z)
+				if flatDir.Magnitude > 0.5 then
+					dir = flatDir.Unit
+				end
+			end
+			local from: Vector3? = nil
+			local root = f.root
+			if typeof(value.at) == "Vector3" and root and (value.at - root.Position).Magnitude < 8 then
+				from = value.at
+			end
+			Football.kick(f, power, curve, height, dir, from)
 		end
 	end
 end)

@@ -214,7 +214,7 @@ local function dive()
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local ball = workspace:FindFirstChild("Ball", true) :: BasePart?
+	local ball = workspace:FindFirstChild("Stadium") and workspace.Stadium:FindFirstChild("Ball", true) :: BasePart?
 	if not character or not root or not humanoid then
 		return
 	end
@@ -426,6 +426,159 @@ local function roundButton(label: string, size: number, position: UDim2): TextBu
 	return b
 end
 
+--------------------------------------------------------------------------------
+-- A bola neste ecra, sem esperar pela rede
+--------------------------------------------------------------------------------
+
+--[[
+	A bola e do servidor (e ele que decide tudo). Mas o que chega do servidor
+	chega atrasado: quem conduzia via a bola a arrastar-se atras dos pes, e o
+	chuto so saia um bocado depois do clique. Parecia lento e largado.
+
+	Por isso, NESTE ECRA:
+	- com a bola nos pes, ve-se uma bola colada a frente dos pes, ja;
+	- ao chutar, a bola sai logo do pe, com a mesma forca, efeito e travao
+	  que o servidor vai usar, e em meio segundo junta-se suavemente a bola
+	  do servidor.
+	A bola a serio continua a ser a do servidor; esta e so o que se ve.
+]]
+local R = F.ballSize / 2
+local ghost = Instance.new("Part")
+ghost.Name = "BolaNoEcra"
+ghost.Shape = Enum.PartType.Ball
+ghost.Size = Vector3.new(F.ballSize, F.ballSize, F.ballSize)
+ghost.Color = Color3.fromRGB(248, 248, 248)
+ghost.Material = Enum.Material.SmoothPlastic
+ghost.Anchored = true
+ghost.CanCollide = false
+ghost.CanQuery = false
+ghost.CanTouch = false
+ghost.Transparency = 1
+ghost.Parent = workspace
+
+type Flight = { pos: Vector3, vel: Vector3, curve: number, startedAt: number }
+local flight: Flight? = nil
+local spin = CFrame.identity
+
+local function matchBall(): BasePart?
+	local stadium = workspace:FindFirstChild("Stadium")
+	local match = stadium and stadium:FindFirstChild("Match")
+	local b = match and match:FindFirstChild("Ball")
+	return if b and b:IsA("BasePart") then b else nil
+end
+
+local function myRoot(): BasePart?
+	local character = player.Character
+	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
+local function flatLook(root: BasePart): Vector3
+	local look = root.CFrame.LookVector
+	local v = Vector3.new(look.X, 0, look.Z)
+	return if v.Magnitude > 1e-3 then v.Unit else Vector3.new(0, 0, -1)
+end
+
+-- Tenho a bola nos pes (e a bola corre: nao e reposicao nem esta nas maos).
+local function carrying(b: BasePart): boolean
+	local character = player.Character
+	return character ~= nil
+		and b:GetAttribute("Carrier") == character.Name
+		and workspace:GetAttribute("Restart") == nil
+		and workspace:GetAttribute("HeldUntil") == nil
+end
+
+--[[
+	Chutar: diz ao servidor a forca, o efeito, a altura, para onde se esta
+	virado e de onde (o servidor ve tudo isto um pouco atrasado). Se a bola
+	estava nos pes, sai ja neste ecra.
+]]
+local function sendKick(power: number, curve: number, height: number)
+	local root = myRoot()
+	local dir = if root then flatLook(root) else nil
+	Remotes.Football:FireServer("kick", {
+		power = power,
+		curve = curve,
+		height = height,
+		dir = dir,
+		at = if root then root.Position else nil,
+	})
+	local b = matchBall()
+	if not root or not dir or not b or not carrying(b) then
+		return
+	end
+	local speed = F.kickSpeedMin + (F.kickSpeedMax - F.kickSpeedMin) * power
+	local lift = if height < 0 then F.liftNeutral * (1 + height) else F.liftNeutral + (F.liftMax - F.liftNeutral) * height
+	local from = root.Position + dir * F.dribbleDistance
+	flight = {
+		pos = Vector3.new(from.X, R + 0.1, from.Z),
+		vel = dir * speed + Vector3.new(0, speed * lift, 0),
+		curve = curve * F.curveAccel,
+		startedAt = os.clock(),
+	}
+end
+
+local FLIGHT_ALONE = 0.18 -- so a bola deste ecra
+local FLIGHT_BLEND = 0.35 -- depois junta-se a do servidor
+
+RunService.RenderStepped:Connect(function(dt)
+	local b = matchBall()
+	if not b then
+		ghost.Transparency = 1
+		return
+	end
+	local now = os.clock()
+	local show: Vector3? = nil
+
+	local f = flight
+	if f then
+		local age = now - f.startedAt
+		if age > FLIGHT_ALONE + FLIGHT_BLEND then
+			flight = nil
+		else
+			-- O mesmo que o servidor faz: gravidade, travao, efeito.
+			local v = f.vel - Vector3.new(0, workspace.Gravity * dt, 0)
+			local onGround = f.pos.Y <= R + 0.4
+			local flatV = Vector3.new(v.X, 0, v.Z)
+			local speed = flatV.Magnitude
+			local slow = (if onGround then F.rollFriction + F.rollDrag * speed else F.airDrag * speed) * dt
+			flatV = if speed > 1e-3 then flatV * (math.max(speed - slow, 0) / speed) else Vector3.zero
+			if f.curve ~= 0 and flatV.Magnitude > 4 then
+				flatV += flatV.Unit:Cross(Vector3.yAxis) * f.curve * dt
+			end
+			v = Vector3.new(flatV.X, v.Y, flatV.Z)
+			local pos = f.pos + v * dt
+			if pos.Y < R then
+				pos = Vector3.new(pos.X, R, pos.Z)
+				v = Vector3.new(v.X, math.abs(v.Y) * 0.3, v.Z)
+			end
+			f.pos = pos
+			f.vel = v
+			local w = math.clamp((age - FLIGHT_ALONE) / FLIGHT_BLEND, 0, 1)
+			show = pos:Lerp(b.Position, w * w)
+		end
+	end
+
+	if not show and carrying(b) then
+		local root = myRoot()
+		if root then
+			local at = root.Position + flatLook(root) * F.dribbleDistance
+			show = Vector3.new(at.X, R + 0.05, at.Z)
+			local v = root.AssemblyLinearVelocity
+			spin = CFrame.Angles(v.Z * dt / R, 0, -v.X * dt / R) * spin
+		end
+	end
+
+	if show then
+		ghost.CFrame = CFrame.new(show) * spin
+		ghost.Transparency = 0
+		b.LocalTransparencyModifier = 1
+	else
+		ghost.Transparency = 1
+		b.LocalTransparencyModifier = 0
+	end
+end)
+
+
 if touchOnly then
 	local kickButton = roundButton("CHUTAR", 120, UDim2.new(1, -190, 1, -40))
 	local sprintButton = roundButton("CORRER", 84, UDim2.new(1, -330, 1, -50))
@@ -439,7 +592,7 @@ if touchOnly then
 	end)
 	local function release()
 		if chargingSince and not withSpin then
-			Remotes.Football:FireServer("kick", { power = charge(), curve = 0, height = 0 })
+			sendKick(charge(), 0, 0)
 			chargingSince = nil
 		end
 	end
@@ -486,7 +639,7 @@ UserInputService.InputEnded:Connect(function(input)
 	local button = if withSpin then Enum.UserInputType.MouseButton2 else Enum.UserInputType.MouseButton1
 	if input.UserInputType == button and chargingSince then
 		local curve, height = aim()
-		Remotes.Football:FireServer("kick", { power = charge(), curve = curve, height = height })
+		sendKick(charge(), curve, height)
 		chargingSince = nil
 	elseif (input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift) and sprinting then
 		sprinting = false

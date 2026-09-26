@@ -181,7 +181,7 @@ function Pano.new(parent: Instance, width: number, height: number, n: number, de
 	local lens: { number } = {}
 	for i = 0, n - 1 do
 		-- As pontas de baixo nunca ficam direitas.
-		local len = height * (1 + rng:NextNumber(-0.06, 0.03))
+		local len = height * (1 + rng:NextNumber(-0.012, 0.004)) -- quase iguais: o pano le-se como uma peca so
 		local p = Instance.new("Part")
 		p.Name = "Tira"
 		p.Size = Vector3.new(w * OVERLAP, len, 0.06)
@@ -306,12 +306,13 @@ function Pano.pose(cloth: Cloth, base: CFrame, t: number, amp: number, outParts:
 		local ex, ey, ez = 0, 0, 0
 		for i = 1, n do
 			local u = (i - 0.5) / n
-			local k = i - 1
 			local whip = amp * (0.3 + 0.9 * u)
-			local yaw = whip * (0.6 * math.sin(t * 3.8 - k * 0.95 + ph) + 0.25 * math.sin(t * 6.4 - k * 1.7 + ph * 2))
+			-- A onda depende de onde a tira esta no pano (u), nao do numero dela:
+			-- tiras vizinhas dobram quase igual, e o pano ondula como uma peca so.
+			local yaw = whip * (0.6 * math.sin(t * 3.8 - u * 2.4 + ph) + 0.2 * math.sin(t * 6.4 - u * 3.6 + ph * 2))
 			-- O peso: a ponta descai, e sobe um pouco quando a onda passa.
-			local sag = sagBase * u * (0.85 + 0.15 * math.sin(t * 2.2 - k * 0.6 + ph))
-			local tilt = amp * 0.25 * u * math.sin(t * 2.7 - k * 1.1 + ph)
+			local sag = sagBase * u * (0.85 + 0.15 * math.sin(t * 2.2 - u * 1.5 + ph))
+			local tilt = amp * 0.18 * u * math.sin(t * 2.7 - u * 2.0 + ph)
 			local len = cloth.lens[i]
 			local cf = base
 				* CFrame.new(ex, ey, ez)
@@ -332,13 +333,12 @@ function Pano.pose(cloth: Cloth, base: CFrame, t: number, amp: number, outParts:
 		local pinned = mode == "pinned"
 		for i = 1, n do
 			local u = (i - 0.5) / n
-			local k = i - 1
 			local swing = if pinned then 0.3 else 0.22
-			local tilt = amp * swing * math.sin(t * 2.1 - k * 0.55 + ph) + amp * 0.06 * math.sin(t * 4.3 - k * 1.1)
+			local tilt = amp * swing * math.sin(t * 2.1 - u * 3.0 + ph) + amp * 0.05 * math.sin(t * 4.3 - u * 4.0)
 			local bulge = if pinned
-				then amp * 0.9 * math.sin(math.pi * u) * (0.65 + 0.35 * math.sin(t * 2.6 - k * 0.5 + ph))
-				else amp * 0.25 * math.sin(t * 1.4 - k * 0.45 + ph)
-			local yaw = amp * 0.1 * math.sin(t * 1.9 - k * 0.7 + ph)
+				then amp * 0.9 * math.sin(math.pi * u) * (0.65 + 0.35 * math.sin(t * 2.6 - u * 2.5 + ph))
+				else amp * 0.25 * math.sin(t * 1.4 - u * 2.5 + ph)
+			local yaw = amp * 0.1 * math.sin(t * 1.9 - u * 3.0 + ph)
 			local len = cloth.lens[i]
 			local cf = base
 				* CFrame.new((i - 0.5) * w, 0, bulge)

@@ -274,6 +274,8 @@ local function accept(player: Player, id: number)
 	elseif order == "saltar" then
 		if not player:GetAttribute("Riding") then
 			player:SetAttribute("Emote", "saltar")
+			-- Uma ordem do lider: andar so a pausa (Poses.client), nao a acaba.
+			player:SetAttribute("EmoteUntil", workspace:GetServerTimeNow() + L.jumpSeconds)
 			task.delay(L.jumpSeconds, function()
 				if player:GetAttribute("Emote") == "saltar" then
 					player:SetAttribute("Emote", nil)
@@ -284,6 +286,7 @@ local function accept(player: Player, id: number)
 		if not player:GetAttribute("Riding") then
 			local emote = if order == "agachar" then "agachado" else "balancar"
 			player:SetAttribute("Emote", emote)
+			player:SetAttribute("EmoteUntil", workspace:GetServerTimeNow() + L.jumpSeconds)
 			task.delay(L.jumpSeconds, function()
 				if player:GetAttribute("Emote") == emote then
 					player:SetAttribute("Emote", nil)

@@ -250,7 +250,7 @@ local function flat(v: Vector3): Vector3
 	return if f.Magnitude > 1e-3 then f.Unit else Vector3.xAxis
 end
 
-local function release(f: Footballer, direction: Vector3, speed: number, lift: number, inPlace: boolean?)
+local function release(f: Footballer, direction: Vector3, speed: number, lift: number, inPlace: boolean?, fromAt: Vector3?)
 	local b = ball
 	local root = f.root
 	if not b or not root then
@@ -274,7 +274,8 @@ local function release(f: Footballer, direction: Vector3, speed: number, lift: n
 
 	-- De primeira, a bola sai de onde vinha; conduzida, sai dos pes.
 	if not inPlace then
-		local from = root.Position
+		-- De onde quem chuta estava no seu ecra (se o disse), senao de onde o servidor o ve.
+		local from = fromAt or root.Position
 		b.CFrame = CFrame.new(from.X + dir.X * F.dribbleDistance, R + 0.1, from.Z + dir.Z * F.dribbleDistance)
 	end
 	b.AssemblyAngularVelocity = Vector3.zero
@@ -338,7 +339,7 @@ local function canStrikeLoose(f: Footballer, root: BasePart): boolean
 	return flatDistance <= F.claimRange + FIRST_TIME_REACH and b.Position.Y - feet <= F.claimHeight + 1
 end
 
-function Football.kick(f: Footballer, power: number, curve: number, height: number, direction: Vector3?): boolean
+function Football.kick(f: Footballer, power: number, curve: number, height: number, direction: Vector3?, from: Vector3?): boolean
 	local root = f.root
 	if not root then
 		return false
@@ -366,7 +367,7 @@ function Football.kick(f: Footballer, power: number, curve: number, height: numb
 
 	local speed = F.kickSpeedMin + (F.kickSpeedMax - F.kickSpeedMin) * p
 	local liftFraction = if h < 0 then F.liftNeutral * (1 + h) else F.liftNeutral + (F.liftMax - F.liftNeutral) * h
-	release(f, dir, speed, speed * liftFraction, firstTime)
+	release(f, dir, speed, speed * liftFraction, firstTime, from)
 	state.curve = c * F.curveAccel
 	state.curveUntil = os.clock() + F.curveTime
 	return true
@@ -524,10 +525,9 @@ end
 	Marca sempre quem ataca aquela baliza, seja quem for que lhe tocou por
 	ultimo — um autogolo e golo na mesma.
 ]]
--- A bola tem de estar bem dentro da baliza, e nao so a passar a linha: o
--- servidor ve-a um pouco a frente do ecra de cada um, e o golo aparecia antes
--- de ela entrar a vista.
-local GOAL_MARGIN = 1.6
+-- Golo e a bola TODA para la da linha, entre os postes e por baixo da barra
+-- (a regra). Enquanto nao passou toda, esta em jogo e pode-se jogar.
+local GOAL_MARGIN = 0
 local function checkGoal(p: Vector3): boolean
 	if math.abs(p.X) < HALF + R + GOAL_MARGIN or math.abs(p.Z) > F.goalHalfWidth or p.Y > F.goalHeight then
 		return false
@@ -702,6 +702,11 @@ local function checkOut(p: Vector3): boolean
 		spot = Vector3.new(math.clamp(p.X, -HALF + 3, HALF - 3), 0, side * (WIDTH2 - 1.2))
 		aim = Vector3.new(0, 0, -side)
 	elseif math.abs(p.X) > HALF + R then
+		-- Entre os postes e por baixo da barra nao e fora: e golo (ou vai ser).
+		-- Antes, a bola a entrar dava pontape de baliza.
+		if math.abs(p.Z) <= F.goalHalfWidth and p.Y <= F.goalHeight then
+			return false
+		end
 		local side = if p.X > 0 then 1 else -1
 		local attackers = Config.TeamOrder[1]
 		for _, teamId in Config.TeamOrder do
@@ -785,6 +790,11 @@ local function reachFor(f: Footballer, at: Vector3, now: number): (number, numbe
 end
 
 local function claim(b: BasePart, now: number)
+	-- Passou TODA a linha de baliza: e golo ou fora, ja nao e de ninguem (nem
+	-- do guarda-redes, dentro da baliza). Em cima da linha ainda se joga.
+	if math.abs(b.Position.X) >= HALF + R then
+		return
+	end
 	local best: Footballer? = nil
 	local bestDistance = math.huge
 	for _, f in Squad.active() do

@@ -25,22 +25,20 @@ local POLE_BOTTOM = Vector3.new(0.9, 0.5, 0) -- o fundo do mastro (na mao), rela
 local POLE_LENGTH = 9
 
 --[[
-	Como o boneco agita a bandeira, relativo ao tronco: devolve o eixo do mastro
-	e para onde voa o pano. Metade roda o pulso (o mastro as voltas, o pano a
-	dar a volta toda atras da ponta); a outra metade balanca de lado a lado.
+	Como o boneco agita a bandeira, relativo ao tronco: arcos grandes por cima
+	da cabeca, de um lado ao outro (como a serio), cada um com o seu ritmo e a
+	sua largura. Devolve o eixo do mastro e para onde voa o pano: sempre atras
+	do movimento da ponta.
 ]]
 local function waveOf(phase: number, now: number): (Vector3, Vector3)
-	local twirl = (phase * 7.13) % 1 < 0.5
-	if twirl then
-		local a = now * (5 + (phase * 31) % 2) + phase * 20
-		local axis = (Vector3.yAxis + (Vector3.xAxis * math.cos(a) + Vector3.zAxis * math.sin(a)) * 0.45).Unit
-		local tangent = -Vector3.xAxis * math.sin(a) + Vector3.zAxis * math.cos(a)
-		local fly = -tangent + Vector3.xAxis * 0.3
-		return axis, fly
-	end
-	local w = now * 2.2 + phase * 20
-	local axis = (Vector3.yAxis + Vector3.xAxis * math.sin(w) * 0.5).Unit
-	return axis, -Vector3.xAxis * math.cos(w) + Vector3.zAxis * 0.35
+	local speed = 2.6 + (phase * 31) % 1.4
+	local width = 0.9 + (phase * 17) % 0.45
+	local w = now * speed + phase * 20
+	local a = math.sin(w) * width
+	local axis = Vector3.yAxis * math.cos(a) + Vector3.xAxis * math.sin(a)
+	-- A ponta anda ao longo do arco; o pano vai para o lado contrario.
+	local moving = (Vector3.xAxis * math.cos(a) - Vector3.yAxis * math.sin(a)) * math.cos(w)
+	return axis, -moving + Vector3.zAxis * 0.25
 end
 
 type Person = {

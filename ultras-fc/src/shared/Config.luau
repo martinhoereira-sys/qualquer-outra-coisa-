@@ -289,11 +289,11 @@ Config.Football = {
 	fastShot = 38, -- acima desta velocidade e um remate a serio, nao uma bola a rolar
 
 	-- Correr
-	walkSpeed = 16,
-	sprintSpeed = 24,
-	botSpeed = 18, -- os bonecos a posicionar-se
-	botSprintSpeed = 22.5, -- a ir a bola; abaixo do sprint de uma pessoa, para se lhes poder fugir
-	botDribbleSpeed = 22, -- com bola, um pouco mais do que quem aperta: foge-se por tras, nao pela frente
+	walkSpeed = 18,
+	sprintSpeed = 27,
+	botSpeed = 19, -- os bonecos a posicionar-se
+	botSprintSpeed = 24.5, -- a ir a bola; abaixo do sprint de uma pessoa, para se lhes poder fugir
+	botDribbleSpeed = 24, -- com bola, um pouco mais do que quem aperta: foge-se por tras, nao pela frente
 	staminaMax = 100,
 	staminaDrain = 24, -- por segundo, a correr em sprint
 	staminaRegen = 13, -- por segundo, sem sprint
@@ -306,8 +306,8 @@ Config.Football = {
 	dribbleDistance = 2.6, -- a que distancia a frente dos pes vai com a posse
 	kickLockout = 0.4, -- quem chutou nao a volta a apanhar logo
 	kickFlight = 0.15, -- ninguem lhe toca logo a saida do pe
-	rollFriction = 7, -- travao no chao: studs/s perdidos por segundo, sempre
-	rollDrag = 0.3, -- mais isto vezes a velocidade (a bola rapida perde mais)
+	rollFriction = 5.5, -- travao no chao: studs/s perdidos por segundo, sempre
+	rollDrag = 0.25, -- mais isto vezes a velocidade (a bola rapida perde mais)
 	airDrag = 0.08, -- no ar, so a resistencia do ar
 
 	--[[
@@ -317,8 +317,8 @@ Config.Football = {
 		chapeu; para baixo, rasteira).
 	]]
 	chargeTime = 0.9, -- segundos ate a forca maxima
-	kickSpeedMin = 32, -- um toque
-	kickSpeedMax = 112, -- tudo
+	kickSpeedMin = 36, -- um toque
+	kickSpeedMax = 125, -- tudo
 	aimPixels = 120, -- quanto se mexe o rato para chegar ao maximo de efeito ou altura
 	liftNeutral = 0.08, -- fracao da velocidade que vai para cima, com o rato parado
 	liftMax = 0.8, -- rato todo para cima: chapeu, que passa por cima de quem esta a frente
@@ -333,8 +333,8 @@ Config.Football = {
 	passRange = 70,
 
 	-- Os passes dos bonecos
-	passSpeedMin = 34,
-	passSpeedMax = 80,
+	passSpeedMin = 38,
+	passSpeedMax = 90,
 
 	-- Roubar
 	tackleRange = 2.8, -- encostar

@@ -281,7 +281,7 @@ local flags: { [Player]: HeldFlag } = {}
 
 local POLE = Color3.fromRGB(70, 60, 48)
 local SMALL_POLE = 4.5 -- o pau da bandeirinha
-local MASTRO_POLE = 15 -- o mastro da bandeira grande
+local MASTRO_POLE = 11 -- o mastro da bandeira grande (o pano e que e grande)
 local BIG_POLE = 7.5 -- cada haste da bandeira grande
 local BIG_HEIGHT = 3.4
 
@@ -322,7 +322,7 @@ local function flagFor(player: Player, kind: string): HeldFlag?
 	design.colour = colour
 	local cloth = if kind == "bandeira"
 		then Pano.new(folder, 5.5, BIG_HEIGHT, 7, design, { mode = "pinned", pixels = 24, seed = player.UserId })
-		elseif kind == "mastro" then Pano.new(folder, 8, 5.5, 11, design, { mode = "flag", pixels = 18, seed = player.UserId })
+		elseif kind == "mastro" then Pano.new(folder, 12, 8, 16, design, { mode = "flag", pixels = 14, seed = player.UserId })
 		else Pano.new(folder, 3.2, 2.1, 5, design, { mode = "flag", pixels = 20, maxDistance = 220, seed = player.UserId })
 
 	local poles: { BasePart } = {}
@@ -330,7 +330,7 @@ local function flagFor(player: Player, kind: string): HeldFlag?
 		local pole = Instance.new("Part")
 		pole.Name = "Haste"
 		pole.Size = if kind == "mastro"
-			then Vector3.new(0.26, MASTRO_POLE, 0.26)
+			then Vector3.new(0.32, MASTRO_POLE, 0.32)
 			else Vector3.new(0.14, if kind == "bandeira" then BIG_POLE else SMALL_POLE, 0.14)
 		pole.Color = POLE
 		pole.Material = Enum.Material.Wood
@@ -426,8 +426,9 @@ local function placeFlag(player: Player, character: Model, kind: string, t: numb
 			pano chicoteia atras do movimento. Parado: quase direito.
 		]]
 		local look = root.CFrame.LookVector
-		local swing = if waving then math.sin(t * 1.7) * 0.95 else math.sin(t * 0.8) * 0.07
-		local pitch = if waving then math.sin(t * 3.4) * 0.32 else 0 -- com o arco, desenha um oito
+		-- A agitar: arcos de 180 graus por cima da cabeca, de um lado ao outro.
+		local swing = if waving then math.sin(t * 1.6) * 1.35 else math.sin(t * 0.8) * 0.07
+		local pitch = if waving then math.sin(t * 3.2) * 0.12 else 0
 		local axis = (CFrame.fromAxisAngle(look, swing) * CFrame.fromAxisAngle(right, pitch)):VectorToWorldSpace(Vector3.yAxis)
 		local grip = (left.Position + rightHand.Position) / 2
 		local cf, top = poleFrame(grip, axis, MASTRO_POLE)
@@ -441,14 +442,12 @@ local function placeFlag(player: Player, character: Model, kind: string, t: numb
 			return
 		end
 		--[[
-			Como se agita uma bandeira a serio: o pulso roda e o pau desenha um
-			cone, a ponta as voltas por cima da cabeca. O pano vai sempre atras
-			da ponta (flyDir) e da a volta toda ao pau. Parado, so balanca.
+			Como se agita uma bandeira a serio: arcos de 180 graus por cima da
+			cabeca, de um lado ao outro. O pano vai sempre atras da ponta (flyDir)
+			e chicoteia em cada mudanca de lado. Parado, so balanca.
 		]]
-		local look = root.CFrame.LookVector
-		local axis = if waving
-			then (Vector3.yAxis + (right * math.cos(t * 7) + look * math.sin(t * 7)) * 0.6).Unit
-			else (Vector3.yAxis + right * math.sin(t * 2) * 0.08).Unit
+		local angle = if waving then math.sin(t * 4.2) * 1.35 else math.sin(t * 2) * 0.08
+		local axis = (Vector3.yAxis * math.cos(angle) + right * math.sin(angle)).Unit
 		local cf, top = poleFrame(hand.Position, axis, SMALL_POLE)
 		table.insert(flagParts, f.poles[1])
 		table.insert(flagFrames, cf)
@@ -485,7 +484,10 @@ RunService.Stepped:Connect(function()
 		local walking = Vector3.new(v.X, 0, v.Z).Magnitude > 2
 		local play = if type(emote) == "string" and not walking then EMOTES[emote] else nil
 		-- Quem se mexe acaba a sua animacao (so o proprio a pode parar).
-		if player == me and walking and emote ~= nil and not riding and now - lastStop > 1 then
+		-- (Uma ordem do lider aceite nao acaba por se andar: pausa e volta ao parar.)
+		local ordered = player:GetAttribute("EmoteUntil")
+		local byOrder = type(ordered) == "number" and workspace:GetServerTimeNow() < ordered
+		if player == me and walking and emote ~= nil and not riding and not byOrder and now - lastStop > 1 then
 			lastStop = now
 			Remotes.Emote:FireServer("")
 		end
@@ -545,9 +547,9 @@ RunService.Stepped:Connect(function()
 		elseif hold == "bandeirinha" then
 			-- O braco direito no ar com o pau; a agitar, vai de um lado ao outro.
 			local waving = player:GetAttribute("Wave") == true
-			-- A rodar: o braco acompanha a volta do pulso.
-			local swing = if waving then math.cos(t * 7) * math.rad(18) else math.sin(t * 2) * math.rad(6)
-			local lift = if waving then math.sin(t * 7) * math.rad(10) else 0
+			-- A agitar: o braco vai de um lado ao outro com o pau.
+			local swing = if waving then math.sin(t * 4.2) * math.rad(40) else math.sin(t * 2) * math.rad(6)
+			local lift = 0
 			arm(rig.rightShoulder, 1, RAISED + lift, math.rad(10) + swing)
 			set(rig.rightElbow, CFrame.identity)
 			dropScarf(player)
@@ -555,7 +557,7 @@ RunService.Stepped:Connect(function()
 		elseif hold == "mastro" then
 			-- As duas maos no mastro, por cima da cabeca, a acompanhar os arcos.
 			local waving = player:GetAttribute("Wave") == true
-			local swing = if waving then math.sin(t * 1.7) * math.rad(30) else 0
+			local swing = if waving then math.sin(t * 1.6) * math.rad(45) else 0
 			arm(rig.rightShoulder, 1, math.rad(168), math.rad(8) + swing)
 			arm(rig.leftShoulder, -1, math.rad(168), math.rad(8) - swing)
 			set(rig.rightElbow, CFrame.identity)
