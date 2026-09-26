@@ -36,6 +36,7 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+local Pyro = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pyro"))
 
 -- A vela romana dispara a clique: quantos tiros tem cada uma, e o intervalo minimo.
 local CANDLE_SHOTS = 10
@@ -67,13 +68,11 @@ local LABEL: { [string]: string } = {
 	feitas para claques): so as imagens, nunca os scripts desses modelos. A
 	chama de bengala, o fogo, o brilho, as faiscas e um fumo realista.
 ]]
-local FIRE = "rbxassetid://4753372559"
 local GLOW = "rbxassetid://6673021984"
 local SPARK = "rbxassetid://10822615828"
 local SMOKE = "rbxassetid://9013694245"
 -- O fogo e o fumo do proprio Roblox: a chama da tocha de que se gostou.
 local BASE_FIRE = "rbxasset://textures/particles/fire_main.dds"
-local BASE_SMOKE = "rbxasset://textures/particles/smoke_main.dds"
 
 local HOT = Color3.fromRGB(255, 244, 214) -- o branco do centro de uma chama
 local WHITE = Color3.fromRGB(240, 240, 240)
@@ -109,6 +108,9 @@ type Lit = {
 	teamId: string,
 	until_: number,
 	effects: Attachment,
+	fadeAt: number, -- daqui ate until_ esta a morrer
+	fading: boolean,
+	settleAt: number?, -- o fumo: quando acaba o jacto
 }
 
 -- O que esta aceso agora, um por objecto: o tambor do lider ja nao tapa a tocha.
@@ -280,93 +282,9 @@ local function litCount(): number
 	return n
 end
 
-local function smokesBurning(): number
-	local n = 0
-	for _, entry in lit do
-		if entry.kind == "fumo" then
-			n += 1
-		end
-	end
-	return n
-end
-
---[[
-	A tocha: uma chama pequena e muito viva na ponta, branca no centro e da
-	cor da equipa a volta, faiscas a saltar e um fio de fumo a sair. Sozinha e
-	modesta; uma bancada inteira delas e que enche o topo.
-
-	As chamas e o fumo sobem por aceleracao, nao pela direcao da ponta: seja
-	qual for o angulo da mao, o fogo vai sempre para cima.
-]]
+-- A tocha e a bomba de fumo sao as da Pyro (as mesmas nas maos dos bonecos).
 local function flareEffects(at: Attachment, colour: Color3)
-	-- A chama: a de sempre (fogo do proprio Roblox), da cor da equipa com o
-	-- centro quase branco, a tremer e a subir.
-	local flame = emitter("Chama", BASE_FIRE, at)
-	flame.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, HOT),
-		ColorSequenceKeypoint.new(0.3, colour:Lerp(HOT, 0.45)),
-		ColorSequenceKeypoint.new(1, colour),
-	})
-	flame.LightEmission = 1
-	flame.LightInfluence = 0
-	flame.Size = curve({ { 0, 1.1 }, { 0.5, 0.75 }, { 1, 0.15 } })
-	flame.Transparency = curve({ { 0, 0 }, { 0.7, 0.3 }, { 1, 1 } })
-	flame.Lifetime = NumberRange.new(0.22, 0.42)
-	flame.Rate = 55
-	flame.Speed = NumberRange.new(0.5, 2)
-	flame.SpreadAngle = Vector2.new(18, 18)
-	flame.Acceleration = Vector3.new(0, 12, 0)
-	flame.RotSpeed = NumberRange.new(-140, 140)
-
-	-- O nucleo branco, colado a ponta: uma tocha a serio queima a branco.
-	local core = emitter("Nucleo", FIRE, at)
-	core.Color = ColorSequence.new(Color3.new(1, 1, 1), HOT)
-	core.LightEmission = 1
-	core.LightInfluence = 0
-	core.Size = curve({ { 0, 0.55 }, { 1, 0.25 } })
-	core.Transparency = curve({ { 0, 0 }, { 1, 0.9 } })
-	core.Lifetime = NumberRange.new(0.06, 0.1)
-	core.Rate = 70
-	core.Speed = NumberRange.new(0, 0.3)
-
-	-- O brilho a volta, a pulsar: e o que se ve do outro lado do estadio.
-	local glow = emitter("Halo", GLOW, at)
-	glow.Color = ColorSequence.new(colour:Lerp(HOT, 0.3))
-	glow.LightEmission = 1
-	glow.LightInfluence = 0
-	glow.Size = curve({ { 0, 2.6 }, { 1, 3.4 } })
-	glow.Transparency = curve({ { 0, 0.62 }, { 1, 1 } })
-	glow.Lifetime = NumberRange.new(0.1, 0.2)
-	glow.Rate = 22
-	glow.Speed = NumberRange.new(0, 0)
-
-	-- Faiscas e escorias a pingar da ponta.
-	local sparks = emitter("Faiscas", SPARK, at)
-	sparks.Color = ColorSequence.new(HOT, colour:Lerp(HOT, 0.5))
-	sparks.LightEmission = 1
-	sparks.LightInfluence = 0
-	sparks.Size = curve({ { 0, 0.1 }, { 1, 0 } })
-	sparks.Lifetime = NumberRange.new(0.5, 1)
-	sparks.Rate = 26
-	sparks.Speed = NumberRange.new(3, 8)
-	sparks.SpreadAngle = Vector2.new(80, 80)
-	sparks.Acceleration = Vector3.new(0, -30, 0)
-	sparks.Drag = 0.8
-
-	-- Fumo: muito, que e o que uma tocha deita. Claro, com um toque da cor.
-	local smoke = emitter("Fumo", BASE_SMOKE, at)
-	smoke.Color = ColorSequence.new(colour:Lerp(Color3.fromRGB(225, 222, 218), 0.6), Color3.fromRGB(180, 178, 176))
-	smoke.LightEmission = 0.15
-	smoke.LightInfluence = 0.6
-	smoke.Size = curve({ { 0, 1 }, { 0.3, 4.5 }, { 1, 9 } })
-	smoke.Transparency = curve({ { 0, 0.4 }, { 0.5, 0.6 }, { 1, 1 } })
-	smoke.Lifetime = NumberRange.new(4, 6.5)
-	smoke.Rate = 12
-	smoke.Speed = NumberRange.new(2, 4)
-	smoke.SpreadAngle = Vector2.new(20, 20)
-	smoke.Acceleration = Vector3.new(0, 3, 0)
-	smoke.Drag = 0.5
-	smoke.RotSpeed = NumberRange.new(-30, 30)
+	Pyro.flare(at, colour)
 end
 
 --[[
@@ -434,36 +352,8 @@ local function strobeEffects(at: Attachment)
 	spark.SpreadAngle = Vector2.new(180, 180)
 end
 
---[[
-	A bomba de fumo: uma nuvem da cor da equipa que sai com forca da lata,
-	abre, sobe devagar e fica no ar.
-]]
 local function smokeEffects(at: Attachment, colour: Color3)
-	local plume = emitter("Nuvem", SMOKE, at)
-	plume.Color = ColorSequence.new(colour:Lerp(Color3.new(1, 1, 1), 0.1), colour:Lerp(Color3.new(1, 1, 1), 0.35))
-	plume.LightEmission = 0.05
-	plume.LightInfluence = 0.75
-	plume.Size = curve({ { 0, 1.5 }, { 0.15, 6 }, { 1, 13 } })
-	plume.Transparency = curve({ { 0, 0.15 }, { 0.6, 0.35 }, { 1, 1 } })
-	plume.Lifetime = NumberRange.new(6, 9)
-	plume.Rate = if smokesBurning() >= Config.Performance.maxSmokes then 9 else 16
-	plume.Speed = NumberRange.new(5, 8)
-	plume.SpreadAngle = Vector2.new(22, 22)
-	plume.Acceleration = Vector3.new(0, 1.2, 0)
-	plume.Drag = 0.5
-	plume.RotSpeed = NumberRange.new(-25, 25)
-
-	-- O jacto a sair da lata, com a cor viva, antes de abrir em nuvem.
-	local jet = emitter("Jacto", SMOKE, at)
-	jet.Color = ColorSequence.new(colour)
-	jet.LightEmission = 0.2
-	jet.LightInfluence = 0.5
-	jet.Size = curve({ { 0, 0.5 }, { 1, 2.5 } })
-	jet.Transparency = curve({ { 0, 0.1 }, { 1, 1 } })
-	jet.Lifetime = NumberRange.new(0.5, 0.8)
-	jet.Rate = 20
-	jet.Speed = NumberRange.new(7, 10)
-	jet.SpreadAngle = Vector2.new(10, 10)
+	Pyro.smoke(at, colour)
 end
 
 --------------------------------------------------------------------------------
@@ -661,15 +551,7 @@ local function ignite(player: Player, tool: Tool, kind: string, teamId: string)
 		flareEffects(effects, colour)
 		-- A tocha grande (nivel de adepto): chama e brilho maiores.
 		if perks and perks.bigFlare then
-			for _, e in effects:GetChildren() do
-				if e:IsA("ParticleEmitter") then
-					local keys = {}
-					for _, k in e.Size.Keypoints do
-						table.insert(keys, NumberSequenceKeypoint.new(k.Time, k.Value * 1.4, k.Envelope * 1.4))
-					end
-					e.Size = NumberSequence.new(keys)
-				end
-			end
+			Pyro.scale(effects, 1.4)
 		end
 	elseif kind == "vela" then
 		candleEffects(effects, colour)
@@ -679,46 +561,48 @@ local function ignite(player: Player, tool: Tool, kind: string, teamId: string)
 		smokeEffects(effects, colour)
 	end
 
+	local now = os.clock()
+	local info = KINDS[kind]
 	lit[tool] = {
 		player = player,
 		tool = tool,
 		kind = kind,
 		teamId = teamId,
-		until_ = os.clock() + KINDS[kind].duration,
+		until_ = now + info.duration,
 		effects = effects,
+		fadeAt = now + info.duration - (info.fade or 0),
+		fading = false,
+		settleAt = if info.jet then now + info.jet else nil,
 	}
 
-	--[[
-		Luz propria so ate ao teto. Uma bancada inteira de tochas acesas, cada
-		uma com a sua luz, deitava abaixo um telemovel; a partir dai a chama e o
-		fumo chegam para se ver a tocha.
-	]]
-	if kind == "estrobo" or litCount() >= Config.Performance.maxLights then
+	-- Luz propria: sem limite no jogo; no Studio, so ate ao teto do modo baixo.
+	if kind == "estrobo" then
 		return
 	end
-	local light = Instance.new("PointLight")
-	light.Brightness = if kind == "tocha" or kind == "vela" then 4 else 1.5
-	light.Range = if kind == "tocha" or kind == "vela" then 22 else 16
-	light.Color = colour:Lerp(HOT, 0.2)
-	-- Sombras de uma luz pequena sao das coisas mais caras que ha.
-	light.Shadows = false
-	light.Parent = effects
-	lights[light] = true
+	local flare = kind == "tocha" or kind == "vela"
+	local light = Pyro.light(effects, colour, if flare then 5 else 1.8, if flare then 28 else 18, litCount())
+	if light then
+		lights[light] = true
+	end
 end
 
 -- Apaga: deixa de sair fogo e fumo, e o que ja saiu desfaz-se no ar.
 local function extinguish(entry: Lit)
 	lit[entry.tool] = nil
 	local effects = entry.effects
+	-- A chama e a luz acabam; o fumo que ainda sai morre devagar (Pyro.fade).
+	if not entry.fading then
+		Pyro.fade(effects, 1.5)
+	end
 	for _, child in effects:GetChildren() do
-		if child:IsA("ParticleEmitter") then
-			child.Enabled = false
-		elseif child:IsA("PointLight") then
+		if child:IsA("PointLight") then
 			child:Destroy()
+		elseif child:IsA("ParticleEmitter") and child.Name ~= "Fumo" and child.Name ~= "Nuvem" and child.Name ~= "Rolo" then
+			child.Enabled = false
 		end
 	end
-	-- O fumo mais lento ainda leva uns segundos a sumir.
-	task.delay(10, function()
+	-- O fumo mais lento ainda leva muito tempo a sumir no ar.
+	task.delay(Pyro.LINGER, function()
 		effects:Destroy()
 	end)
 
@@ -976,6 +860,16 @@ function Gear.start()
 				lit[tool] = nil
 			elseif now >= entry.until_ then
 				extinguish(entry)
+			else
+				if entry.settleAt and now >= entry.settleAt then
+					entry.settleAt = nil
+					Pyro.settle(entry.effects)
+				end
+				if not entry.fading and now >= entry.fadeAt then
+					-- A morrer: nao se apaga de repente.
+					entry.fading = true
+					Pyro.fade(entry.effects, entry.until_ - now)
+				end
 			end
 		end
 		for tool in raised do

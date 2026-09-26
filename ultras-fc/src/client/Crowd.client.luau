@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Pyro = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pyro"))
 
 type Person = {
 	model: Model,
@@ -188,14 +189,14 @@ end)
 
 --[[
 	A entrada em campo: com a fila parada, alguns bonecos de cada claque acendem
-	tochas. So neste ecra, e so um por claque com luz propria: uma bancada
-	inteira de luzes deitava abaixo um telemovel, e a chama e o fumo chegam para
-	se ver de longe. Os escolhidos sao os mesmos em todos os ecras, porque o
-	desfasamento de cada boneco vem do servidor.
+	tochas (as da Pyro, iguais as das pessoas). So neste ecra; os escolhidos
+	sao os mesmos em todos os ecras, porque o desfasamento de cada boneco vem
+	do servidor. Apagam-se a morrer, e o fumo fica no ar.
 ]]
 local flares: { Instance } = {}
 
 local function lightFlares()
+	local lit = 0
 	local byTeam: { [string]: { Person } } = {}
 	for _, person in people do
 		byTeam[person.teamId] = byTeam[person.teamId] or {}
@@ -209,31 +210,15 @@ local function lightFlares()
 		for i = 1, math.min(Config.Entrance.flares, #list) do
 			local arm = list[i].model:FindFirstChild("ArmR")
 			if arm and arm:IsA("BasePart") then
-				local fire = Instance.new("Fire")
-				fire.Heat = 9
-				fire.Size = 4
-				fire.Color = team.color
-				fire.SecondaryColor = Color3.fromRGB(255, 238, 196)
-				fire.Parent = arm
-				table.insert(flares, fire)
-
-				local smoke = Instance.new("Smoke")
-				smoke.Color = team.color:Lerp(Color3.new(1, 1, 1), 0.5)
-				smoke.Opacity = 0.3
-				smoke.RiseVelocity = 8
-				smoke.Size = 8
-				smoke.Parent = arm
-				table.insert(flares, smoke)
-
-				if i <= Config.Entrance.flareLights then
-					local light = Instance.new("PointLight")
-					light.Color = team.color
-					light.Brightness = 5
-					light.Range = 30
-					light.Shadows = false
-					light.Parent = arm
-					table.insert(flares, light)
-				end
+				-- A tocha a serio (a mesma das pessoas), na ponta do braco no ar.
+				local tip = Instance.new("Attachment")
+				tip.Name = "Tocha"
+				tip.Position = Vector3.new(0, arm.Size.Y / 2 + 0.4, 0)
+				tip.Parent = arm
+				Pyro.flare(tip, team.color)
+				Pyro.light(tip, team.color, 5, 28, lit)
+				lit += 1
+				table.insert(flares, tip)
 			end
 		end
 	end
@@ -241,7 +226,10 @@ end
 
 local function putOutFlares()
 	for _, effect in flares do
-		effect:Destroy()
+		Pyro.fade(effect, 3)
+		task.delay(Pyro.LINGER, function()
+			effect:Destroy()
+		end)
 	end
 	table.clear(flares)
 end

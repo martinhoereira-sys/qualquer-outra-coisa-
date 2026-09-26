@@ -32,6 +32,10 @@ local Crowd = {}
 
 local C = Config.Crowd
 local Plan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
+local Ultra = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ultra"))
+
+-- Cada boneco tira a sorte o seu aspeto (Ultra) a partir deste numero.
+local nextSeed = 0
 
 type Supporter = {
 	model: Model,
@@ -49,13 +53,6 @@ local moods: { [string]: string } = {}
 -- ecra adianta-o sozinho.
 local SEND_EVERY = 0.1
 local sinceSend = math.huge
-
-local SKIN = {
-	Color3.fromRGB(226, 190, 152),
-	Color3.fromRGB(198, 152, 112),
-	Color3.fromRGB(150, 106, 74),
-	Color3.fromRGB(102, 72, 52),
-}
 
 local function makePart(name: string, size: Vector3, colour: Color3, parent: Instance): Part
 	Budget.take("Adeptos")
@@ -81,21 +78,34 @@ local function buildSupporter(teamId: string, at: Vector3, withFlag: boolean, pa
 
 	local facing = CFrame.lookAt(at, Vector3.new(0, at.Y - 4, 0))
 
-	local torso = makePart("Torso", Vector3.new(1.7, 2, 0.9), team.color, model)
-	torso.CFrame = facing
-	model.PrimaryPart = torso
+	--[[
+		O aspeto: parece gente (Ultra), bracos no ar. Tudo relativo ao tronco,
+		com a frente virada para o campo.
+	]]
+	nextSeed += 1
+	local seed = nextSeed * 104729 + math.random(1, 100000)
+	local torso: BasePart? = nil
+	for _, p in Ultra.pieces(seed, team.color, "up") do
+		local part = makePart(p.name, p.size, p.colour, model)
+		if p.material then
+			part.Material = p.material
+		end
+		part.CFrame = facing * p.offset
+		if p.name == "Torso" then
+			torso = part
+		end
+	end
+	local body = torso :: BasePart
+	model.PrimaryPart = body
+	local head = model:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then
+		Ultra.nameTag(head, seed)
+	end
 
 	local function attach(name: string, size: Vector3, colour: Color3, offset: CFrame)
 		local piece = makePart(name, size, colour, model)
-		piece.CFrame = torso.CFrame * offset
+		piece.CFrame = body.CFrame * offset
 	end
-
-	attach("Head", Vector3.new(1, 1, 1), SKIN[math.random(1, #SKIN)], CFrame.new(0, 1.5, 0))
-	attach("Legs", Vector3.new(1.5, 1.7, 0.8), Color3.fromRGB(24, 26, 32), CFrame.new(0, -1.85, 0))
-
-	-- Bracos no ar. E a postura de uma claque, e le-se de longe.
-	attach("ArmL", Vector3.new(0.5, 1.8, 0.5), team.color, CFrame.new(-1.1, 1, 0) * CFrame.Angles(0, 0, math.rad(18)))
-	attach("ArmR", Vector3.new(0.5, 1.8, 0.5), team.color, CFrame.new(1.1, 1, 0) * CFrame.Angles(0, 0, math.rad(-18)))
 
 	if withFlag then
 		attach("Pole", Vector3.new(0.2, 9, 0.2), Color3.fromRGB(70, 60, 48), CFrame.new(0.9, 5, 0))
@@ -105,7 +115,7 @@ local function buildSupporter(teamId: string, at: Vector3, withFlag: boolean, pa
 	-- O que o ecra precisa para o por a saltar: de que claque e, o desfasamento
 	-- dele, e quantas pecas tem, para saber quando ja chegaram todas.
 	model:SetAttribute("Team", teamId)
-	model:SetAttribute("Phase", math.random() * 0.12) -- em saltos, nao em segundos
+	model:SetAttribute("Phase", math.random() * 0.22) -- em saltos: cada um com o seu atraso, nao uma maquina
 	model:SetAttribute("Parts", #model:GetChildren())
 
 	return { model = model, teamId = teamId }

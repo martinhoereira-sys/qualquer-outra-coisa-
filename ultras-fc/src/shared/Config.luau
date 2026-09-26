@@ -50,8 +50,18 @@ Config.TeamOrder = { "home", "away" }
 	Saltam em sincronia. E isso que se ve de uma claque a serio de longe — nao
 	pessoas paradas, um bloco inteiro a mexer ao mesmo tempo.
 ]]
+--[[
+	OS BONECOS. Uma linha para cada: quantos ha. 0 tira-os de vez.
+	  bancada  -> em cada curva de claque, no estadio
+	  cortejo  -> atras de cada faixa, no corteo
+]]
+Config.Bonecos = {
+	bancada = 40,
+	cortejo = 36,
+}
+
 Config.Crowd = {
-	perStand = 40,
+	perStand = Config.Bonecos.bancada,
 	bounceHeight = 1.6,
 	baseRate = 1.6, -- saltos por segundo em repouso
 	drumRate = 3.4, -- ao ritmo do tambor
@@ -350,7 +360,7 @@ Config.Football = {
 Config.March = {
 	readyNeeded = 3, -- quantos tem de estar na sede para o lider poder sair (ou todos, se forem menos)
 	autoStartAfter = 30, -- sem lider a dar a ordem, a faixa sai sozinha, com folga para chegar
-	bots = 36, -- bonecos que marcham atras de cada faixa, fora os dois que a seguram
+	bots = Config.Bonecos.cortejo, -- bonecos que marcham atras de cada faixa (Config.Bonecos)
 	columns = 10, -- quantos lado a lado, da largura da faixa: a rua cheia de parede a parede
 	leaderSpeed = 11, -- o lider a guiar anda a este passo, para o grupo o acompanhar
 	leadDistance = 8, -- a faixa vai estes studs a frente do lider
@@ -373,7 +383,6 @@ Config.Entrance = {
 	spacing = 2.6, -- entre dois jogadores lado a lado
 	stagger = 0.9, -- segundos entre um jogador e o seguinte a sair do balneario
 	flares = 4, -- bonecos de cada claque que acendem tocha na fila (so no ecra)
-	flareLights = 1, -- desses, quantos tem luz propria, por claque
 }
 
 --[[
@@ -460,18 +469,20 @@ Config.Referee = {
 ]]
 Config.Performance = {
 	--[[
-		Tochas e fumos acesos com luz propria, no estadio inteiro. Cada luz custa
-		em todos os ecras; a partir daqui, as que se acendem dao chama e fumo na
-		mesma, mas sem luz.
-	]]
-	maxLights = 6,
+		A pirotecnia NAO tem limite no jogo a serio: a bancada inteira pode
+		arder. O modo baixo so existe para testar no Studio num computador fraco,
+		e so conta dentro do Studio — mesmo esquecido ligado, o jogo publicado
+		nunca fica limitado.
 
-	--[[
-		Bombas de fumo acesas a fundo ao mesmo tempo, no estadio inteiro. Uma
-		nuvem sao umas centenas de particulas grandes; a partir daqui as que se
-		acendem deitam metade, e continuam a ver-se.
+		  studioBaixo = true   -> no Studio: poucas luzes, metade das particulas
+		  studioBaixo = false  -> no Studio fica tudo como no jogo (maximo)
 	]]
-	maxSmokes = 8,
+	studioBaixo = true,
+	baixo = {
+		maxLights = 6, -- tochas e fumos com luz propria ao mesmo tempo
+		maxSmokes = 8, -- bombas de fumo a fundo ao mesmo tempo
+		particles = 0.5, -- metade das particulas
+	},
 
 	--[[
 		O maximo de pecas de cada parte. Passar daqui e engano num ciclo, nao
@@ -481,7 +492,7 @@ Config.Performance = {
 	maxParts = {
 		Estadio = 1400,
 		Cidade = 800,
-		Adeptos = 600,
+		Adeptos = 1500, -- bonecos com cabelo, cachecol, oculos (Ultra): ~12 pecas cada
 		Jogadores = 400, -- vivos ao mesmo tempo; os bonecos saem e entram
 		Tifo = 300, -- cartolinas no ar, as duas claques
 		Jogo = 20, -- a bola e as paredes que so ela sente
@@ -725,13 +736,16 @@ Config.PyroColours = {
 Config.Gear = {
 	tocha = {
 		perMatch = 2,
-		duration = 16, -- a arder na mao
+		duration = 25, -- a arder na mao; os ultimos `fade` segundos a morrer
+		fade = 5,
 		cooldown = 2, -- depois de apagar, ate se poder acender a seguinte
 		gainPerSecond = 2.4,
 	},
 	fumo = {
 		perMatch = 1,
-		duration = 25, -- dura mais e ve-se melhor de longe, mas aquece menos
+		duration = 30, -- dura mais e ve-se melhor de longe, mas aquece menos
+		fade = 8,
+		jet = 3, -- segundos de jacto forte antes de abrir em nuvem
 		cooldown = 3,
 		gainPerSecond = 1.5,
 	},
