@@ -1,15 +1,18 @@
 --!strict
 --[[
-	O painel do perfil (botao PERFIL ou tecla P): os Escudos, os tres niveis
-	(adepto, jogador, arbitro) com a barra de XP e a proxima recompensa, a
-	recompensa diaria, e as escolhas que o nivel de jogador desbloqueia
-	(numero, posicao, botas).
+	O painel do perfil (botao PERFIL ou tecla P), em tres separadores:
 
-	Aqui so se mostra e se pede: quem conta XP e dinheiro, e quem valida as
-	escolhas, e o servidor (Progress).
+	- NIVEIS: um cartao grande e colorido por caminho (adepto, jogador,
+	  arbitro), com o nivel, a barra, quanto falta, como se ganha XP e a
+	  proxima recompensa;
+	- DINHEIRO: quantos Escudos tens, como se ganham (com o teu salario de
+	  agora) e onde se gastam;
+	- EQUIPAMENTO: o que o nivel de jogador desbloqueia (numero, posicao,
+	  botas).
 
-	Tambem mostra os avisos: subir de nivel, a recompensa diaria e o resumo do
-	fim de cada jogo.
+	Aqui so se mostra e se pede: quem conta XP e dinheiro, e valida as
+	escolhas, e o servidor (Progress). Tambem mostra os avisos: subir de nivel,
+	a recompensa diaria e o resumo do fim de cada jogo.
 ]]
 
 local Players = game:GetService("Players")
@@ -22,18 +25,41 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local player = Players.LocalPlayer
 local P = Config.Progress
+local K = P.perks
 
-local INK = Color3.fromRGB(22, 20, 18)
-local CARD = Color3.fromRGB(38, 34, 30)
-local TEXT = Color3.fromRGB(236, 234, 230)
-local MUTED = Color3.fromRGB(150, 146, 140)
-local BRASS = Color3.fromRGB(217, 164, 65)
-local GOOD = Color3.fromRGB(96, 196, 110)
+local BG = Color3.fromRGB(18, 20, 28)
+local CARD = Color3.fromRGB(30, 33, 44)
+local TEXT = Color3.fromRGB(244, 244, 248)
+local MUTED = Color3.fromRGB(160, 166, 184)
+local GOLD = Color3.fromRGB(255, 200, 70)
+local GREEN = Color3.fromRGB(90, 210, 120)
 
-local PATHS = {
-	{ id = "adepto", title = "ADEPTO", colour = Color3.fromRGB(214, 80, 60) },
-	{ id = "jogador", title = "JOGADOR", colour = Color3.fromRGB(80, 170, 100) },
-	{ id = "arbitro", title = "ARBITRO", colour = Color3.fromRGB(230, 200, 70) },
+type PathInfo = { id: string, title: string, icon: string, colour: Color3, dark: Color3, how: { string } }
+local PATHS: { PathInfo } = {
+	{
+		id = "adepto",
+		title = "ADEPTO",
+		icon = "📣",
+		colour = Color3.fromRGB(240, 90, 70),
+		dark = Color3.fromRGB(120, 36, 30),
+		how = { "Marchar no corteo perto da faixa", "Estar na bancada durante o jogo", "Tocha ou fumo depois de um golo", "Estar no apito inicial" },
+	},
+	{
+		id = "jogador",
+		title = "JOGADOR",
+		icon = "⚽",
+		colour = Color3.fromRGB(70, 200, 110),
+		dark = Color3.fromRGB(26, 96, 50),
+		how = { "Minutos jogados", "Golos e assistencias", "Roubar a bola", "Defesas (guarda-redes)" },
+	},
+	{
+		id = "arbitro",
+		title = "ARBITRO",
+		icon = "🟨",
+		colour = Color3.fromRGB(250, 200, 60),
+		dark = Color3.fromRGB(120, 90, 20),
+		how = { "Apitar o jogo inteiro", "Decidir o que e justo", "Nao ser apanhado em corrupcao" },
+	},
 }
 
 local gui = Instance.new("ScreenGui")
@@ -61,7 +87,14 @@ local function corner(parent: Instance, r: number)
 	c.Parent = parent
 end
 
-local function text(parent: Instance, value: string, size: number, colour: Color3, font: Enum.Font?): TextLabel
+local function gradient(parent: Instance, a: Color3, b: Color3, rotation: number?)
+	local g = Instance.new("UIGradient")
+	g.Color = ColorSequence.new(a, b)
+	g.Rotation = rotation or 90
+	g.Parent = parent
+end
+
+local function text(parent: Instance, value: string, size: number, colour: Color3, font: Enum.Font?, z: number?): TextLabel
 	local l = Instance.new("TextLabel")
 	l.BackgroundTransparency = 1
 	l.Font = font or Enum.Font.GothamBold
@@ -69,231 +102,265 @@ local function text(parent: Instance, value: string, size: number, colour: Color
 	l.TextSize = size
 	l.TextColor3 = colour
 	l.TextXAlignment = Enum.TextXAlignment.Left
+	l.ZIndex = z or 32
 	l.Parent = parent
 	return l
 end
 
-local function button(parent: Instance, value: string, size: number, fill: Color3, colour: Color3?): TextButton
+local function button(parent: Instance, value: string, size: number, fill: Color3, colour: Color3?, z: number?): TextButton
 	local b = Instance.new("TextButton")
 	b.BackgroundColor3 = fill
 	b.BorderSizePixel = 0
-	b.Font = Enum.Font.GothamBold
+	b.Font = Enum.Font.GothamBlack
 	b.Text = value
 	b.TextSize = size
 	b.TextColor3 = colour or TEXT
 	b.AutoButtonColor = true
+	b.ZIndex = z or 32
 	b.Parent = parent
-	corner(b, 6)
+	corner(b, 8)
 	return b
+end
+
+local function box(parent: Instance, size: UDim2, pos: UDim2, colour: Color3, z: number?): Frame
+	local f = Instance.new("Frame")
+	f.Size = size
+	f.Position = pos
+	f.BackgroundColor3 = colour
+	f.BorderSizePixel = 0
+	f.ZIndex = z or 31
+	f.Parent = parent
+	return f
 end
 
 --------------------------------------------------------------------------------
 -- O botao e o painel
 --------------------------------------------------------------------------------
 
-local open = button(gui, "PERFIL", 14, INK, BRASS)
-open.Font = Enum.Font.GothamBlack
+local open = button(gui, "⭐ PERFIL", 15, GOLD, BG, 10)
 open.AnchorPoint = Vector2.new(0, 0.5)
-open.Size = UDim2.fromOffset(96, 34)
+open.Size = UDim2.fromOffset(112, 38)
 open.Position = UDim2.new(0, 16, 0.5, 60)
-local openStroke = Instance.new("UIStroke")
-openStroke.Color = BRASS
-openStroke.Thickness = 1.5
-openStroke.Parent = open
 
-local panel = Instance.new("Frame")
+local panel = box(gui, UDim2.fromOffset(820, 500), UDim2.fromScale(0.5, 0.5), BG, 30)
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Size = UDim2.fromOffset(780, 470)
-panel.Position = UDim2.fromScale(0.5, 0.5)
-panel.BackgroundColor3 = INK
-panel.BorderSizePixel = 0
 panel.Visible = false
-panel.ZIndex = 30
-panel.Parent = gui
-corner(panel, 12)
-local panelStroke = Instance.new("UIStroke")
-panelStroke.Color = Color3.fromRGB(90, 70, 40)
-panelStroke.Thickness = 2
-panelStroke.Parent = panel
+corner(panel, 14)
 
-local title = text(panel, "PERFIL", 26, BRASS, Enum.Font.GothamBlack)
-title.Size = UDim2.fromOffset(300, 30)
-title.Position = UDim2.fromOffset(20, 16)
-title.ZIndex = 31
+-- O topo: titulo, os escudos grandes, e o X.
+local top = box(panel, UDim2.new(1, 0, 0, 64), UDim2.fromOffset(0, 0), Color3.fromRGB(60, 50, 120), 31)
+corner(top, 14)
+gradient(top, Color3.fromRGB(110, 70, 200), Color3.fromRGB(40, 90, 190), 0)
+local title = text(top, "O TEU PERFIL", 26, TEXT, Enum.Font.GothamBlack)
+title.Size = UDim2.fromOffset(300, 64)
+title.Position = UDim2.fromOffset(20, 0)
+local wallet = button(top, "💰 0$", 22, Color3.fromRGB(30, 26, 20), GOLD)
+wallet.AnchorPoint = Vector2.new(1, 0.5)
+wallet.Size = UDim2.fromOffset(170, 42)
+wallet.Position = UDim2.new(1, -66, 0.5, 0)
+local close = button(top, "X", 18, Color3.fromRGB(200, 60, 60))
+close.AnchorPoint = Vector2.new(1, 0.5)
+close.Size = UDim2.fromOffset(40, 40)
+close.Position = UDim2.new(1, -14, 0.5, 0)
 
-local escudos = text(panel, "", 22, TEXT, Enum.Font.GothamBlack)
-escudos.TextXAlignment = Enum.TextXAlignment.Right
-escudos.Size = UDim2.fromOffset(220, 28)
-escudos.Position = UDim2.new(1, -290, 0, 16)
-escudos.ZIndex = 31
+-- Os separadores.
+local tabs: { [string]: { button: TextButton, page: Frame } } = {}
+local TAB_ORDER = { { id = "niveis", label = "⭐ NIVEIS" }, { id = "dinheiro", label = "💰 DINHEIRO" }, { id = "equipamento", label = "👕 EQUIPAMENTO" } }
+for i, t in TAB_ORDER do
+	local b = button(panel, t.label, 15, CARD)
+	b.Size = UDim2.fromOffset(200, 38)
+	b.Position = UDim2.fromOffset(20 + (i - 1) * 210, 76)
+	local page = box(panel, UDim2.new(1, -40, 1, -134), UDim2.fromOffset(20, 122), BG, 31)
+	page.BackgroundTransparency = 1
+	page.Visible = false
+	tabs[t.id] = { button = b, page = page }
+end
 
-local dailyLine = text(panel, "", 13, MUTED, Enum.Font.Gotham)
-dailyLine.Size = UDim2.fromOffset(500, 18)
-dailyLine.Position = UDim2.fromOffset(20, 48)
-dailyLine.ZIndex = 31
+local function showTab(id: string)
+	for key, t in tabs do
+		local on = key == id
+		t.page.Visible = on
+		t.button.BackgroundColor3 = if on then GOLD else CARD
+		t.button.TextColor3 = if on then BG else TEXT
+	end
+end
+for key, t in tabs do
+	t.button.Activated:Connect(function()
+		showTab(key)
+	end)
+end
+wallet.Activated:Connect(function()
+	showTab("dinheiro")
+end)
 
-local close = button(panel, "X", 18, Color3.fromRGB(70, 60, 52))
-close.Font = Enum.Font.GothamBlack
-close.AnchorPoint = Vector2.new(1, 0)
-close.Size = UDim2.fromOffset(36, 36)
-close.Position = UDim2.new(1, -16, 0, 14)
-close.ZIndex = 32
+--------------------------------------------------------------------------------
+-- NIVEIS: um cartao por caminho
+--------------------------------------------------------------------------------
 
-type Column = { level: TextLabel, bar: Frame, xp: TextLabel, reward: TextLabel }
-local columns: { [string]: Column } = {}
+type Card = { level: TextLabel, bar: Frame, missing: TextLabel, reward: TextLabel }
+local cards: { [string]: Card } = {}
 
 for i, path in PATHS do
-	local card = Instance.new("Frame")
-	card.Size = UDim2.fromOffset(238, 180)
-	card.Position = UDim2.fromOffset(20 + (i - 1) * 250, 76)
-	card.BackgroundColor3 = CARD
-	card.BorderSizePixel = 0
-	card.ZIndex = 31
-	card.Parent = panel
-	corner(card, 10)
+	local card = box(tabs.niveis.page, UDim2.fromOffset(250, 360), UDim2.fromOffset((i - 1) * 262, 0), path.colour, 32)
+	corner(card, 14)
+	gradient(card, path.colour, path.dark, 90)
 
-	local stripe = Instance.new("Frame")
-	stripe.Size = UDim2.new(1, 0, 0, 4)
-	stripe.BackgroundColor3 = path.colour
-	stripe.BorderSizePixel = 0
-	stripe.ZIndex = 32
-	stripe.Parent = card
+	local head = text(card, path.icon .. "  " .. path.title, 20, TEXT, Enum.Font.GothamBlack, 33)
+	head.Size = UDim2.new(1, -24, 0, 28)
+	head.Position = UDim2.fromOffset(14, 12)
 
-	local name = text(card, path.title, 15, path.colour, Enum.Font.GothamBlack)
-	name.Size = UDim2.fromOffset(200, 20)
-	name.Position = UDim2.fromOffset(14, 14)
-	name.ZIndex = 32
+	-- O nivel num circulo grande.
+	local circle = box(card, UDim2.fromOffset(92, 92), UDim2.fromOffset(79, 46), Color3.fromRGB(255, 255, 255), 33)
+	circle.BackgroundTransparency = 0.82
+	corner(circle, 46)
+	local small = text(circle, "NIVEL", 12, TEXT, Enum.Font.GothamBold, 34)
+	small.TextXAlignment = Enum.TextXAlignment.Center
+	small.Size = UDim2.new(1, 0, 0, 16)
+	small.Position = UDim2.fromOffset(0, 14)
+	local level = text(circle, "1", 42, TEXT, Enum.Font.GothamBlack, 34)
+	level.TextXAlignment = Enum.TextXAlignment.Center
+	level.Size = UDim2.new(1, 0, 0, 46)
+	level.Position = UDim2.fromOffset(0, 30)
 
-	local level = text(card, "NIVEL 1", 30, TEXT, Enum.Font.GothamBlack)
-	level.Size = UDim2.fromOffset(210, 36)
-	level.Position = UDim2.fromOffset(14, 38)
-	level.ZIndex = 32
+	local track = box(card, UDim2.new(1, -28, 0, 14), UDim2.fromOffset(14, 150), Color3.fromRGB(0, 0, 0), 33)
+	track.BackgroundTransparency = 0.6
+	corner(track, 7)
+	local bar = box(track, UDim2.fromScale(0, 1), UDim2.fromOffset(0, 0), Color3.fromRGB(255, 255, 255), 34)
+	corner(bar, 7)
+	local missing = text(card, "", 13, TEXT, Enum.Font.GothamBold, 33)
+	missing.TextXAlignment = Enum.TextXAlignment.Center
+	missing.Size = UDim2.new(1, -24, 0, 18)
+	missing.Position = UDim2.fromOffset(12, 168)
 
-	local track = Instance.new("Frame")
-	track.Size = UDim2.fromOffset(210, 10)
-	track.Position = UDim2.fromOffset(14, 84)
-	track.BackgroundColor3 = Color3.fromRGB(58, 52, 46)
-	track.BorderSizePixel = 0
-	track.ZIndex = 32
-	track.Parent = card
-	corner(track, 5)
-	local bar = Instance.new("Frame")
-	bar.Size = UDim2.fromScale(0, 1)
-	bar.BackgroundColor3 = path.colour
-	bar.BorderSizePixel = 0
-	bar.ZIndex = 33
-	bar.Parent = track
-	corner(bar, 5)
+	local howTitle = text(card, "COMO GANHAR XP", 12, TEXT, Enum.Font.GothamBlack, 33)
+	howTitle.Size = UDim2.new(1, -24, 0, 16)
+	howTitle.Position = UDim2.fromOffset(14, 196)
+	local how = text(card, "• " .. table.concat(path.how, "\n• "), 13, TEXT, Enum.Font.Gotham, 33)
+	how.TextYAlignment = Enum.TextYAlignment.Top
+	how.TextWrapped = true
+	how.Size = UDim2.new(1, -24, 0, 80)
+	how.Position = UDim2.fromOffset(14, 214)
 
-	local xp = text(card, "", 12, MUTED, Enum.Font.Gotham)
-	xp.Size = UDim2.fromOffset(210, 16)
-	xp.Position = UDim2.fromOffset(14, 100)
-	xp.ZIndex = 32
-
-	local reward = text(card, "", 13, BRASS)
+	local rewardBox = box(card, UDim2.new(1, -20, 0, 54), UDim2.fromOffset(10, 296), Color3.fromRGB(0, 0, 0), 33)
+	rewardBox.BackgroundTransparency = 0.55
+	corner(rewardBox, 10)
+	local reward = text(rewardBox, "", 13, GOLD, Enum.Font.GothamBold, 34)
 	reward.TextWrapped = true
-	reward.TextYAlignment = Enum.TextYAlignment.Top
-	reward.Size = UDim2.fromOffset(210, 50)
-	reward.Position = UDim2.fromOffset(14, 122)
-	reward.ZIndex = 32
+	reward.Size = UDim2.new(1, -16, 1, -8)
+	reward.Position = UDim2.fromOffset(8, 4)
 
-	columns[path.id] = { level = level, bar = bar, xp = xp, reward = reward }
+	cards[path.id] = { level = level, bar = bar, missing = missing, reward = reward }
 end
 
 --------------------------------------------------------------------------------
--- As escolhas do jogador (numero, posicao, botas)
+-- DINHEIRO: quanto tens, como se ganha, onde se gasta
 --------------------------------------------------------------------------------
 
-local choices = Instance.new("Frame")
-choices.Size = UDim2.fromOffset(740, 186)
-choices.Position = UDim2.fromOffset(20, 268)
-choices.BackgroundColor3 = CARD
-choices.BorderSizePixel = 0
-choices.ZIndex = 31
-choices.Parent = panel
-corner(choices, 10)
+local moneyPage = tabs.dinheiro.page
+local balance = box(moneyPage, UDim2.fromOffset(250, 150), UDim2.fromOffset(0, 0), GOLD, 32)
+corner(balance, 14)
+gradient(balance, Color3.fromRGB(255, 210, 80), Color3.fromRGB(200, 130, 30), 90)
+local balanceTitle = text(balance, "TENS", 16, BG, Enum.Font.GothamBlack, 33)
+balanceTitle.TextXAlignment = Enum.TextXAlignment.Center
+balanceTitle.Size = UDim2.new(1, 0, 0, 24)
+balanceTitle.Position = UDim2.fromOffset(0, 16)
+local balanceValue = text(balance, "0$", 48, BG, Enum.Font.GothamBlack, 33)
+balanceValue.TextXAlignment = Enum.TextXAlignment.Center
+balanceValue.Size = UDim2.new(1, 0, 0, 56)
+balanceValue.Position = UDim2.fromOffset(0, 42)
+local balanceNote = text(balance, "Escudos: o dinheiro do jogo", 13, BG, Enum.Font.GothamBold, 33)
+balanceNote.TextXAlignment = Enum.TextXAlignment.Center
+balanceNote.Size = UDim2.new(1, 0, 0, 18)
+balanceNote.Position = UDim2.fromOffset(0, 108)
 
-local choicesTitle = text(choices, "EQUIPAMENTO DE JOGADOR  ·  so aspeto: o nivel nunca te faz jogar melhor", 13, MUTED)
-choicesTitle.Size = UDim2.fromOffset(700, 18)
-choicesTitle.Position = UDim2.fromOffset(14, 10)
-choicesTitle.ZIndex = 32
+local function infoCard(parent: Instance, pos: UDim2, size: UDim2, colour: Color3, heading: string): TextLabel
+	local c = box(parent, size, pos, CARD, 32)
+	corner(c, 14)
+	local stripe = box(c, UDim2.new(0, 6, 1, -20), UDim2.fromOffset(10, 10), colour, 33)
+	corner(stripe, 3)
+	local h = text(c, heading, 17, colour, Enum.Font.GothamBlack, 33)
+	h.Size = UDim2.new(1, -40, 0, 24)
+	h.Position = UDim2.fromOffset(26, 10)
+	local body = text(c, "", 14, TEXT, Enum.Font.Gotham, 33)
+	body.TextYAlignment = Enum.TextYAlignment.Top
+	body.TextWrapped = true
+	body.RichText = true
+	body.Size = UDim2.new(1, -40, 1, -44)
+	body.Position = UDim2.fromOffset(26, 38)
+	return body
+end
 
--- Numero da camisola.
-local numberLabel = text(choices, "NUMERO", 12, MUTED)
-numberLabel.Size = UDim2.fromOffset(200, 16)
-numberLabel.Position = UDim2.fromOffset(14, 38)
-numberLabel.ZIndex = 32
+local earnBody = infoCard(moneyPage, UDim2.fromOffset(262, 0), UDim2.fromOffset(518, 214), GREEN, "COMO GANHAR ESCUDOS")
+local spendBody = infoCard(moneyPage, UDim2.fromOffset(262, 226), UDim2.fromOffset(518, 134), GOLD, "ONDE GASTAR")
+spendBody.Text = "<b>Dealers na rua</b>: tochas, fumo, estrobo, vela romana e cores. Procura o letreiro DEALER por cima deles (vai-se depressa de bicicleta: pega numa a porta da sede).\nAbre a loja a falar com ele."
+local dailyCard = infoCard(moneyPage, UDim2.fromOffset(0, 162), UDim2.fromOffset(250, 198), Color3.fromRGB(120, 170, 255), "RECOMPENSA DIARIA")
+
+--------------------------------------------------------------------------------
+-- EQUIPAMENTO: o que o nivel de jogador desbloqueia
+--------------------------------------------------------------------------------
+
+local kitPage = tabs.equipamento.page
+local kitNote = text(kitPage, "⚽ So aspeto: o nivel nunca te faz jogar melhor. Desbloqueia-se com o nivel de JOGADOR.", 14, MUTED, Enum.Font.GothamBold)
+kitNote.Size = UDim2.new(1, 0, 0, 20)
+kitNote.Position = UDim2.fromOffset(0, 0)
+
+local function kitCard(x: number, heading: string, colour: Color3): (Frame, TextLabel)
+	local c = box(kitPage, UDim2.fromOffset(250, 300), UDim2.fromOffset(x, 32), CARD, 32)
+	corner(c, 14)
+	local h = text(c, heading, 18, colour, Enum.Font.GothamBlack, 33)
+	h.Size = UDim2.new(1, -24, 0, 26)
+	h.Position = UDim2.fromOffset(14, 12)
+	local lock = text(c, "", 13, MUTED, Enum.Font.GothamBold, 33)
+	lock.TextWrapped = true
+	lock.TextYAlignment = Enum.TextYAlignment.Top
+	lock.Size = UDim2.new(1, -24, 0, 60)
+	lock.Position = UDim2.new(0, 14, 1, -70)
+	return c, lock
+end
+
+-- Numero.
+local numberCard, numberLock = kitCard(0, "🔢 NUMERO", Color3.fromRGB(120, 170, 255))
 local chosenNumber = 10
-local minus = button(choices, "-", 18, Color3.fromRGB(70, 60, 52))
-minus.Size = UDim2.fromOffset(34, 34)
-minus.Position = UDim2.fromOffset(14, 58)
-minus.ZIndex = 32
-local numberBox = text(choices, "10", 24, TEXT, Enum.Font.GothamBlack)
+local numberBox = text(numberCard, "10", 64, TEXT, Enum.Font.GothamBlack, 33)
 numberBox.TextXAlignment = Enum.TextXAlignment.Center
-numberBox.Size = UDim2.fromOffset(56, 34)
-numberBox.Position = UDim2.fromOffset(52, 58)
-numberBox.ZIndex = 32
-local plus = button(choices, "+", 18, Color3.fromRGB(70, 60, 52))
-plus.Size = UDim2.fromOffset(34, 34)
-plus.Position = UDim2.fromOffset(112, 58)
-plus.ZIndex = 32
-local saveNumber = button(choices, "VESTIR", 13, BRASS, INK)
-saveNumber.Font = Enum.Font.GothamBlack
-saveNumber.Size = UDim2.fromOffset(90, 34)
-saveNumber.Position = UDim2.fromOffset(152, 58)
-saveNumber.ZIndex = 32
-local numberLock = text(choices, "", 12, MUTED, Enum.Font.Gotham)
-numberLock.Size = UDim2.fromOffset(240, 16)
-numberLock.Position = UDim2.fromOffset(14, 98)
-numberLock.ZIndex = 32
+numberBox.Size = UDim2.new(1, 0, 0, 80)
+numberBox.Position = UDim2.fromOffset(0, 50)
+local minus = button(numberCard, "−", 26, Color3.fromRGB(60, 66, 88), TEXT, 33)
+minus.Size = UDim2.fromOffset(56, 44)
+minus.Position = UDim2.fromOffset(20, 138)
+local plus = button(numberCard, "+", 26, Color3.fromRGB(60, 66, 88), TEXT, 33)
+plus.Size = UDim2.fromOffset(56, 44)
+plus.Position = UDim2.new(1, -76, 0, 138)
+local wear = button(numberCard, "VESTIR", 16, GOLD, BG, 33)
+wear.Size = UDim2.new(1, -40, 0, 40)
+wear.Position = UDim2.fromOffset(20, 190)
 
 -- Posicao.
-local positionLabel = text(choices, "POSICAO PREFERIDA", 12, MUTED)
-positionLabel.Size = UDim2.fromOffset(200, 16)
-positionLabel.Position = UDim2.fromOffset(270, 38)
-positionLabel.ZIndex = 32
+local positionCard, positionLock = kitCard(265, "📍 POSICAO", Color3.fromRGB(70, 200, 110))
 local positionButtons: { [string]: TextButton } = {}
 for i, zone in { "ataque", "meio", "defesa" } do
-	local b = button(choices, string.upper(zone), 12, Color3.fromRGB(58, 52, 46))
-	b.Size = UDim2.fromOffset(76, 34)
-	b.Position = UDim2.fromOffset(270 + (i - 1) * 82, 58)
-	b.ZIndex = 32
+	local b = button(positionCard, string.upper(zone), 16, Color3.fromRGB(60, 66, 88), TEXT, 33)
+	b.Size = UDim2.new(1, -40, 0, 46)
+	b.Position = UDim2.fromOffset(20, 50 + (i - 1) * 56)
 	b.Activated:Connect(function()
 		Remotes.Perfil:FireServer("posicao", zone)
 	end)
 	positionButtons[zone] = b
 end
-local positionLock = text(choices, "", 12, MUTED, Enum.Font.Gotham)
-positionLock.Size = UDim2.fromOffset(240, 16)
-positionLock.Position = UDim2.fromOffset(270, 98)
-positionLock.ZIndex = 32
 
 -- Botas.
-local bootsLabel = text(choices, "BOTAS", 12, MUTED)
-bootsLabel.Size = UDim2.fromOffset(200, 16)
-bootsLabel.Position = UDim2.fromOffset(534, 38)
-bootsLabel.ZIndex = 32
+local bootsCard, bootsLock = kitCard(530, "👟 BOTAS", Color3.fromRGB(255, 140, 60))
 local bootButtons: { TextButton } = {}
 for i, boot in Config.BootColours do
-	local b = button(choices, "", 10, boot.color)
-	b.Size = UDim2.fromOffset(24, 24)
-	b.Position = UDim2.fromOffset(534 + ((i - 1) % 7) * 28, 62)
-	b.ZIndex = 32
-	corner(b, 12)
+	local b = button(bootsCard, "", 10, boot.color, TEXT, 33)
+	b.Size = UDim2.fromOffset(52, 52)
+	b.Position = UDim2.fromOffset(20 + ((i - 1) % 3) * 72, 52 + ((i - 1) // 3) * 62)
+	corner(b, 26)
 	b.Activated:Connect(function()
 		Remotes.Perfil:FireServer("botas", i)
 	end)
 	bootButtons[i] = b
 end
-local bootsLock = text(choices, "", 12, MUTED, Enum.Font.Gotham)
-bootsLock.Size = UDim2.fromOffset(200, 16)
-bootsLock.Position = UDim2.fromOffset(534, 98)
-bootsLock.ZIndex = 32
-
-local savedNote = text(choices, "", 12, Color3.fromRGB(230, 120, 90), Enum.Font.Gotham)
-savedNote.Size = UDim2.fromOffset(700, 16)
-savedNote.Position = UDim2.fromOffset(14, 150)
-savedNote.ZIndex = 32
 
 minus.Activated:Connect(function()
 	chosenNumber = if chosenNumber <= 1 then 99 else chosenNumber - 1
@@ -303,7 +370,7 @@ plus.Activated:Connect(function()
 	chosenNumber = if chosenNumber >= 99 then 1 else chosenNumber + 1
 	numberBox.Text = tostring(chosenNumber)
 end)
-saveNumber.Activated:Connect(function()
+wear.Activated:Connect(function()
 	Remotes.Perfil:FireServer("numero", chosenNumber)
 end)
 
@@ -312,66 +379,86 @@ end)
 --------------------------------------------------------------------------------
 
 local profile: { [string]: any }? = nil
+local numberShown = false
+
+local function salaryText(p: { [string]: any }): string
+	local S = P.salary
+	local la = p.paths.adepto.level
+	local lj = p.paths.jogador.level
+	local lr = p.paths.arbitro.level
+	local a = S.adepto.base + S.adepto.perLevel * la
+	local j = S.jogador.base + S.jogador.perLevel * lj
+	local r = S.arbitro.base + S.arbitro.perLevel * lr
+	return "<b>1. Salario no fim de cada jogo</b> (sobe com o nivel). Hoje recebes:\n"
+		.. "   📣 adepto " .. a .. "$ a " .. (a + Config.Money.perCorteo) .. "$ (mais se fizeres o corteo)\n"
+		.. "   ⚽ jogador " .. j .. "$ (+" .. S.jogador.perGoal .. "$ por golo)   🟨 arbitro " .. r .. "$\n"
+		.. "<b>2. Recompensa diaria</b>: entra todos os dias.\n"
+		.. "<b>3. Assaltar caixas</b> nas lojas da cidade: 15$ a 35$.\n"
+		.. "<b>4. Golos da tua equipa</b>: +" .. Config.Money.perGoal .. "$ a toda a claque."
+end
 
 local function paint()
 	local p = profile
 	if not p then
 		return
 	end
-	escudos.Text = tostring(p.escudos) .. "$"
-	if player:GetAttribute("MoedasInfinitas") then
-		escudos.Text = "∞$"
-	end
-	local streak = p.streak or 0
-	dailyLine.Text = if streak > 0 then "Recompensa diaria: dia " .. streak .. " de " .. #P.daily .. " seguidos" else "Recompensa diaria: entra todos os dias"
+	local rich = player:GetAttribute("MoedasInfinitas") == true
+	local money = if rich then "∞" else tostring(p.escudos)
+	wallet.Text = "💰 " .. money .. "$"
+	balanceValue.Text = money .. "$"
+
 	for _, path in PATHS do
 		local data = p.paths[path.id]
-		local col = columns[path.id]
-		if data and col then
-			col.level.Text = "NIVEL " .. data.level
+		local card = cards[path.id]
+		if data and card then
+			card.level.Text = tostring(data.level)
 			if data.level >= P.maxLevel then
-				col.bar.Size = UDim2.fromScale(1, 1)
-				col.xp.Text = data.total .. " XP · nivel maximo"
+				card.bar.Size = UDim2.fromScale(1, 1)
+				card.missing.Text = "NIVEL MAXIMO!"
 			else
-				col.bar.Size = UDim2.fromScale(math.clamp(data.xp / data.need, 0, 1), 1)
-				col.xp.Text = data.xp .. " / " .. data.need .. " XP  ·  total " .. data.total
+				card.bar.Size = UDim2.fromScale(math.clamp(data.xp / data.need, 0, 1), 1)
+				card.missing.Text = "Faltam " .. (data.need - data.xp) .. " XP para o nivel " .. (data.level + 1)
 			end
-			col.reward.Text = data.nextReward
+			card.reward.Text = "🎁 " .. data.nextReward
 		end
 	end
 
-	local level = if p.paths.jogador then p.paths.jogador.level else 1
-	local K = P.perks
+	earnBody.Text = salaryText(p)
+	local streak = p.streak or 0
+	local nextDay = (streak % #P.daily) + 1
+	dailyCard.Text = "Hoje: dia <b>" .. math.max(streak, 1) .. "</b> de " .. #P.daily .. " seguidos.\n\nAmanha, se voltares: <b>+" .. P.daily[nextDay] .. "$</b>\nFalhar um dia volta ao dia 1.\nO dia 7 da " .. P.daily[#P.daily] .. "$!"
+
+	local level = p.paths.jogador.level
 	local canNumber = level >= K.numberAt
-	for _, b in { minus, plus, saveNumber } do
+	for _, b in { minus, plus, wear } do
 		b.Active = canNumber
 		b.AutoButtonColor = canNumber
-		b.BackgroundTransparency = if canNumber then 0 else 0.6
+		b.BackgroundTransparency = if canNumber then 0 else 0.7
 	end
-	numberLock.Text = if canNumber then (if p.prefs.number then "Vestes o " .. p.prefs.number .. " (se ninguem da equipa o tiver)" else "Escolhe e carrega em VESTIR") else "Desbloqueia no nivel " .. K.numberAt .. " de jogador"
-	if canNumber and p.prefs.number and numberBox.Text == "10" then
+	if canNumber and p.prefs.number and not numberShown then
+		numberShown = true
 		chosenNumber = p.prefs.number
 		numberBox.Text = tostring(chosenNumber)
 	end
+	numberLock.Text = if canNumber then (if p.prefs.number then "Vestes o " .. p.prefs.number .. " (se ninguem da tua equipa o tiver)." else "Escolhe e carrega em VESTIR.") else "🔒 Nivel " .. K.numberAt .. " de jogador"
 	local canPosition = level >= K.positionAt
 	for zone, b in positionButtons do
+		local on = p.prefs.position == zone
 		b.Active = canPosition
-		b.BackgroundColor3 = if p.prefs.position == zone then BRASS else Color3.fromRGB(58, 52, 46)
-		b.TextColor3 = if p.prefs.position == zone then INK else TEXT
-		b.BackgroundTransparency = if canPosition then 0 else 0.6
+		b.BackgroundColor3 = if on then Color3.fromRGB(70, 200, 110) else Color3.fromRGB(60, 66, 88)
+		b.BackgroundTransparency = if canPosition then 0 else 0.7
 	end
-	positionLock.Text = if canPosition then "Ficas com um lugar dessa zona, se houver" else "Desbloqueia no nivel " .. K.positionAt .. " de jogador"
+	positionLock.Text = if canPosition then "Ficas num lugar dessa zona do campo, se houver livre." else "🔒 Nivel " .. K.positionAt .. " de jogador"
 	local canBoots = level >= K.bootsAt
 	for i, b in bootButtons do
 		b.Active = canBoots
-		b.BackgroundTransparency = if canBoots then 0 else 0.7
+		b.BackgroundTransparency = if canBoots then 0 else 0.75
 		local stroke = b:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
 		stroke.Color = Color3.new(1, 1, 1)
-		stroke.Thickness = if p.prefs.boots == i then 2 else 0
+		stroke.Thickness = if p.prefs.boots == i then 3 else 0
 		stroke.Parent = b
 	end
-	bootsLock.Text = if level >= K.goldBootsAt then "Botas douradas (nivel " .. K.goldBootsAt .. ")" elseif canBoots then "A cor das tuas botas" else "Desbloqueia no nivel " .. K.bootsAt .. " de jogador"
-	savedNote.Text = if p.saved then "" else "O teu perfil ainda nao carregou: o que ganhares agora soma-se quando carregar."
+	bootsLock.Text = if level >= K.goldBootsAt then "✨ Botas douradas (nivel " .. K.goldBootsAt .. ")" elseif canBoots then "A cor das tuas botas." else "🔒 Nivel " .. K.bootsAt .. " de jogador"
 end
 
 local function toggle(show: boolean?)
@@ -391,36 +478,25 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		toggle()
 	end
 end)
+showTab("niveis")
 
 --------------------------------------------------------------------------------
 -- Avisos: subir de nivel, recompensa diaria, resumo do jogo
 --------------------------------------------------------------------------------
 
-local toast = Instance.new("Frame")
+local toast = box(gui, UDim2.fromOffset(480, 70), UDim2.new(0.5, 0, 0, 90), GOLD, 40)
 toast.AnchorPoint = Vector2.new(0.5, 0)
-toast.Size = UDim2.fromOffset(460, 64)
-toast.Position = UDim2.new(0.5, 0, 0, 90)
-toast.BackgroundColor3 = INK
-toast.BackgroundTransparency = 0.05
-toast.BorderSizePixel = 0
 toast.Visible = false
-toast.ZIndex = 40
-toast.Parent = gui
-corner(toast, 10)
-local toastStroke = Instance.new("UIStroke")
-toastStroke.Color = BRASS
-toastStroke.Thickness = 2
-toastStroke.Parent = toast
-local toastTitle = text(toast, "", 20, BRASS, Enum.Font.GothamBlack)
+corner(toast, 12)
+gradient(toast, Color3.fromRGB(255, 210, 80), Color3.fromRGB(230, 140, 40), 90)
+local toastTitle = text(toast, "", 22, BG, Enum.Font.GothamBlack, 41)
 toastTitle.TextXAlignment = Enum.TextXAlignment.Center
-toastTitle.Size = UDim2.new(1, -20, 0, 26)
+toastTitle.Size = UDim2.new(1, -20, 0, 28)
 toastTitle.Position = UDim2.fromOffset(10, 8)
-toastTitle.ZIndex = 41
-local toastLine = text(toast, "", 14, TEXT, Enum.Font.Gotham)
+local toastLine = text(toast, "", 15, BG, Enum.Font.GothamBold, 41)
 toastLine.TextXAlignment = Enum.TextXAlignment.Center
-toastLine.Size = UDim2.new(1, -20, 0, 20)
-toastLine.Position = UDim2.fromOffset(10, 36)
-toastLine.ZIndex = 41
+toastLine.Size = UDim2.new(1, -20, 0, 22)
+toastLine.Position = UDim2.fromOffset(10, 38)
 
 local toastStamp = 0
 local function showToast(head: string, line: string, seconds: number)
@@ -436,40 +512,31 @@ local function showToast(head: string, line: string, seconds: number)
 	end)
 end
 
--- O resumo do fim do jogo: uma caixa com as linhas de cada papel.
-local summary = Instance.new("Frame")
+-- O resumo do fim do jogo.
+local summary = box(gui, UDim2.fromOffset(480, 220), UDim2.fromScale(0.5, 0.42), BG, 40)
 summary.AnchorPoint = Vector2.new(0.5, 0.5)
-summary.Size = UDim2.fromOffset(460, 200)
-summary.Position = UDim2.fromScale(0.5, 0.42)
-summary.BackgroundColor3 = INK
-summary.BorderSizePixel = 0
 summary.Visible = false
-summary.ZIndex = 40
-summary.Parent = gui
-corner(summary, 12)
+corner(summary, 14)
 local summaryStroke = Instance.new("UIStroke")
-summaryStroke.Color = BRASS
-summaryStroke.Thickness = 2
+summaryStroke.Color = GOLD
+summaryStroke.Thickness = 3
 summaryStroke.Parent = summary
-local summaryTitle = text(summary, "FIM DO JOGO", 22, BRASS, Enum.Font.GothamBlack)
+local summaryTitle = text(summary, "🏁 FIM DO JOGO", 24, GOLD, Enum.Font.GothamBlack, 41)
 summaryTitle.TextXAlignment = Enum.TextXAlignment.Center
-summaryTitle.Size = UDim2.new(1, 0, 0, 30)
+summaryTitle.Size = UDim2.new(1, 0, 0, 32)
 summaryTitle.Position = UDim2.fromOffset(0, 12)
-summaryTitle.ZIndex = 41
-local summaryBody = text(summary, "", 15, TEXT, Enum.Font.Gotham)
+local summaryBody = text(summary, "", 16, TEXT, Enum.Font.GothamBold, 41)
 summaryBody.TextXAlignment = Enum.TextXAlignment.Center
 summaryBody.TextYAlignment = Enum.TextYAlignment.Top
 summaryBody.TextWrapped = true
-summaryBody.Size = UDim2.new(1, -30, 1, -96)
-summaryBody.Position = UDim2.fromOffset(15, 48)
-summaryBody.ZIndex = 41
-local summaryPay = text(summary, "", 20, GOOD, Enum.Font.GothamBlack)
+summaryBody.Size = UDim2.new(1, -30, 1, -104)
+summaryBody.Position = UDim2.fromOffset(15, 52)
+local summaryPay = text(summary, "", 28, GREEN, Enum.Font.GothamBlack, 41)
 summaryPay.TextXAlignment = Enum.TextXAlignment.Center
-summaryPay.Size = UDim2.new(1, 0, 0, 26)
-summaryPay.Position = UDim2.new(0, 0, 1, -40)
-summaryPay.ZIndex = 41
+summaryPay.Size = UDim2.new(1, 0, 0, 34)
+summaryPay.Position = UDim2.new(0, 0, 1, -46)
 
-local PATH_TITLE = { adepto = "ADEPTO", jogador = "JOGADOR", arbitro = "ARBITRO" }
+local PATH_TITLE = { adepto = "📣 ADEPTO", jogador = "⚽ JOGADOR", arbitro = "🟨 ARBITRO" }
 
 Remotes.Perfil.OnClientEvent:Connect(function(data)
 	if type(data) ~= "table" then
@@ -479,12 +546,12 @@ Remotes.Perfil.OnClientEvent:Connect(function(data)
 		profile = data
 		paint()
 	elseif data.kind == "nivel" then
-		showToast("SUBISTE DE NIVEL", (PATH_TITLE[data.path] or "") .. " · NIVEL " .. tostring(data.level), 4)
+		showToast("⭐ SUBISTE DE NIVEL!", (PATH_TITLE[data.path] or "") .. "  ·  NIVEL " .. tostring(data.level), 4)
 	elseif data.kind == "diaria" then
-		showToast("RECOMPENSA DIARIA", "Dia " .. tostring(data.day) .. " seguido · +" .. tostring(data.reward) .. "$", 5)
+		showToast("🎁 RECOMPENSA DIARIA", "Dia " .. tostring(data.day) .. " seguido  ·  +" .. tostring(data.reward) .. "$", 5)
 	elseif data.kind == "resumo" and type(data.lines) == "table" then
 		summaryBody.Text = table.concat(data.lines, "\n")
-		summaryPay.Text = if (data.pay or 0) > 0 then "+" .. tostring(data.pay) .. "$" else ""
+		summaryPay.Text = if (data.pay or 0) > 0 then "💰 +" .. tostring(data.pay) .. "$" else ""
 		summary.Visible = true
 		task.delay(12, function()
 			summary.Visible = false
