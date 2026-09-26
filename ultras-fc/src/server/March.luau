@@ -16,6 +16,15 @@
 	ficar preso. Quem vai perto dela enquanto anda leva a bancada ja quente para
 	o apito inicial; quem la chega sozinho entra na mesma, so sem o bonus.
 
+	TRES MOMENTOS (atributo "Stage" da faixa), como numa claque a serio:
+	1. "formatura": a porta da sede, filas direitas, paradas, a faixa aberta a
+	   frente. Uns segundos quietos: e o que faz aquilo parecer serio.
+	2. "marcha": um bloco colado de parede a parede, devagar, ao passo do
+	   tambor; tochas e fumo pelo caminho.
+	3. "corrida": nos ultimos metros acaba a marcha e toda a gente desata a
+	   correr para dentro. A mudanca de ritmo e o que faz isto funcionar.
+	Antes disso a faixa esta em "espera"; no fim, "chegou".
+
 	Os bonecos que marcham atras da faixa nao vivem aqui: cada ecra desenha-os a
 	partir da posicao dela (Corteo.client). Nao pesam nada na rede.
 ]]
@@ -40,6 +49,9 @@ type Banner = {
 	moving: boolean,
 	seconds: number, -- quanto demora o percurso todo, a passo da faixa
 	leader: Player?, -- quem a guia; sem ninguem, segue os waypoints
+	stage: string, -- espera, formatura, marcha, corrida, chegou
+	formedAt: number, -- quando formou
+	launchPending: boolean, -- ja tem ordem de sair: sai quando acabar a formatura
 	heading: Vector3, -- para onde o lider vai, alisado
 	lastLeaderAt: Vector3,
 }
@@ -138,7 +150,11 @@ function March.arm(parent: Instance)
 				leader = nil,
 				heading = Vector3.new(0, 0, 1),
 				lastLeaderAt = Vector3.zero,
+				stage = "espera",
+				formedAt = 0,
+				launchPending = false,
 			}
+			banners[teamId].model:SetAttribute("Stage", "espera")
 		end
 	end
 end
@@ -217,12 +233,38 @@ local function releaseLeader(banner: Banner)
 	banner.leg = math.min(nearest, #banner.waypoints - 1)
 end
 
-function March.launch(teamId: string): boolean
+local function setStage(banner: Banner, stage: string)
+	banner.stage = stage
+	banner.model:SetAttribute("Stage", stage)
+end
+
+--[[
+	FORMAR: a faixa vira-se para o caminho e a claque forma atras dela, em
+	filas direitas (os bonecos; as pessoas so se quiserem). Nao sai sozinha:
+	sai com a ordem de marchar, depois de estar formada uns segundos.
+]]
+function March.form(teamId: string): boolean
 	local banner = banners[teamId]
-	if not (active and banner) or banner.moving then
+	if not (active and banner) or banner.stage ~= "espera" then
 		return false
 	end
+	local here = banner.model.Position
+	local ahead = banner.waypoints[2] or here + Vector3.new(0, 0, -1)
+	local look = Vector3.new(ahead.X - here.X, 0, ahead.Z - here.Z)
+	if look.Magnitude > 0.1 then
+		banner.model.CFrame = CFrame.lookAt(here, here + look.Unit)
+	end
+	banner.formedAt = os.clock()
+	setStage(banner, "formatura")
+	return true
+end
+
+-- O corteo arranca: a faixa anda, e quem for atras dela ganha credito.
+local function start(banner: Banner)
+	local teamId = banner.teamId
 	banner.moving = true
+	banner.launchPending = false
+	setStage(banner, "marcha")
 	banner.model:SetAttribute("Moving", true)
 
 	-- O lider, se estiver junto a faixa, passa a guia-la.
@@ -235,11 +277,33 @@ function March.launch(teamId: string): boolean
 	if leader and humanoid and hrp and (hrp.Position - banner.model.Position).Magnitude <= M.radius then
 		banner.leader = leader
 		banner.lastLeaderAt = hrp.Position
-		banner.heading = Vector3.new(0, 0, 1)
+		local look = banner.model.CFrame.LookVector
+		banner.heading = Vector3.new(look.X, 0, look.Z).Unit
 		humanoid.WalkSpeed = M.leaderSpeed
 		banner.model:SetAttribute("Led", true)
 	end
+end
+
+--[[
+	MARCHAR: se ainda nao formou, forma primeiro; sai quando a formatura
+	ja tiver durado `formSeconds`.
+]]
+function March.launch(teamId: string): boolean
+	local banner = banners[teamId]
+	if not (active and banner) or banner.moving or banner.launchPending then
+		return false
+	end
+	if banner.stage == "espera" then
+		March.form(teamId)
+	end
+	banner.launchPending = true
 	return true
+end
+
+-- Em que momento esta o corteo desta claque.
+function March.stage(teamId: string): string?
+	local banner = banners[teamId]
+	return banner and banner.stage or nil
 end
 
 function March.stop()
@@ -278,16 +342,23 @@ function March.step(dt: number)
 		end
 	end
 
+	local now = os.clock()
 	for teamId, banner in banners do
+		-- Formados e com ordem de sair: saem quando a formatura tiver durado o que deve.
+		if banner.stage == "formatura" and banner.launchPending and now - banner.formedAt >= M.formSeconds then
+			start(banner)
+		end
 		if not banner.moving then
 			continue
 		end
+		local gate = banner.waypoints[#banner.waypoints]
 
 		--[[
 			O lider que chega a faixa passa a guia-la, a qualquer altura: se a
 			faixa saiu sozinha, ou se ele se atrasou, basta ir ter com ela.
 		]]
-		if not banner.leader and not banner.model:GetAttribute("Arrived") then
+		-- (So em marcha: na corrida a faixa ja nao e de ninguem.)
+		if not banner.leader and banner.stage == "marcha" then
 			local candidate = holderNear(teamId, banner.model.Position)
 			local humanoid, hrp
 			if candidate then
@@ -328,34 +399,39 @@ function March.step(dt: number)
 				local nextAt = if delta.Magnitude > 0.05 then here + delta.Unit * stepLength else here
 				banner.model.CFrame = CFrame.lookAt(nextAt, nextAt + banner.heading)
 
-				-- Chegou a porta da claque: entra.
-				local gate = banner.waypoints[#banner.waypoints]
-				if (Vector3.new(nextAt.X, gate.Y, nextAt.Z) - gate).Magnitude <= M.arriveRadius then
-					banner.model:SetAttribute("Arrived", true)
+				-- Perto da porta da claque: acaba a marcha, corre-se para dentro. O
+				-- lider larga a faixa (corre ao seu passo) e ela vai direita a porta.
+				if (Vector3.new(nextAt.X, gate.Y, nextAt.Z) - gate).Magnitude <= M.runDistance then
+					setStage(banner, "corrida")
 					releaseLeader(banner)
-					banner.leg = #banner.waypoints
 				end
 			end
 		end
 
 		-- Sem lider: o caminho de sempre, ponto a ponto.
 		if not banner.leader then
+			local here = banner.model.Position
+			if banner.stage == "marcha" and (Vector3.new(here.X, gate.Y, here.Z) - gate).Magnitude <= M.runDistance then
+				setStage(banner, "corrida")
+			end
 			local target = banner.waypoints[banner.leg + 1]
 			if not target then
 				if not banner.model:GetAttribute("Arrived") then
 					banner.model:SetAttribute("Arrived", true)
+					setStage(banner, "chegou")
 				end
 				continue
 			end
 
-			local here = banner.model.Position
+			-- A passo de marcha; na corrida, a correr.
+			local speed = if banner.stage == "corrida" then M.runSpeed else M.speed
 			local delta = target - here
-			if delta.Magnitude <= M.speed * dt then
+			if delta.Magnitude <= speed * dt then
 				banner.leg += 1
 				banner.model.CFrame = CFrame.new(target) * banner.model.CFrame.Rotation
 			else
 				-- Atravessada na rua, virada para a frente: toda a gente vem atras dela.
-				local step = delta.Unit * M.speed * dt
+				local step = delta.Unit * speed * dt
 				banner.model.CFrame = CFrame.lookAt(here + step, here + step + delta.Unit)
 			end
 		end

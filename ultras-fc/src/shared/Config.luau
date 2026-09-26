@@ -105,7 +105,7 @@ Config.Atmosphere = {
 ]]
 Config.Match = {
 	clubhouseLength = 180, -- na sede: material, lider, e esperar pelos outros
-	corteoLength = 180, -- a caminhada ate ao estadio: ~900 studs a passo de marcha, mais a espera pela ordem
+	corteoLength = 210, -- a caminhada ate ao estadio: ~1200 studs a 7 studs/s, mais a espera e a formatura
 	waitLength = 60, -- no maximo, a espera de que as bancadas estejam nos seus lugares
 	entranceLength = 40, -- do tunel ao apito: saida, fila e cada um ao seu lugar
 	halfLength = 450, -- cada parte: 7 min e meio
@@ -363,14 +363,18 @@ Config.Football = {
 ]]
 Config.March = {
 	readyNeeded = 3, -- quantos tem de estar na sede para o lider poder sair (ou todos, se forem menos)
-	autoStartAfter = 30, -- sem lider a dar a ordem, a faixa sai sozinha, com folga para chegar
+	autoStartAfter = 20, -- sem lider a dar a ordem, a faixa forma e sai sozinha, com folga para chegar
+	formSeconds = 8, -- a formatura: filas direitas, quietos, antes de sair
+	runDistance = 55, -- a esta distancia da porta acaba a marcha e corre-se para dentro
+	runSpeed = 20, -- a corrida para dentro
+	runBoost = 24, -- quem vai no corteo pode correr assim uns segundos (so se quiser)
 	bots = Config.Bonecos.cortejo, -- bonecos que marcham atras de cada faixa (Config.Bonecos)
 	columns = 10, -- quantos lado a lado, da largura da faixa: a rua cheia de parede a parede
-	leaderSpeed = 11, -- o lider a guiar anda a este passo, para o grupo o acompanhar
+	leaderSpeed = 8, -- o lider a guiar anda a este passo, para o grupo o acompanhar
 	leadDistance = 8, -- a faixa vai estes studs a frente do lider
 	takeRadius = 20, -- o lider a esta distancia da faixa passa a guia-la
 	arriveRadius = 30, -- a esta distancia da porta da claque, o corteo chegou
-	speed = 9, -- passo da faixa, em studs por segundo: o de uma marcha, devagar e em grupo
+	speed = 7, -- passo da faixa, em studs por segundo: o de quem vai a pe, devagar, nunca a correr
 	radius = 45, -- a que distancia da faixa ainda se conta como ir no corteo
 	atmosphereBonus = 55, -- ambiente de partida para uma claque que fez o caminho
 }
