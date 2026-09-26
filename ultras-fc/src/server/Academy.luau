@@ -15,6 +15,7 @@
 	quando chega, a academia fecha ate ao proximo jogo.
 ]]
 
+local Players = game:GetService("Players")
 local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -64,14 +65,45 @@ end
 -- A bola de treino
 --------------------------------------------------------------------------------
 
+--[[
+	Joga-se como no jogo a serio (as mesmas regras do Football): quem chega a
+	bola fica com ela colada a frente dos pes; outro que encoste rouba-a;
+	chuta-se com a barra de forca, altura e efeito; de primeira tambem. Solta,
+	rola e trava na relva. So as pessoas que jogam lhe tocam.
+]]
+local F = Config.Football
+local R = BALL_SIZE / 2
+
+local carrier: Player? = nil
+local carriedSince = 0
+local flightUntil = 0
+local noClaim: { [Player]: number } = {}
+local curve = 0
+local curveUntil = 0
+
+local function rootOf(player: Player): BasePart?
+	local character = player.Character
+	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
+local function flat(v: Vector3): Vector3
+	local f = Vector3.new(v.X, 0, v.Z)
+	return if f.Magnitude > 1e-3 then f.Unit else Vector3.xAxis
+end
+
+local function groundY(): number
+	return A.groundY + 0.4 + R
+end
+
 local function resetBall()
 	local b = ball
 	if not b then
 		return
 	end
+	carrier = nil
 	b.AssemblyLinearVelocity = Vector3.zero
 	b.AssemblyAngularVelocity = Vector3.zero
-	b.CFrame = CFrame.new(A.centre.X, A.groundY + 3, A.centre.Z)
+	b.CFrame = CFrame.new(A.centre.X, groundY() + 0.5, A.centre.Z)
 end
 
 local function makeBall(parent: Instance)
@@ -81,7 +113,7 @@ local function makeBall(parent: Instance)
 	b.Size = Vector3.new(BALL_SIZE, BALL_SIZE, BALL_SIZE)
 	b.Color = Color3.fromRGB(248, 248, 248)
 	b.Material = Enum.Material.SmoothPlastic
-	b.CustomPhysicalProperties = PhysicalProperties.new(0.25, 0.4, 0.55, 1, 1)
+	b.CustomPhysicalProperties = PhysicalProperties.new(0.3, 0.4, 0.45, 1, 1)
 	b.CollisionGroup = GROUP
 	b.Parent = parent
 	ball = b
@@ -91,29 +123,128 @@ local function makeBall(parent: Instance)
 	end)
 end
 
+-- Quem pode jogar a bola de treino: as pessoas que jogam e estao vivas.
+local function players(): { { player: Player, root: BasePart } }
+	local list = {}
+	for _, player in Players:GetPlayers() do
+		if player:GetAttribute("Team") == "jogador" then
+			local character = player.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local root = rootOf(player)
+			if root and humanoid and humanoid.Health > 0 then
+				table.insert(list, { player = player, root = root })
+			end
+		end
+	end
+	return list
+end
+
+local function horizontal(a: Vector3, b: Vector3): number
+	return Vector3.new(a.X - b.X, 0, a.Z - b.Z).Magnitude
+end
+
 --[[
-	Um chuto na bola de treino, com a mesma barra de forca do jogo. Devolve
-	se o chuto foi para ela (senao o Football trata-o).
+	Um chuto, como no jogo: `power` 0 a 1 (a barra), `curveIn` -1 a 1 (o
+	efeito), `height` -1 a 1 (rasteira, normal, chapeu). Com a bola nos pes, ou
+	de primeira numa bola solta que passa ao alcance. Devolve se o chuto era
+	da academia (senao e o Football que o trata).
 ]]
-function Academy.kick(player: Player, power: number, height: number): boolean
+function Academy.kick(player: Player, power: number, curveIn: number, height: number): boolean
 	local b = ball
-	local character = player.Character
-	local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not Academy.isOpen() or not b or not rootPart then
+	local root = rootOf(player)
+	if not Academy.isOpen() or not b or not root then
 		return false
 	end
-	local flat = Vector3.new(b.Position.X - rootPart.Position.X, 0, b.Position.Z - rootPart.Position.Z)
-	if flat.Magnitude > 6 or math.abs(b.Position.Y - rootPart.Position.Y) > 5 then
-		return false
+	local now = os.clock()
+	local mine = carrier == player
+	if not mine then
+		local reach = horizontal(b.Position, root.Position)
+		local tooHigh = b.Position.Y - (root.Position.Y - 3) > F.claimHeight + 1
+		if carrier ~= nil or reach > F.claimRange + 2.4 or tooHigh or (noClaim[player] or 0) > now then
+			-- Longe da bola: se esta na academia, o chuto fica por aqui.
+			return horizontal(root.Position, A.centre) < A.pitchLength
+		end
 	end
-	local look = rootPart.CFrame.LookVector
-	local dir = Vector3.new(look.X, 0, look.Z).Unit
 	local p = math.clamp(power, 0, 1)
-	local speed = A.kickSpeed * (0.3 + 0.7 * p)
-	local lift = speed * (0.12 + 0.3 * math.max(math.clamp(height, -1, 1), 0))
-	b.AssemblyLinearVelocity = dir * speed + Vector3.new(0, lift, 0)
+	local h = math.clamp(height, -1, 1)
+	local dir = flat(root.CFrame.LookVector)
+	local speed = F.kickSpeedMin + (F.kickSpeedMax - F.kickSpeedMin) * p
+	local liftFraction = if h < 0 then F.liftNeutral * (1 + h) else F.liftNeutral + (F.liftMax - F.liftNeutral) * h
+	if mine then
+		b.CFrame = CFrame.new(root.Position.X + dir.X * F.dribbleDistance, groundY(), root.Position.Z + dir.Z * F.dribbleDistance)
+	end
+	carrier = nil
+	flightUntil = now + F.kickFlight
+	noClaim[player] = now + F.kickLockout
+	b.AssemblyAngularVelocity = Vector3.zero
+	b.AssemblyLinearVelocity = dir * speed + Vector3.new(0, speed * liftFraction, 0)
+	curve = math.clamp(curveIn, -1, 1) * F.curveAccel
+	curveUntil = now + F.curveTime
 	lastKicker = player
 	return true
+end
+
+-- A bola a cada instante: nos pes de quem a tem, ou solta a rolar.
+local function stepBall(dt: number, now: number)
+	local b = ball
+	if not b or now < keeperHolding then
+		return
+	end
+	local list = players()
+
+	local owner = carrier
+	if owner then
+		local root = rootOf(owner)
+		if not root or horizontal(root.Position, A.centre) > A.pitchLength then
+			carrier = nil
+		else
+			-- Roubo: quem encosta a bola fica com ela (menos logo a seguir a ganha-la).
+			if now - carriedSince > F.tackleImmunity then
+				for _, other in list do
+					if other.player ~= owner and horizontal(other.root.Position, b.Position) < F.tackleRange and (noClaim[other.player] or 0) <= now then
+						carrier = other.player
+						carriedSince = now
+						root = other.root
+						break
+					end
+				end
+			end
+			local look = flat(root.CFrame.LookVector)
+			local at = root.Position + look * F.dribbleDistance
+			local v = root.AssemblyLinearVelocity
+			b.CFrame = CFrame.new(at.X, groundY(), at.Z)
+			b.AssemblyLinearVelocity = Vector3.new(v.X, 0, v.Z)
+			b.AssemblyAngularVelocity = Vector3.new(v.Z, 0, -v.X) / R
+			return
+		end
+	end
+
+	-- Solta: trava forte no chao, pouco no ar; o efeito desvia-a de lado.
+	local v = b.AssemblyLinearVelocity
+	local onGround = b.Position.Y < groundY() + 0.4
+	local keep = math.exp(-(if onGround then F.rollDrag else F.airDrag) * dt)
+	local hv = Vector3.new(v.X * keep, 0, v.Z * keep)
+	if curve ~= 0 and now < curveUntil and hv.Magnitude > 4 then
+		hv += hv.Unit:Cross(Vector3.yAxis) * curve * dt
+	end
+	b.AssemblyLinearVelocity = hv + Vector3.new(0, v.Y, 0)
+
+	-- Quem chega a ela fica com ela.
+	if now >= flightUntil then
+		local best: Player? = nil
+		local bestD = F.claimRange
+		for _, other in list do
+			local d = horizontal(other.root.Position, b.Position)
+			if d < bestD and b.Position.Y - (other.root.Position.Y - 3) < F.claimHeight and (noClaim[other.player] or 0) <= now then
+				best, bestD = other.player, d
+			end
+		end
+		if best then
+			carrier = best
+			carriedSince = now
+			lastKicker = best
+		end
+	end
 end
 
 -- A bola entrou numa das balizas?
@@ -179,6 +310,7 @@ local function stepKeeper(dt: number, now: number)
 		local fast = b.AssemblyLinearVelocity.Magnitude > 55
 		if not fast or math.random() < 0.5 then
 			keeperHolding = now + 1.4
+			carrier = nil
 		end
 	end
 end
@@ -277,6 +409,10 @@ function Academy.start()
 	end)
 	-- A bola de treino bate nas paredes invisiveis da vedacao (BallWall).
 	PhysicsService:CollisionGroupSetCollidable(GROUP, "BallWall", true)
+	-- Como a bola do jogo: quem joga nao a empurra com o corpo, so as regras a mexem.
+	pcall(function()
+		PhysicsService:CollisionGroupSetCollidable(GROUP, "Footballers", false)
+	end)
 
 	-- Os marcadores do mapa ficam invisiveis no jogo.
 	local arrival = folder:FindFirstChild("Chegada")
@@ -298,6 +434,7 @@ function Academy.start()
 		if not Academy.isOpen() then
 			return
 		end
+		stepBall(dt, now)
 		checkGoal(now)
 		stepKeeper(dt, now)
 	end)

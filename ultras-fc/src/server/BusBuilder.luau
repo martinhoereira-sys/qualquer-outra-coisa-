@@ -91,7 +91,168 @@ local function sidePanels(name: string, x: number, doors: boolean, y0: number, y
 	end
 end
 
+--------------------------------------------------------------------------------
+-- O autocarro a serio: o MAN Lion's City do Toolbox, sem scripts
+--------------------------------------------------------------------------------
+
+--[[
+	Se houver o modelo em ServerStorage.ModelosAutocarro.MAN (a carrocaria e
+	o interior em malha, limpos de scripts), o autocarro e esse. A malha e so
+	o aspeto: nao choca com nada. Quem choca sao pecas invisiveis simples a
+	mesma forma (piso, paredes, tecto, frente e tras), para se poder entrar,
+	andar la dentro e sentar sem ficar preso na malha.
+
+	O modelo esta com a frente para +X e as portas em +Z; aqui roda-se para a
+	frente ficar em -Z e as portas a direita (+X), como o resto do jogo.
+]]
+local MESH = {
+	length = 50,
+	floor = 3.75, -- o chao por dentro, acima da estrada
+	roof = 11.6,
+	side = 4.55,
+	wheelRadius = 1.95,
+	doors = { { from = -21.5, to = -18.0 }, { from = 1.1, to = 6.6 } }, -- em z, ja rodado
+}
+
+local function template(): Model?
+	local ServerStorage = game:GetService("ServerStorage")
+	local store = ServerStorage:FindFirstChild("ModelosAutocarro")
+	local m = store and store:FindFirstChild("MAN")
+	return if m and m:IsA("Model") then m else nil
+end
+
+local function buildMesh(source: Model, livery: Livery, at: CFrame, parent: Instance): Model
+	local model = source:Clone()
+	model.Name = "Autocarro"
+	model:SetAttribute("Info", nil)
+	model:SetAttribute("Line", livery.line)
+	model:SetAttribute("Length", MESH.length)
+	model:SetAttribute("Ride", 2)
+	model:SetAttribute("WheelRadius", MESH.wheelRadius)
+
+	-- Tudo no referencial do modelo: pivo no chao, entre as rodas; rodado.
+	local turn = CFrame.Angles(0, math.rad(90), 0)
+	local frame = source.WorldPivot
+	local driverAt: CFrame? = nil
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CFrame = turn * frame:ToObjectSpace(d.CFrame)
+			d.Anchored = true
+			d.CanCollide = false
+			d.CanTouch = false
+			d.Massless = true
+		end
+	end
+	for _, d in model:GetDescendants() do
+		if d:IsA("VehicleSeat") then
+			driverAt = d.CFrame
+			d:Destroy()
+		elseif d:IsA("Seat") then
+			d.Name = "Banco"
+			d.CanCollide = true
+			d.CanTouch = true
+		elseif d:IsA("BasePart") then
+			local lower = string.lower(d.Name)
+			if d.Parent and d.Parent.Name == "Wheels" then
+				d.Name = "Roda"
+				d.Transparency = 1
+			elseif d.Parent and d.Parent:IsA("BasePart") and d.Parent.Name == "Roda" then
+				d.Name = "Jante"
+			elseif string.find(lower, "door_front") or string.find(lower, "door_back") then
+				-- As portas: saem um pouco para fora e correm para os lados.
+				local door = if string.find(lower, "door_front") then 1 else 2
+				local range = MESH.doors[door]
+				local centre = (range.from + range.to) / 2
+				local slide = if d.Position.Z < centre then -1 else 1
+				d.Name = "Porta"
+				d:SetAttribute("Door", door)
+				d:SetAttribute("OpenOffset", Vector3.new(0.6, 0, slide * 1.4))
+			end
+		end
+	end
+	-- Os nomes das pecas das rodas ficam depois de os pais mudarem de nome.
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") and d.Name ~= "Roda" and d:FindFirstAncestor("Roda") then
+			d.Name = "Jante"
+		end
+	end
+
+	local proxies = Instance.new("Folder")
+	proxies.Name = "Colisao"
+	proxies.Parent = model
+	local function proxy(name: string, size: Vector3, cf: CFrame): Part
+		local p = part(name, size, cf, GREY, proxies)
+		p.Transparency = 1
+		return p
+	end
+	local L = MESH.length - 1.5
+	local wallH = MESH.roof - MESH.floor
+	local wallY = MESH.floor + wallH / 2
+	proxy("Piso", Vector3.new(MESH.side * 2, 0.6, L), CFrame.new(0, MESH.floor - 0.3, 0))
+	proxy("Tecto", Vector3.new(MESH.side * 2, 0.4, L), CFrame.new(0, MESH.roof + 0.2, 0))
+	proxy("Frente", Vector3.new(MESH.side * 2, wallH, 0.4), CFrame.new(0, wallY, -L / 2))
+	proxy("Tras", Vector3.new(MESH.side * 2, wallH, 0.4), CFrame.new(0, wallY, L / 2))
+	proxy("Lado", Vector3.new(0.3, wallH, L), CFrame.new(-MESH.side, wallY, 0))
+	-- O lado das portas, partido nas portas; nas portas, uma tampa que abre.
+	local edges = { -L / 2 }
+	for _, d in MESH.doors do
+		table.insert(edges, d.from)
+		table.insert(edges, d.to)
+	end
+	table.insert(edges, L / 2)
+	for i = 1, #edges, 2 do
+		local a, b = edges[i], edges[i + 1]
+		proxy("Lado", Vector3.new(0.3, wallH, b - a), CFrame.new(MESH.side, wallY, (a + b) / 2))
+	end
+	for index, d in MESH.doors do
+		local width = d.to - d.from
+		local block = proxy("Porta", Vector3.new(0.3, wallH, width), CFrame.new(MESH.side, wallY, (d.from + d.to) / 2))
+		block:SetAttribute("Door", index)
+		block:SetAttribute("Blocker", true)
+		block:SetAttribute("OpenOffset", Vector3.zero)
+		-- O degrau, por fora, a meia altura do chao do autocarro.
+		proxy("Degrau", Vector3.new(1.6, 0.4, width - 0.3), CFrame.new(MESH.side + 0.9, MESH.floor / 2, (d.from + d.to) / 2))
+		local entry = proxy("Entrada", Vector3.new(2, 1, width), CFrame.new(MESH.side - 1, MESH.floor + 1, (d.from + d.to) / 2))
+		entry.CanCollide = false
+		entry:SetAttribute("Door", index)
+	end
+
+	-- O motorista, sentado ao volante.
+	if driverAt then
+		local skin = Color3.fromRGB(214, 170, 130)
+		local shirt = Color3.fromRGB(60, 80, 110)
+		local seat = driverAt * CFrame.new(0, 1, 0)
+		part("Motorista", Vector3.new(1.8, 2, 1), seat * CFrame.new(0, 0.6, 0.2), shirt, model).CanCollide = false
+		part("MotoristaCabeca", Vector3.new(1.1, 1.1, 1.1), seat * CFrame.new(0, 2.2, 0.2), skin, model).CanCollide = false
+		part("MotoristaPernas", Vector3.new(1.6, 0.9, 2), seat * CFrame.new(0, -0.6, -0.8), Color3.fromRGB(30, 32, 40), model).CanCollide = false
+	end
+
+	-- O letreiro da linha a frente e atras, e o numero na cor da linha.
+	local front = part("Letreiro", Vector3.new(6.2, 1, 0.2), CFrame.new(0, 11.1, -MESH.length / 2 - 0.05), DARK, model)
+	front.CanCollide = false
+	sign(front, Enum.NormalId.Front, livery.line .. "  " .. livery.destination)
+	local box = part("NumeroLinha", Vector3.new(1.6, 1, 0.2), CFrame.new(-3.9, 11.1, -MESH.length / 2 - 0.05), livery.colour, model, Enum.Material.Neon)
+	box.CanCollide = false
+	local back = part("LetreiroTras", Vector3.new(2.4, 1, 0.2), CFrame.new(0, 11.1, MESH.length / 2 + 0.05), DARK, model)
+	back.CanCollide = false
+	sign(back, Enum.NormalId.Back, livery.line)
+
+	-- O chassis: a peca a que tudo se prende e que o Transit puxa.
+	local chassis = part("Chassis", Vector3.new(1, 1, 1), CFrame.new(0, 2, 0), GREY, model)
+	chassis.Transparency = 1
+	chassis.CanCollide = false
+	model.PrimaryPart = chassis
+	chassis.PivotOffset = chassis.CFrame:Inverse()
+	model:PivotTo(at)
+	model.Parent = parent
+	return model
+end
+
 function Builder.build(livery: Livery, at: CFrame, parent: Instance): Model
+	local source = template()
+	if source then
+		return buildMesh(source, livery, at, parent)
+	end
 	local model = Instance.new("Model")
 	model.Name = "Autocarro"
 	model:SetAttribute("Line", livery.line)

@@ -128,6 +128,22 @@ function MatchLoop.readyWhen(fn: () -> boolean)
 end
 
 --[[
+	A entrada em campo daqui a `seconds`, a partir do corteo ou da espera: o
+	autocarro da equipa chegou, e quem joga nao fica muito tempo parado no
+	balneario. Salta a espera pelas bancadas.
+]]
+local entranceSoon = false
+function MatchLoop.entranceIn(seconds: number)
+	if state.phase ~= "corteo" and state.phase ~= "espera" then
+		return
+	end
+	entranceSoon = true
+	state.clock = seconds
+	state.length = math.max(state.length, seconds)
+	broadcast()
+end
+
+--[[
 	Marcar um golo. Quem decide que houve golo e o campo, nao este modulo: a bola
 	entrar na baliza e que conta.
 ]]
@@ -173,6 +189,7 @@ local SKIP_TO: { [string]: Phase } = {
 -- Salta ja para a fase seguinte. So para testes: quem pode chamar isto e o Main
 -- decide, pela lista de admins.
 function MatchLoop.skip()
+	entranceSoon = false
 	enterPhase(SKIP_TO[state.phase])
 end
 
@@ -189,7 +206,12 @@ function MatchLoop.start()
 			local held = halfEnding and holdWhile ~= nil and holdWhile()
 			local ready = state.phase == "espera" and readyWhen ~= nil and readyWhen()
 			if (state.clock <= 0 and not held) or ready then
-				enterPhase(NEXT_PHASE[state.phase])
+				local nextPhase = NEXT_PHASE[state.phase]
+				if entranceSoon and (state.phase == "corteo" or state.phase == "espera") then
+					nextPhase = "entrada"
+				end
+				entranceSoon = false
+				enterPhase(nextPhase)
 			end
 		end
 	end)

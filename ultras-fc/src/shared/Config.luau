@@ -565,7 +565,7 @@ Config.Transit = {
 	brake = 10, -- a travar
 	dwell = 9, -- segundos parado numa paragem, de portas abertas
 	laneOffset = 6.5, -- do meio da rua ao meio da faixa
-	cornerRadius = 11, -- o raio das curvas nos cruzamentos
+	cornerRadius = 15, -- o raio das curvas nos cruzamentos (autocarros de 50)
 	stopReach = 16, -- uma paragem a esta distancia da faixa serve o percurso
 }
 

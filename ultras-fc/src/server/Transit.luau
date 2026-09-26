@@ -30,8 +30,6 @@ local Transit = {}
 
 local T = Config.Transit
 local ROAD_Y = -0.6
-local RIDE = BusBuilder.FLOOR - 0.5 -- a altura do chassis acima da estrada
-local HALF_LENGTH = BusBuilder.LENGTH / 2
 
 type Path = { points: { Vector3 }, lengths: { number }, total: number }
 
@@ -49,8 +47,11 @@ type Bus = {
 	align: AlignPosition,
 	turn: AlignOrientation,
 	motors: { HingeConstraint },
-	doors: { { weld: Weld, closed: CFrame, open: CFrame } },
+	doors: { { weld: Weld, closed: CFrame, open: CFrame, blocker: BasePart? } },
 	doorsOpen: boolean,
+	ride: number, -- a altura do chassis acima da estrada
+	halfLength: number,
+	wheelRadius: number,
 }
 
 local buses: { Bus } = {}
@@ -184,11 +185,13 @@ local function makePhysical(model: Model): (BasePart, AlignPosition, AlignOrient
 		d.Massless = true
 		if d.Name == "Roda" then
 			d.CanCollide = false
+			-- O eixo (o X do Attachment) e o de lado do autocarro, nas duas pecas.
 			local a0 = Instance.new("Attachment")
-			a0.CFrame = chassis.CFrame:ToObjectSpace(d.CFrame)
+			a0.CFrame = CFrame.new(chassis.CFrame:PointToObjectSpace(d.Position))
 			a0.Parent = chassis
 			local a1 = Instance.new("Attachment")
 			a1.Parent = d
+			a1.WorldCFrame = a0.WorldCFrame
 			local hinge = Instance.new("HingeConstraint")
 			hinge.Attachment0 = a0
 			hinge.Attachment1 = a1
@@ -217,8 +220,16 @@ local function makePhysical(model: Model): (BasePart, AlignPosition, AlignOrient
 			weld.Part1 = d
 			weld.C0 = chassis.CFrame:ToObjectSpace(d.CFrame)
 			weld.Parent = d
-			local slide = (d:GetAttribute("Slide") :: number?) or 1
-			table.insert(doors, { weld = weld, closed = weld.C0, open = weld.C0 * CFrame.new(0, 0, slide * (d.Size.Z - 0.1)) })
+			local offset = d:GetAttribute("OpenOffset")
+			local open
+			if typeof(offset) == "Vector3" then
+				open = CFrame.new(offset) * weld.C0
+			else
+				local slide = (d:GetAttribute("Slide") :: number?) or 1
+				open = weld.C0 * CFrame.new(0, 0, slide * (d.Size.Z - 0.1))
+			end
+			local blocker = if d:GetAttribute("Blocker") then d else nil
+			table.insert(doors, { weld = weld, closed = weld.C0, open = open, blocker = blocker })
 		else
 			local weld = Instance.new("WeldConstraint")
 			weld.Part0 = chassis
@@ -262,6 +273,42 @@ local function setDoors(bus: Bus, open: boolean)
 	bus.doorsOpen = open
 	for _, door in bus.doors do
 		door.weld.C0 = if open then door.open else door.closed
+		-- A tampa invisivel da porta deixa passar quando esta aberta.
+		local blocker = door.blocker
+		if blocker then
+			blocker.CanCollide = not open
+		end
+	end
+end
+
+--[[
+	Entrar: um botao em cada porta ("Entrar") senta quem o usa num banco livre.
+	Subir para um autocarro alto aos saltos nao tinha graca nenhuma.
+]]
+local function addBoarding(bus: Bus)
+	for _, d in bus.model:GetDescendants() do
+		if d:IsA("BasePart") and d.Name == "Entrada" then
+			local prompt = Instance.new("ProximityPrompt")
+			prompt.ActionText = "Entrar"
+			prompt.ObjectText = "Autocarro " .. bus.line
+			prompt.HoldDuration = 0
+			prompt.MaxActivationDistance = 9
+			prompt.RequiresLineOfSight = false
+			prompt.Parent = d
+			prompt.Triggered:Connect(function(player)
+				local character = player.Character
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				if not humanoid or humanoid.Sit or humanoid.Health <= 0 then
+					return
+				end
+				for _, seat in bus.model:GetDescendants() do
+					if seat:IsA("Seat") and not seat.Occupant then
+						seat:Sit(humanoid)
+						return
+					end
+				end
+			end)
+		end
 	end
 end
 
@@ -274,15 +321,24 @@ rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 -- Tem alguem (uma pessoa ou outro autocarro) mesmo a frente?
 local function blocked(bus: Bus, heading: Vector3, reach: number): boolean
-	local front = bus.chassis.Position + heading * (HALF_LENGTH + 0.5) + Vector3.new(0, 1.5, 0)
+	local front = bus.chassis.Position + heading * (bus.halfLength + 0.5) + Vector3.new(0, 1.5, 0)
 	rayParams.FilterDescendantsInstances = { bus.model }
 	for _, side in { -3, 0, 3 } do
 		local from = front + heading:Cross(Vector3.yAxis) * side
 		local hit = workspace:Raycast(from, heading * reach, rayParams)
 		if hit then
+			-- Uma pessoa (o modelo com Humanoid) ou outro autocarro (as pecas dele
+			-- estao dentro de outros modelos: sobe-se ate ao que tem a linha).
 			local model = hit.Instance:FindFirstAncestorOfClass("Model")
-			if model and (model:FindFirstChildOfClass("Humanoid") or model.Name:sub(1, 9) == "Autocarro") then
+			if model and model:FindFirstChildOfClass("Humanoid") then
 				return true
+			end
+			local node: Instance? = hit.Instance
+			while node and node ~= workspace do
+				if node:GetAttribute("Line") ~= nil then
+					return true
+				end
+				node = node.Parent
 			end
 		end
 	end
@@ -335,13 +391,19 @@ local function step(bus: Bus, dt: number, now: number)
 		bus.s = (bus.s + bus.v * dt) % path.total
 	end
 
-	local at = pointAt(path, bus.s) + Vector3.new(0, RIDE, 0)
-	local heading = headingAt(path, bus.s)
+	-- Como um autocarro a serio: os dois eixos seguem a faixa e a carrocaria
+	-- vai entre eles (nas curvas corta por dentro em vez de varrer o passeio).
+	local axle = math.min(12, bus.halfLength * 0.5)
+	local frontAxle = pointAt(path, bus.s + axle)
+	local rearAxle = pointAt(path, bus.s - axle)
+	local at = (frontAxle + rearAxle) / 2 + Vector3.new(0, bus.ride, 0)
+	local between = Vector3.new(frontAxle.X - rearAxle.X, 0, frontAxle.Z - rearAxle.Z)
+	local heading = if between.Magnitude > 1e-3 then between.Unit else headingAt(path, bus.s)
 	bus.align.Position = at
 	bus.turn.CFrame = CFrame.lookAt(Vector3.zero, heading)
 	for _, motor in bus.motors do
-		-- A frente do autocarro e -Z: as rodas giram para tras no eixo X.
-		motor.AngularVelocity = bus.v / BusBuilder.WHEEL_R
+		-- A frente e -Z e o eixo e o X: para andar para a frente a roda gira ao contrario.
+		motor.AngularVelocity = -bus.v / bus.wheelRadius
 	end
 end
 
@@ -359,6 +421,28 @@ function Transit.boardTeamBus(wait: number)
 		bus.holding = false
 		bus.dwellUntil = 0
 	end)
+end
+
+-- Quanto demora a viagem da academia ao estadio (segundos, por alto).
+function Transit.teamTripTime(): number
+	local bus = teamBus
+	if not bus then
+		return 60
+	end
+	local from, to
+	for _, stop in bus.stops do
+		if stop.name:find("Academia") then
+			from = stop.s
+		elseif stop.name:find("Estadio") then
+			to = stop.s
+		end
+	end
+	if not from or not to then
+		return 60
+	end
+	local distance = (to - from) % bus.path.total
+	-- A media fica abaixo do cruzeiro: arranques, curvas e travagem.
+	return distance / (T.cruise * 0.7) + 6
 end
 
 -- Chama-se quando o autocarro da equipa chega ao estadio.
@@ -478,7 +562,11 @@ function Transit.start()
 			motors = motors,
 			doors = doors,
 			doorsOpen = false,
+			ride = (model:GetAttribute("Ride") :: number?) or (BusBuilder.FLOOR - 0.5),
+			halfLength = ((model:GetAttribute("Length") :: number?) or BusBuilder.LENGTH) / 2,
+			wheelRadius = (model:GetAttribute("WheelRadius") :: number?) or BusBuilder.WHEEL_R,
 		}
+		addBoarding(bus)
 		table.insert(buses, bus)
 		if line == "E" then
 			teamBus = bus

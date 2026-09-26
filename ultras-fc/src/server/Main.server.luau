@@ -395,7 +395,10 @@ MatchLoop.onChange(function(snapshot)
 		local byBus = Academy.isOpen()
 		Entrance.prepare(byBus)
 		if byBus then
-			Transit.boardTeamBus(Config.Academy.boardingTime)
+			-- Sai a tempo de chegar uns 30 s antes do fim do corteo (a claque
+			-- tem o corteo inteiro), mas nunca antes do tempo minimo de embarque.
+			local wait = math.max(Config.Academy.boardingTime, Config.Match.corteoLength - Transit.teamTripTime() - 30)
+			Transit.boardTeamBus(wait)
 			for _, f in Squad.humans() do
 				local who = f.player
 				if who then
@@ -403,7 +406,7 @@ MatchLoop.onChange(function(snapshot)
 						title = "O autocarro da equipa chegou",
 						lines = {
 							"Esta a porta da academia, de portas abertas.",
-							"Arranca para o estadio daqui a " .. Config.Academy.boardingTime .. " segundos.",
+							"Arranca para o estadio daqui a " .. math.floor(math.max(Config.Academy.boardingTime, Config.Match.corteoLength - Transit.teamTripTime() - 30)) .. " segundos.",
 						},
 					})
 				end
@@ -428,6 +431,12 @@ MatchLoop.onChange(function(snapshot)
 			Squad.sendAllToLocker()
 		end
 		Entrance.start()
+	end
+
+	-- Com o jogo a decorrer a academia esta fechada (tambem quando se salta
+	-- fases: o salto do corteo vai direto a 1a parte, sem entrada em campo).
+	if entered and (snapshot.phase == "first" or snapshot.phase == "halftime" or snapshot.phase == "second" or snapshot.phase == "fulltime") then
+		Academy.setOpen(false)
 	end
 
 	if entered and snapshot.phase == "first" then
@@ -529,10 +538,12 @@ Transit.onTeamArrived(function()
 	end
 	Academy.setOpen(false)
 	Squad.sendAllToLocker()
+	-- Ninguem fica muito tempo a espera: 30 s no balneario e entra-se em campo.
+	MatchLoop.entranceIn(30)
 	for _, f in Squad.humans() do
 		local who = f.player
 		if who then
-			Remotes.Npc:FireClient(who, { title = "Chegaram ao estadio", lines = { "Para o balneario: a entrada em campo e ja a seguir." } })
+			Remotes.Npc:FireClient(who, { title = "Chegaram ao estadio", lines = { "Balneario. Daqui a 30 segundos entram em campo." } })
 		end
 	end
 end)
@@ -712,7 +723,7 @@ Remotes.Football.OnServerEvent:Connect(function(player, action, value)
 		local power, curve, height = value.power, value.curve, value.height
 		if type(power) == "number" and type(curve) == "number" and type(height) == "number" then
 			-- Na academia, e a bola de treino.
-			if Academy.kick(player, power, height) then
+			if Academy.kick(player, power, curve, height) then
 				return
 			end
 			Football.kick(f, power, curve, height)
