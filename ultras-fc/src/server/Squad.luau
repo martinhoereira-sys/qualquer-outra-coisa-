@@ -111,11 +111,32 @@ local function hipHeight(f: Footballer): number
 	return 3
 end
 
+--[[
+	Levanta quem esta sentado (num autocarro, num banco) antes de o mudar de
+	sitio. Sentado, a pessoa esta soldada ao banco: mexe-la arrastava o banco
+	e tudo o que esta preso a ele (o autocarro inteiro ia parar ao estadio).
+]]
+function Squad.unseat(character: Model?)
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	local seat = humanoid.SeatPart
+	if seat then
+		local weld = seat:FindFirstChild("SeatWeld")
+		if weld then
+			weld:Destroy()
+		end
+		humanoid.Sit = false
+	end
+end
+
 function Squad.place(f: Footballer, at: Vector3, facingDir: Vector3?)
 	local model = f.model
 	if not model then
 		return
 	end
+	Squad.unseat(model)
 	local facing = facingDir or Vector3.new(Squad.attackSign(f.teamId), 0, 0)
 	model:PivotTo(groundCFrame(at, facing, hipHeight(f) + 0.1))
 	local root = f.root
@@ -709,6 +730,7 @@ function Squad.fall(f: Footballer, now: number)
 	local here = root.Position
 	humanoid.PlatformStand = true
 	root.AssemblyLinearVelocity = Vector3.zero
+	Squad.unseat(f.model)
 	root.CFrame = groundCFrame(here, look, 1.2) * CFrame.Angles(math.rad(80), 0, 0)
 
 	local model = f.model

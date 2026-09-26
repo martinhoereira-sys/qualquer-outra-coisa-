@@ -66,6 +66,7 @@ local function placeAt(player: Player, point: Vector3, lookAt: Vector3?)
 	end
 	-- Quem vai de bicicleta desce antes: ela fica onde estava, nao vem junto.
 	Bikes.dismount(player)
+	Squad.unseat(character)
 	root.CFrame = lookAt and CFrame.lookAt(point, lookAt) or CFrame.new(point)
 end
 
@@ -90,6 +91,7 @@ local function sendToPitch(player: Player)
 	-- Antes da entrada em campo, o arbitro espera no balneario, como os jogadores.
 	local locker = Entrance.refereeSpot()
 	local at = if locker then locker + Vector3.new(0, 3.2, 0) else Vector3.new(0, 3.2, -Config.Stadium.pitchWidth / 2 + 6)
+	Squad.unseat(character)
 	root.CFrame = CFrame.lookAt(at, Vector3.new(0, at.Y, 0))
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then

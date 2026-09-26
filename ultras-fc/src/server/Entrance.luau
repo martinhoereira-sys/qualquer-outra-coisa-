@@ -136,6 +136,7 @@ local function settle(w: Walker, at: Vector3)
 	local height = w.humanoid.HipHeight + w.root.Size.Y / 2 + 0.1
 	local here = Vector3.new(at.X, height, at.Z)
 	local model = w.root.Parent :: Model
+	Squad.unseat(model)
 	model:PivotTo(CFrame.lookAt(here, here + facing()))
 end
 
@@ -159,6 +160,7 @@ function Entrance.prepare(humansComeByBus: boolean?)
 	local _, _, root = refereeCharacter()
 	if root then
 		local at = Stadium.lockerSpot(nil, 0) + Vector3.new(0, 3, 0)
+		Squad.unseat(root.Parent :: Model?)
 		root.CFrame = CFrame.lookAt(at, at + facing())
 	end
 end
