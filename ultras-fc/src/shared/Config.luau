@@ -574,7 +574,7 @@ Config.Performance = {
 	  bandeirao    o bandeirao a descer (rig proprio, juntas Bandeirao_*)
 ]]
 Config.Animations = {
-	tocha = "",
+	tocha = "101977181059854",
 	fumo = "",
 	velaromana = "",
 	salto = "",
