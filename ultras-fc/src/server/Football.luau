@@ -31,6 +31,8 @@ local BOX_DEPTH = S.pitchLength * 16.5 / 105
 local BOX_WIDTH = S.pitchWidth * 40.3 / 68
 
 local ball: Part? = nil
+-- Desde quando cada pessoa esta na area do guarda-redes que tem a bola.
+local boxSince: { [any]: number } = {}
 
 --[[
 	Uma reposicao: lancamento, canto, pontape de baliza, livre, penalti. Todas
@@ -226,6 +228,36 @@ end
 function Football.ballVelocity(): Vector3
 	local b = ball
 	return if b then b.AssemblyLinearVelocity else Vector3.zero
+end
+
+--[[
+	O guarda-redes com a bola nas maos: de que equipa e, e de que lado e a
+	area dele (sinal de X). Enquanto a tem, os adversarios nao podem estar na
+	area (a regra): os bonecos saem (Bots), as pessoas sao empurradas no
+	proprio ecra (Football.client) e, se ficarem, postas fora aqui.
+]]
+function Football.keeperHold(): (string?, number?)
+	local keeper = state.heldBy
+	if not keeper then
+		return nil, nil
+	end
+	return keeper.teamId, -Squad.attackSign(keeper.teamId)
+end
+
+-- Dentro da grande area do lado `side` (sinal de X)?
+function Football.inBox(at: Vector3, side: number): boolean
+	return at.X * side > HALF - BOX_DEPTH and math.abs(at.Z) < BOX_WIDTH / 2
+end
+
+-- O ponto fora da area mais perto de `at` (com folga).
+function Football.outOfBox(at: Vector3, side: number): Vector3
+	local toFront = at.X * side - (HALF - BOX_DEPTH) -- quanto ha que andar para sair pela frente
+	local toSide = BOX_WIDTH / 2 - math.abs(at.Z)
+	if toFront <= toSide then
+		return Vector3.new(side * (HALF - BOX_DEPTH - 2), at.Y, at.Z)
+	end
+	local zSign = if at.Z >= 0 then 1 else -1
+	return Vector3.new(at.X, at.Y, zSign * (BOX_WIDTH / 2 + 2))
 end
 
 function Football.carrier(): Footballer?
@@ -843,6 +875,8 @@ local function claim(b: BasePart, now: number)
 		best.diveUntil = 0
 		workspace:SetAttribute("HeldUntil", workspace:GetServerTimeNow() + F.keeperHoldTime)
 		workspace:SetAttribute("HeldTeam", best.teamId)
+		-- De que lado e a area dele (os adversarios tem de sair dela).
+		workspace:SetAttribute("HeldSide", -Squad.attackSign(best.teamId))
 	end
 	local piece = state.piece
 	if piece and piece.taker ~= best then
@@ -1270,14 +1304,17 @@ function Football.step(dt: number)
 	if keeper and (state.carrier ~= keeper or not keeper.root) then
 		state.heldBy = nil
 		workspace:SetAttribute("HeldUntil", nil)
+			workspace:SetAttribute("HeldSide", nil)
 	elseif keeper and keeper.root then
 		local root = keeper.root :: BasePart
 		if not inOwnBox(keeper, root.Position) then
 			state.heldBy = nil
 			workspace:SetAttribute("HeldUntil", nil)
+			workspace:SetAttribute("HeldSide", nil)
 		elseif now >= state.heldUntil then
 			state.heldBy = nil
 			workspace:SetAttribute("HeldUntil", nil)
+			workspace:SetAttribute("HeldSide", nil)
 			state.carrier = nil
 			state.noClaim[keeper] = now + 1.2
 			local look = flat(root.CFrame.LookVector)
@@ -1290,6 +1327,28 @@ function Football.step(dt: number)
 			b.AssemblyLinearVelocity = Vector3.zero
 			b.AssemblyAngularVelocity = Vector3.zero
 		end
+	end
+
+	-- Guarda-redes com a bola: quem e da outra equipa e ficou na area mais de
+	-- um instante (o ecra ja o empurra) e posto fora dela.
+	local holdTeam, holdSide = Football.keeperHold()
+	if holdTeam and holdSide then
+		for _, f in Squad.active() do
+			local root = f.root
+			if f.player and root and f.teamId ~= holdTeam and Football.inBox(root.Position, holdSide) then
+				local since = boxSince[f] or now
+				boxSince[f] = since
+				if now - since > 1.5 then
+					boxSince[f] = nil
+					local out = Football.outOfBox(root.Position, holdSide)
+					root.CFrame = CFrame.new(out) * root.CFrame.Rotation
+				end
+			else
+				boxSince[f] = nil
+			end
+		end
+	else
+		table.clear(boxSince)
 	end
 
 	local carrier = state.carrier

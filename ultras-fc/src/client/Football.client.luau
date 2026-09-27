@@ -788,3 +788,58 @@ Remotes.Escort.OnClientEvent:Connect(function(points, facing)
 		root.CFrame = CFrame.lookAt(here, here + facing)
 	end
 end)
+
+--------------------------------------------------------------------------------
+-- O guarda-redes com a bola nas maos: fora da area dele
+--------------------------------------------------------------------------------
+
+--[[
+	A regra: com o guarda-redes adversario a segurar a bola, ninguem da outra
+	equipa pode estar na area dele. Quem la esta e empurrado para fora (aqui,
+	no proprio ecra, que e quem mexe o corpo), com um aviso. Se ficar la, o
+	servidor poe-no fora.
+]]
+local S = Config.Stadium
+local BOX_HALF = S.pitchLength / 2
+local BOX_DEPTH = S.pitchLength * 16.5 / 105
+local BOX_WIDTH = S.pitchWidth * 40.3 / 68
+
+local boxHint = Instance.new("TextLabel")
+boxHint.Name = "ForaDaArea"
+boxHint.AnchorPoint = Vector2.new(0.5, 0)
+boxHint.Position = UDim2.new(0.5, 0, 0, 150)
+boxHint.Size = UDim2.fromOffset(460, 34)
+boxHint.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
+boxHint.BackgroundTransparency = 0.15
+boxHint.Font = Enum.Font.GothamBold
+boxHint.TextSize = 16
+boxHint.TextColor3 = Color3.fromRGB(255, 214, 90)
+boxHint.Text = "O guarda-redes tem a bola: sai da área!"
+boxHint.Visible = false
+boxHint.Parent = gui
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 10)
+boxCorner.Parent = boxHint
+
+RunService.Heartbeat:Connect(function(dt)
+	local side = workspace:GetAttribute("HeldSide")
+	local team = workspace:GetAttribute("HeldTeam")
+	local untilAt = workspace:GetAttribute("HeldUntil")
+	local root = myRoot()
+	local inside = false
+	if playing() and root and type(side) == "number" and type(untilAt) == "number"
+		and workspace:GetServerTimeNow() < untilAt and team ~= player:GetAttribute("PitchTeam") then
+		local at = root.Position
+		inside = at.X * side > BOX_HALF - BOX_DEPTH and math.abs(at.Z) < BOX_WIDTH / 2
+		if inside then
+			-- Para o lado mais perto por onde se sai: a frente da area ou a lateral.
+			local toFront = at.X * side - (BOX_HALF - BOX_DEPTH)
+			local toSide = BOX_WIDTH / 2 - math.abs(at.Z)
+			local push = if toFront <= toSide
+				then Vector3.new(-side, 0, 0)
+				else Vector3.new(0, 0, if at.Z >= 0 then 1 else -1)
+			root.CFrame += push * math.min(toFront <= toSide and toFront + 1 or toSide + 1, 40 * dt)
+		end
+	end
+	boxHint.Visible = inside
+end)

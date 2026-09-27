@@ -43,6 +43,11 @@ local function moveTo(f: Footballer, at: Vector3, sprint: boolean)
 	end
 	f.wantSprint = sprint
 	f.dribbling = false
+	-- O guarda-redes adversario tem a bola nas maos: fora da area dele.
+	local holdTeam, holdSide = Football.keeperHold()
+	if holdTeam and holdSide and f.teamId ~= holdTeam and Football.inBox(at, holdSide) then
+		at = Football.outOfBox(at, holdSide)
+	end
 	local target = Vector3.new(
 		math.clamp(at.X, -HALF - 2, HALF + 2),
 		root.Position.Y,

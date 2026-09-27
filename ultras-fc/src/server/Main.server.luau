@@ -17,6 +17,7 @@ local Gear = require(script.Parent:WaitForChild("Gear"))
 local Lider = require(script.Parent:WaitForChild("Lider"))
 local Bandeirao = require(script.Parent:WaitForChild("Bandeirao"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
+local Ancora = require(script.Parent:WaitForChild("Ancora"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
 local Football = require(script.Parent:WaitForChild("Football"))
 local Bots = require(script.Parent:WaitForChild("Bots"))
@@ -533,6 +534,10 @@ end)
 Clubhouse.onStartMarch(function(teamId)
 	March.launch(teamId)
 end)
+
+-- O cenario todo preso ao chao (o que vem da Toolbox vem solto: um autocarro
+-- deitava uma sede abaixo). Tambem o que se acrescentar ao mapa depois.
+print(string.format("[Ultras FC] Cenario preso ao chao: %d pecas soltas prendidas.", Ancora.run()))
 
 Stadium.build()
 -- A academia e os transportes estao no mapa; se faltarem, fazem-se agora.
