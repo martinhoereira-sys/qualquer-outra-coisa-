@@ -108,7 +108,7 @@ RunService.Heartbeat:Connect(function()
 		if track then
 			track.Looped = true
 			track.Priority = Enum.AnimationPriority.Action
-			track:Play(0.25)
+			Animacoes.play(track, name, 0.25)
 			playing = track
 			playingName = name
 		end
@@ -128,7 +128,7 @@ local function watchTool(tool: Instance)
 			if track then
 				track.Looped = false
 				track.Priority = Enum.AnimationPriority.Action2
-				track:Play(0.05)
+				Animacoes.play(track, "tambor", 0.05)
 			end
 		end)
 	end

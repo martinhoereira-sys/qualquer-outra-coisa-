@@ -102,7 +102,7 @@ local function build(teamId: string, start: number)
 		if anim then
 			BandeiraoRig.pose(rig, BP.rows, 0) -- tudo a vista; a animacao manda
 			anim.Looped = false
-			anim:Play()
+			Animacoes.play(anim, "bandeirao")
 		end
 	end
 

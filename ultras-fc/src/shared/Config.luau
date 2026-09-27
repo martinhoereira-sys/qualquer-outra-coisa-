@@ -590,6 +590,14 @@ Config.Animations = {
 }
 
 --[[
+	A velocidade de cada animacao: 1 e a normal, 0.5 metade, 1.5 mais depressa.
+	`todas` vale para as que nao tem numero proprio aqui.
+]]
+Config.AnimationSpeed = {
+	todas = 0.7,
+}
+
+--[[
 	As animacoes: os bracos com a tocha no ar, o cachecol esticado, e o menu
 	de animacoes de adepto. Sao feitas em codigo, junta a junta, em todos os
 	ecras (Poses.client) — assim toda a gente ve as de toda a gente, sem

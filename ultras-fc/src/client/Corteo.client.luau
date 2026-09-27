@@ -487,7 +487,7 @@ RunService.RenderStepped:Connect(function(dt)
 					local track = animator and Animacoes.track(animator, "faixapano")
 					if track then
 						track.Looped = true
-						track:Play()
+						Animacoes.play(track, "faixapano")
 						group.anim = track
 					end
 				end

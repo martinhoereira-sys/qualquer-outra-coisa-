@@ -62,4 +62,21 @@ function Animacoes.track(animator: Animator, name: string): AnimationTrack?
 	return track
 end
 
+-- A velocidade desta animacao (Config.AnimationSpeed: a sua, ou a de todas).
+function Animacoes.speed(name: string): number
+	local speeds = (Config :: any).AnimationSpeed or {}
+	local own = speeds[name]
+	if type(own) == "number" and own > 0 then
+		return own
+	end
+	local all = speeds.todas
+	return if type(all) == "number" and all > 0 then all else 1
+end
+
+-- Toca a animacao a sua velocidade.
+function Animacoes.play(track: AnimationTrack, name: string, fade: number?)
+	track:Play(fade or 0.25)
+	track:AdjustSpeed(Animacoes.speed(name))
+end
+
 return Animacoes
