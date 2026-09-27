@@ -24,7 +24,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
-local Pano = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pano"))
+local PanoRig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PanoRig"))
+local Rigs = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rigs"))
+local Animacoes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animacoes"))
 local Pyro = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pyro"))
 local Ultra = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ultra"))
 
@@ -70,7 +72,8 @@ type Group = {
 	colour: Color3,
 	folder: Folder,
 	walkers: { Walker },
-	cloth: Pano.Cloth, -- a faixa de pano, pendurada da peca do servidor
+	rig: PanoRig.Rig?, -- o pano da faixa (rig com juntas, feito no servidor)
+	anim: AnimationTrack?, -- a animacao "faixapano", se houver
 	trail: { Vector3 }, -- o caminho da faixa, do mais recente para o mais antigo
 	arrivedAt: number?,
 	lastStage: string?,
@@ -213,20 +216,12 @@ local function track(banner: Instance)
 		add(back, side, nil, row == 0 and column == columns // 2)
 	end
 
-	-- A faixa de pano (a peca do servidor e so o sitio dela).
-	local cloth = Pano.new(folder, banner.Size.X, banner.Size.Y, 20, Pano.designFor("faixa", teamId), {
-		mode = "hang",
-		name = "Faixa",
-		pixels = 30,
-	})
-
 	groups[banner] = {
 		banner = banner,
 		teamId = teamId,
 		colour = team.color,
 		folder = folder,
 		walkers = walkers,
-		cloth = cloth,
 		trail = { banner.Position },
 	}
 
@@ -478,7 +473,28 @@ RunService.RenderStepped:Connect(function(dt)
 		-- A faixa aberta, a baloicar mais quando anda.
 		local size = banner.Size
 		local moving = stage == "marcha" or stage == "corrida"
-		Pano.pose(group.cloth, banner.CFrame * CFrame.new(-size.X / 2, size.Y / 2, 0), now, if moving then 0.55 else 0.3, moveParts, moveFrames)
+		local pano = banner.Parent and banner.Parent:FindFirstChild("FaixaPano_" .. group.teamId)
+		if pano and not group.rig then
+			group.rig = PanoRig.find(pano, Rigs.FAIXA.name, Rigs.FAIXA.columns, Rigs.FAIXA.rows, size.X, size.Y)
+		end
+		local faixaRig = group.rig
+		if faixaRig then
+			if Animacoes.has("faixapano") then
+				-- A animacao feita no rig da faixa (so neste ecra: o rig e de todos).
+				if not group.anim and pano then
+					local controller = pano:FindFirstChildOfClass("AnimationController")
+					local animator = controller and controller:FindFirstChildOfClass("Animator")
+					local track = animator and Animacoes.track(animator, "faixapano")
+					if track then
+						track.Looped = true
+						track:Play()
+						group.anim = track
+					end
+				end
+			else
+				PanoRig.hang(faixaRig, now, if moving then 0.55 else 0.3, #group.teamId)
+			end
+		end
 
 		-- Com o lider a guiar, e ele que leva o tambor: o boneco do tambor sai.
 		local led = banner:GetAttribute("Led") == true

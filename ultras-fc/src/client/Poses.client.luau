@@ -21,6 +21,9 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 local Pano = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pano"))
+local PanoRig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PanoRig"))
+local Rigs = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rigs"))
+local Animacoes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animacoes"))
 
 local me = Players.LocalPlayer
 local lastStop = 0
@@ -459,6 +462,66 @@ local function placeFlag(player: Player, character: Model, kind: string, t: numb
 end
 
 --------------------------------------------------------------------------------
+-- A bandeira grande e a bandeirinha: rigs com juntas (Rigs), mexidas aqui
+--------------------------------------------------------------------------------
+
+-- Para onde voa o pano de cada um (o mesmo alisado do flyDir).
+local rigFly: { [Player]: any } = {}
+Players.PlayerRemoving:Connect(function(player)
+	rigFly[player] = nil
+end)
+
+--[[
+	Sem animacao feita (Config.Animations.bandeira e bandeirinha), e aqui que
+	o mastro faz os arcos de 180 graus e o pano ondula, junta a junta. Com
+	animacao, e ela que mexe tudo e aqui nao se toca em nada.
+]]
+local function poseRigFlag(player: Player, character: Model, kind: string, t: number)
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local hand = character:FindFirstChild("RightHand") :: BasePart?
+	local spec = Rigs.FLAGS[kind]
+	if not root or not hand or not spec then
+		return
+	end
+	local cloth, poleJoint = Rigs.findFlag(character, kind)
+	if not cloth or not poleJoint then
+		return
+	end
+	local waving = player:GetAttribute("Wave") == true
+	local right = root.CFrame.RightVector
+	local look = root.CFrame.LookVector
+
+	-- O mastro: arcos de um lado ao outro por cima da cabeca.
+	local axis: Vector3
+	if kind == "mastro" then
+		local swing = if waving then math.sin(t * 1.6) * 1.35 else math.sin(t * 0.8) * 0.07
+		local pitch = if waving then math.sin(t * 3.2) * 0.12 else 0
+		axis = (CFrame.fromAxisAngle(look, swing) * CFrame.fromAxisAngle(right, pitch)):VectorToWorldSpace(Vector3.yAxis)
+	else
+		local angle = if waving then math.sin(t * 4.2) * 1.35 else math.sin(t * 2) * 0.08
+		axis = (Vector3.yAxis * math.cos(angle) + right * math.sin(angle)).Unit
+	end
+	local grip = (hand.CFrame * poleJoint.C0).Position
+	local side = axis:Cross(look)
+	side = if side.Magnitude > 1e-3 then side.Unit else right
+	local pole = CFrame.fromMatrix(grip + axis * (spec.pole / 2 - spec.grip), side, axis)
+	-- Part0 * C0 * Transform = Part1 * C1
+	poleJoint.Transform = (hand.CFrame * poleJoint.C0):Inverse() * pole * poleJoint.C1
+
+	-- O pano voa atras do movimento da ponta (em torno do mastro).
+	local state = rigFly[player]
+	if not state or state.kind ~= kind then
+		state = { kind = kind }
+		rigFly[player] = state
+	end
+	local top = grip + axis * (spec.pole - spec.grip)
+	local fly = flyDir(state, top, axis, right)
+	local localFly = pole:VectorToObjectSpace(fly)
+	local turn = math.atan2(-localFly.Z, localFly.X)
+	PanoRig.wave(cloth, t, if waving then 1 else 0.5, (player.UserId % 97) / 15, turn)
+end
+
+--------------------------------------------------------------------------------
 
 RunService.Stepped:Connect(function()
 	local now = os.clock()
@@ -490,6 +553,10 @@ RunService.Stepped:Connect(function()
 		if player == me and walking and emote ~= nil and not riding and not byOrder and now - lastStop > 1 then
 			lastStop = now
 			Remotes.Emote:FireServer("")
+		end
+		-- Com a animacao "salto" feita, e ela que salta.
+		if play and emote == "saltar" and Animacoes.has("salto") then
+			play = nil
 		end
 		if play then
 			if emote == "saltar" then
@@ -540,30 +607,39 @@ RunService.Stepped:Connect(function()
 			-- para cima e para baixo, como se faz numa bancada.
 			local wave = math.sin(t * 4.5) * math.rad(18)
 			local side = math.sin(t * 3.1) * math.rad(12)
-			arm(rig.rightShoulder, 1, RAISED + wave, math.rad(8) + side)
-			set(rig.rightElbow, CFrame.identity)
+			-- Com animacao feita para isto (tocha, fumo, velaromana), e ela que mexe.
+			local made = if hold == "tocha" then "tocha" elseif hold == "fumo" then "fumo" elseif hold == "vela" then "velaromana" else nil
+			if not (made and Animacoes.has(made)) then
+				arm(rig.rightShoulder, 1, RAISED + wave, math.rad(8) + side)
+				set(rig.rightElbow, CFrame.identity)
+			end
 			dropScarf(player)
 			dropFlag(player)
 		elseif hold == "bandeirinha" then
 			-- O braco direito no ar com o pau; a agitar, vai de um lado ao outro.
 			local waving = player:GetAttribute("Wave") == true
 			-- A agitar: o braco vai de um lado ao outro com o pau.
-			local swing = if waving then math.sin(t * 4.2) * math.rad(40) else math.sin(t * 2) * math.rad(6)
-			local lift = 0
-			arm(rig.rightShoulder, 1, RAISED + lift, math.rad(10) + swing)
-			set(rig.rightElbow, CFrame.identity)
 			dropScarf(player)
-			placeFlag(player, character, "bandeirinha", t)
+			dropFlag(player)
+			if not Animacoes.has("bandeirinha") then
+				local swing = if waving then math.sin(t * 4.2) * math.rad(40) else math.sin(t * 2) * math.rad(6)
+				arm(rig.rightShoulder, 1, RAISED, math.rad(10) + swing)
+				set(rig.rightElbow, CFrame.identity)
+				poseRigFlag(player, character, "bandeirinha", t)
+			end
 		elseif hold == "mastro" then
 			-- As duas maos no mastro, por cima da cabeca, a acompanhar os arcos.
 			local waving = player:GetAttribute("Wave") == true
-			local swing = if waving then math.sin(t * 1.6) * math.rad(45) else 0
-			arm(rig.rightShoulder, 1, math.rad(168), math.rad(8) + swing)
-			arm(rig.leftShoulder, -1, math.rad(168), math.rad(8) - swing)
-			set(rig.rightElbow, CFrame.identity)
-			set(rig.leftElbow, CFrame.identity)
 			dropScarf(player)
-			placeFlag(player, character, "mastro", t)
+			dropFlag(player)
+			if not Animacoes.has("bandeira") then
+				local swing = if waving then math.sin(t * 1.6) * math.rad(45) else 0
+				arm(rig.rightShoulder, 1, math.rad(168), math.rad(8) + swing)
+				arm(rig.leftShoulder, -1, math.rad(168), math.rad(8) - swing)
+				set(rig.rightElbow, CFrame.identity)
+				set(rig.leftElbow, CFrame.identity)
+				poseRigFlag(player, character, "mastro", t)
+			end
 		elseif hold == "bandeira" then
 			-- Os dois bracos no ar, abertos, uma haste em cada mao.
 			local waving = player:GetAttribute("Wave") == true

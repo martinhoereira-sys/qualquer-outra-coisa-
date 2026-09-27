@@ -3,54 +3,40 @@
 	O bandeirao, neste ecra.
 
 	Quando o lider da a ordem (atributo "Bandeirao_<equipa>" da pasta Stadium,
-	com a hora do servidor), o pano desenrola-se do rolo, no cimo da curva,
-	de cima para baixo, por cima das cabecas: fila a fila, cada bocado dobra
-	para baixo a partir da beira de cima, e o rolo vai descendo a frente dele.
-	Tapa o bloco inteiro, ondula como se a claque o empurrasse por baixo, fica
-	`hold` segundos e volta a enrolar.
+	com a hora do servidor), monta-se o rig do bandeirao (BandeiraoRig) e ele
+	desce do rolo, no cimo da curva, de cima para baixo, por cima das cabecas.
+	Tapa o bloco inteiro, ondula, fica `hold` segundos e volta a enrolar.
 
-	O desenho e o emblema da claque (TifoDesigns), pintado nos bocados. O pano
-	e um pouco translucido: as tochas acesas por baixo veem-se a brilhar
-	atraves dele.
+	Com a animacao "bandeirao" feita (Config.Animations), e ela que mexe o
+	pano; sem ela, o jogo desdobra-o fila a fila (BandeiraoRig.pose).
+
+	O desenho e o emblema da claque. O pano e um pouco translucido: as tochas
+	acesas por baixo veem-se a brilhar atraves dele.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
-local BP = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BandeiraoPlan"))
-local TifoDesigns = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("TifoDesigns"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local BP = require(Shared:WaitForChild("BandeiraoPlan"))
+local BandeiraoRig = require(Shared:WaitForChild("BandeiraoRig"))
+local Animacoes = require(Shared:WaitForChild("Animacoes"))
 
 local B = Config.Lider.bandeirao
 local TOTAL = B.unroll + B.hold + B.rollup
 local AWAY = CFrame.new(0, -600, 0)
 
-type Panel = { part: BasePart, c: number, j: number, h: number, top: CFrame }
 type Show = {
 	teamId: string,
 	start: number,
-	folder: Folder,
-	panels: { Panel },
+	model: Model,
+	rig: BandeiraoRig.Rig,
 	roll: { BasePart },
+	anim: AnimationTrack?,
 }
 
 local shows: { [string]: Show } = {}
-
-local function piece(name: string, size: Vector3, colour: Color3, parent: Instance): Part
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Size = size
-	p.Color = colour
-	p.Material = Enum.Material.Fabric
-	p.Anchored = true
-	p.CanCollide = false
-	p.CanQuery = false
-	p.CanTouch = false
-	p.CastShadow = false
-	p.CFrame = AWAY
-	p.Parent = parent
-	return p
-end
 
 -- O rolo do mapa (Workspace.Estadio) esconde-se enquanto o pano esta fora.
 local function showMapRoll(teamId: string, on: boolean)
@@ -68,7 +54,10 @@ end
 local function finish(teamId: string)
 	local show = shows[teamId]
 	if show then
-		show.folder:Destroy()
+		if show.anim then
+			show.anim:Stop()
+		end
+		show.model:Destroy()
 		shows[teamId] = nil
 	end
 	showMapRoll(teamId, true)
@@ -80,36 +69,44 @@ local function build(teamId: string, start: number)
 	if not team then
 		return
 	end
-	local folder = Instance.new("Folder")
-	folder.Name = "Bandeirao_" .. teamId
-	local lines = TifoDesigns.rows({ emblem = true }, teamId)
-	local panels: { Panel } = {}
-	for j = 1, BP.rows do
-		for c = 1, BP.columns do
-			local tl = BP.point(teamId, BP.tAt(c - 1), BP.sAt(j - 1))
-			local tr = BP.point(teamId, BP.tAt(c), BP.sAt(j - 1))
-			local bl = BP.point(teamId, BP.tAt(c - 1), BP.sAt(j))
-			local br = BP.point(teamId, BP.tAt(c), BP.sAt(j))
-			local topMid = (tl + tr) / 2
-			local down = (bl + br) / 2 - topMid
-			local across = tr - tl
-			local x = across.Unit
-			local y = -down.Unit
-			local code = TifoDesigns.sample(lines, j, c, BP.rows, BP.columns)
-			local part = piece("Pano", Vector3.new(across.Magnitude * 1.08, down.Magnitude * 1.1, 0.1), TifoDesigns.colour(code, teamId), folder)
-			-- Um pouco translucido: a luz das tochas por baixo passa.
-			part.Transparency = 0.14
-			table.insert(panels, { part = part, c = c, j = j, h = down.Magnitude, top = CFrame.fromMatrix(topMid, x, y) })
-		end
-	end
+	local model = Instance.new("Model")
+	model.Name = "Bandeirao_" .. teamId
+	local rig = BandeiraoRig.build(model, teamId)
+	-- Comeca enrolado.
+	BandeiraoRig.pose(rig, 0, 0)
+
 	local roll: { BasePart } = {}
 	for i = 1, BP.ROLL_PIECES do
-		local p = piece("Rolo", Vector3.new(4, BP.ROLL_THICK, BP.ROLL_THICK), if i % 2 == 0 then team.color else Color3.fromRGB(236, 236, 232), folder)
+		local p = Instance.new("Part")
+		p.Name = "Rolo"
 		p.Shape = Enum.PartType.Cylinder
+		p.Size = Vector3.new(4, BP.ROLL_THICK, BP.ROLL_THICK)
+		p.Color = if i % 2 == 0 then team.color else Color3.fromRGB(236, 236, 232)
+		p.Material = Enum.Material.Fabric
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.CFrame = AWAY
+		p.Parent = model
 		table.insert(roll, p)
 	end
-	folder.Parent = workspace
-	shows[teamId] = { teamId = teamId, start = start, folder = folder, panels = panels, roll = roll }
+	model.Parent = workspace
+
+	local anim: AnimationTrack? = nil
+	if Animacoes.has("bandeirao") then
+		local controller = model:FindFirstChildOfClass("AnimationController")
+		local animator = controller and controller:FindFirstChildOfClass("Animator")
+		anim = animator and Animacoes.track(animator, "bandeirao")
+		if anim then
+			BandeiraoRig.pose(rig, BP.rows, 0) -- tudo a vista; a animacao manda
+			anim.Looped = false
+			anim:Play()
+		end
+	end
+
+	shows[teamId] = { teamId = teamId, start = start, model = model, rig = rig, roll = roll, anim = anim }
 	showMapRoll(teamId, false)
 end
 
@@ -153,32 +150,20 @@ RunService.RenderStepped:Connect(function()
 			then math.max(e, 0) / B.unroll
 			elseif e < B.unroll + B.hold then 1
 			else 1 - (e - B.unroll - B.hold) / B.rollup
-		-- Com uma curva suave: comeca devagar, acelera, e poisa.
 		progress = progress * progress * (3 - 2 * progress)
-		local front = progress * BP.rows
 
-		for _, panel in show.panels do
-			local k = math.clamp(front - (panel.j - 1), 0, 1)
-			table.insert(parts, panel.part)
-			if k <= 0 then
-				table.insert(frames, AWAY)
-			else
-				-- Ainda a desenrolar: dobrado para tras sobre a beira de cima.
-				local fold = (1 - k) * 2.8
-				-- Aberto: a claque empurra-o por baixo, e ele ondula.
-				local wave = k * (math.sin(t * 2.1 + panel.c * 0.45 + panel.j * 0.7) * 0.35 + math.sin(t * 3.3 + panel.c * 0.9 - panel.j * 0.4) * 0.12)
-				table.insert(frames, panel.top * CFrame.new(0, 0, wave) * CFrame.Angles(fold, 0, 0) * CFrame.new(0, -panel.h / 2, 0))
-			end
+		if not show.anim then
+			BandeiraoRig.pose(show.rig, progress * show.rig.rows, t)
 		end
 
 		-- O rolo vai a frente do pano: desce com ele e volta a subir.
-		local s = BP.sAt(math.clamp(front, 0, BP.rows))
+		local s = BP.sAt(math.clamp(progress * BP.rows, 0, BP.rows))
 		for i, pieceAt in BP.roll(teamId, s, BP.ROLL_PIECES) do
 			local p = show.roll[i]
 			if p then
 				p.Size = Vector3.new(pieceAt.length, BP.ROLL_THICK * (1 - 0.55 * progress), BP.ROLL_THICK * (1 - 0.55 * progress))
 				table.insert(parts, p)
-				table.insert(frames, pieceAt.cf * CFrame.Angles(t * 3 * (if e < B.unroll then 1 else -1), 0, 0))
+				table.insert(frames, pieceAt.cf)
 			end
 		end
 	end

@@ -35,6 +35,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local City = require(script.Parent:WaitForChild("City"))
+local Rigs = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rigs"))
 local StadiumPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 local March = {}
@@ -105,8 +106,13 @@ local function buildBanner(teamId: string, at: Vector3, parent: Instance): Part
 	banner:SetAttribute("Arrived", false)
 	banner.Parent = parent
 
-	-- O pano (com o nome da claque) cada ecra o faz e o pendura desta peca
-	-- (Corteo.client, Pano): aqui a peca so marca o sitio e brilha.
+	-- O pano (com o nome da claque) e um rig com juntas pendurado desta peca
+	-- (Rigs.faixa): cada ecra ondula-o, ou toca a animacao "faixapano". Aqui
+	-- a peca so marca o sitio e brilha.
+	local pano = Instance.new("Model")
+	pano.Name = "FaixaPano_" .. teamId
+	Rigs.faixa(pano, banner, teamId)
+	pano.Parent = parent
 	banner.Transparency = 1
 
 	-- Brilha, para se ver de longe qual e o ponto de encontro.

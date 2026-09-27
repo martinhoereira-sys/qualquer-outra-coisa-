@@ -835,6 +835,12 @@ function Squad.openArms(f: Footballer, open: boolean)
 	if not model then
 		return
 	end
+	-- Quem marcou esta a festejar (Animacoes.client toca "festejo", se houver).
+	model:SetAttribute("Festejo", if open then true else nil)
+	-- Com a animacao feita, e ela que abre os bracos.
+	if Config.Animations.festejo ~= "" then
+		return
+	end
 	for _, spec in SHOULDERS do
 		local arm = model:FindFirstChild(spec.arm)
 		local motor = arm and arm:FindFirstChild(spec.joint)

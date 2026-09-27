@@ -552,6 +552,44 @@ Config.Performance = {
 }
 
 --[[
+	AS ANIMACOES. O codigo chama sempre pelo nome, nunca pelo numero.
+
+	Vazia (""), fica a pose que o jogo ja faz (ou a normal do Roblox). Com o
+	numero de uma animacao tua, e essa que toca. Para por uma: muda so o texto
+	entre aspas, por exemplo  tocha = "12345678",
+
+	  tocha        com a tocha acesa na mao
+	  fumo         com a bomba de fumo acesa na mao
+	  velaromana   com a vela romana acesa na mao
+	  salto        a saltar (emote e ordem SALTAR do lider)
+	  bandeira     com a bandeira grande (a do mastro) na mao; mexe tambem o
+	               mastro e o pano (as juntas Bandeira_*)
+	  bandeirinha  com a bandeirinha na mao; mexe o pau e o pano (Bandeirinha_*)
+	  tambor       cada pancada no tambor
+	  marcha       a andar no corteo, perto da faixa
+	  faixa        quem vai a segurar a faixa do corteo
+	  capo         o lider parado na curva da claque, virado para ela
+	  festejo      quem marcou golo, a correr para a claque
+	  faixapano    o pano da faixa do corteo (rig proprio, juntas Faixa_*)
+	  bandeirao    o bandeirao a descer (rig proprio, juntas Bandeirao_*)
+]]
+Config.Animations = {
+	tocha = "",
+	fumo = "",
+	velaromana = "",
+	salto = "",
+	bandeira = "",
+	bandeirinha = "",
+	tambor = "",
+	marcha = "",
+	faixa = "",
+	capo = "",
+	festejo = "",
+	faixapano = "",
+	bandeirao = "",
+}
+
+--[[
 	As animacoes: os bracos com a tocha no ar, o cachecol esticado, e o menu
 	de animacoes de adepto. Sao feitas em codigo, junta a junta, em todos os
 	ecras (Poses.client) — assim toda a gente ve as de toda a gente, sem
