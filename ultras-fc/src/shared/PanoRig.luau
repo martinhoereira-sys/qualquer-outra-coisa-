@@ -107,7 +107,7 @@ function PanoRig.build(parent: Instance, root: BasePart, o: Options): Rig
 	local colour = if o.design then o.design.colour else (o.colour or Color3.new(1, 1, 1))
 	local joints: { { Motor6D } } = {}
 	local parts: { { BasePart } } = {}
-	local size = Vector3.new(w * OVERLAP, h * OVERLAP, 0.08)
+	local size = Vector3.new(w * OVERLAP, h * OVERLAP, 0.05)
 
 	for c = 1, o.columns do
 		joints[c] = {}
