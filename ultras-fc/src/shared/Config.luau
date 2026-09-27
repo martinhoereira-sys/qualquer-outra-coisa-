@@ -575,7 +575,7 @@ Config.Performance = {
 ]]
 Config.Animations = {
 	tocha = "101977181059854",
-	fumo = "114605808291747",
+	fumo = "113905861032838",
 	velaromana = "",
 	salto = "",
 	bandeira = "",
