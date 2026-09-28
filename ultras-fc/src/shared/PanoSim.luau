@@ -122,6 +122,7 @@ export type StepOptions = {
 	gravity: number?,
 	drag: number?, -- quanto o ar trava o pano (mais = fica mais para tras do mastro)
 	windScale: number?, -- o vento (menos = e o mastro que mexe o pano)
+	flutter: number?, -- a ondulacao do pano (mais = bate mais, cheio de ondas)
 	avoid: { { any } }?,
 }
 
@@ -132,6 +133,7 @@ function PanoSim.step(sim: Sim, dt: number, corner: CFrame, wind: number, t: num
 	local avoid = o.avoid
 	local air = o.drag or AIR
 	local windScale = o.windScale or 1
+	local flutterScale = o.flutter or 1
 	sim.leftover = math.min(sim.leftover + dt, 0.1)
 	local pos, prev = sim.pos, sim.prev
 	local cols, rows = sim.cols, sim.rows
@@ -154,7 +156,9 @@ function PanoSim.step(sim: Sim, dt: number, corner: CFrame, wind: number, t: num
 				local k = index(sim, i, j)
 				local p = pos[k]
 				local v = (p - prev[k]) / STEP
-				local flutter = math.sin(t * 7.1 + i * 0.9 + j * 1.3 + sim.seed) * 6
+				-- (Com flutter 1, a bandeirinha, fica exatamente como era.)
+				local flutter = math.sin(t * 7.1 + i * 0.9 + j * 1.3 + sim.seed) * 6 * flutterScale
+					+ math.sin(t * 11.3 - i * 1.7 + j * 0.8) * 3 * (flutterScale - 1)
 				local force = gravity + blow * ((gust + flutter) * windScale) + corner.ZVector * (flutter * 0.8 * windScale) - v * air
 				if shape > 0 then
 					-- A forma de bandeira esticada: puxa devagar para la.
