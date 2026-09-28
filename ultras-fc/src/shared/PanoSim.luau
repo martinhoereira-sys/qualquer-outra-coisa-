@@ -106,11 +106,34 @@ end
 --[[
 	Um passo: a beira do lado do mastro vai para onde o mastro esta (`corner`),
 	o resto segue pela fisica. `wind` de 0 (parado) a 1 (ventania).
+
+	`opts`:
+	- `shape`: quanto o pano volta a forma de bandeira esticada (0 = nada, so
+	  fisica; 1 = uma bandeira de pano firme, como no Animation Editor);
+	- `gravity`: o peso (a bandeirinha e mais leve);
+	- `avoid`: esferas { centro, raio } de onde o pano sai (cabeca, tronco de
+	  quem a segura): nunca passa por dentro da personagem.
+
+	O vento sopra sempre PARA FORA do mastro, para o lado do pano: a bandeira
+	fica esticada, como se o vento viesse de tras de quem a agita.
 ]]
-function PanoSim.step(sim: Sim, dt: number, corner: CFrame, wind: number, t: number)
+export type StepOptions = {
+	shape: number?,
+	gravity: number?,
+	avoid: { { any } }?,
+}
+
+function PanoSim.step(sim: Sim, dt: number, corner: CFrame, wind: number, t: number, opts: StepOptions?)
+	local o: StepOptions = opts or {}
+	local shape = o.shape or 0
+	local gravity = Vector3.new(0, -(o.gravity or -GRAVITY.Y), 0)
+	local avoid = o.avoid
 	sim.leftover = math.min(sim.leftover + dt, 0.1)
 	local pos, prev = sim.pos, sim.prev
 	local cols, rows = sim.cols, sim.rows
+	-- Para fora do mastro (o comprido do pano), e um pouco do vento do mapa.
+	local out = corner.XVector
+	local blow = (out * 0.8 + WIND * 0.2).Unit
 	while sim.leftover >= STEP do
 		sim.leftover -= STEP
 		-- A beira presa ao mastro.
@@ -128,9 +151,14 @@ function PanoSim.step(sim: Sim, dt: number, corner: CFrame, wind: number, t: num
 				local p = pos[k]
 				local v = (p - prev[k]) / STEP
 				local flutter = math.sin(t * 7.1 + i * 0.9 + j * 1.3 + sim.seed) * 6
-				local force = GRAVITY + WIND * (gust + flutter) + Vector3.new(0, flutter * 0.6, 0) - v * AIR
+				local force = gravity + blow * (gust + flutter) + corner.ZVector * (flutter * 0.8) - v * AIR
+				if shape > 0 then
+					-- A forma de bandeira esticada: puxa devagar para la.
+					local rest = (corner * CFrame.new(i * sim.w, -j * sim.h, 0)).Position
+					force += (rest - p) * (shape * 60)
+				end
 				prev[k] = p
-				pos[k] = p + (p - (p - v * STEP)) * KEEP + force * STEP * STEP
+				pos[k] = p + v * STEP * KEEP + force * STEP * STEP
 			end
 		end
 		-- As ligacoes do tecido.
@@ -150,6 +178,21 @@ function PanoSim.step(sim: Sim, dt: number, corner: CFrame, wind: number, t: num
 					elseif not aPinned then
 						pos[a] += delta * (diff * 0.5)
 						pos[b] -= delta * (diff * 0.5)
+					end
+				end
+			end
+		end
+		-- Fora da personagem: o pano bate na cabeca e no tronco e escorrega.
+		if avoid then
+			for k = 1, #pos do
+				if (k - 1) % (cols + 1) ~= 0 then
+					for _, sphere in avoid do
+						local centre: Vector3, radius: number = sphere[1], sphere[2]
+						local away = pos[k] - centre
+						local d = away.Magnitude
+						if d < radius and d > 1e-4 then
+							pos[k] = centre + away / d * radius
+						end
 					end
 				end
 			end

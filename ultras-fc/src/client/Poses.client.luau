@@ -559,7 +559,22 @@ local function poseRigFlag(player: Player, character: Model, kind: string, t: nu
 	local now = os.clock()
 	local dt = math.clamp(now - (lastSim[model] or now), 0, 0.1)
 	lastSim[model] = now
-	PanoSim.step(sim, dt, corner, if waving then 1 else 0.35, t)
+	-- A bandeirinha e leve e firme (fica esticada como no Animation Editor);
+	-- a grande e mais pesada e solta. Nenhuma passa por dentro de quem a segura.
+	local avoid = {}
+	local head = character:FindFirstChild("Head") :: BasePart?
+	local chest = (character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")) :: BasePart?
+	if head then
+		table.insert(avoid, { head.Position, 1.5 })
+	end
+	if chest then
+		table.insert(avoid, { chest.Position, 1.7 })
+	end
+	PanoSim.step(sim, dt, corner, if waving then 1 else 0.35, t, {
+		shape = if kind == "bandeirinha" then 0.35 else 0.15,
+		gravity = if kind == "bandeirinha" then 24 else 38,
+		avoid = avoid,
+	})
 
 	-- O pano liso, se este ecra o conseguir fazer; senao, as tiras do rig.
 	local liso = smooth[model]

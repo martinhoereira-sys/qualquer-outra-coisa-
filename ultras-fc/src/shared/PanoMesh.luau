@@ -123,9 +123,9 @@ function PanoMesh.new(cols: number, rows: number, width: number, height: number,
 				back[k] = mesh:AddVertex(p)
 				frontNormals[k] = mesh:AddNormal() -- calculada sozinha a cada mexida
 				backNormals[k] = mesh:AddNormal()
-				uvFront[k] = mesh:AddUV(Vector2.new(i / cols, j / rows))
+				uvFront[k] = mesh:AddUV(Vector2.new(1 - i / cols, j / rows))
 				-- Do outro lado le-se ao contrario: espelha-se, para se ler bem.
-				uvBack[k] = mesh:AddUV(Vector2.new(1 - i / cols, j / rows))
+				uvBack[k] = mesh:AddUV(Vector2.new(i / cols, j / rows))
 			end
 		end
 		-- Dois pontos soltos que so alargam a caixa da malha: o pano pode
