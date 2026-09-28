@@ -551,6 +551,16 @@ local function poseRigFlag(player: Player, character: Model, kind: string, t: nu
 		return
 	end
 	local corner = pole * cloth.joints[1][1].C0
+	--[[
+		A bandeira grande com animacao: quem anima roda o pano a volta do mastro
+		(a junta Bandeira_C1L1) para ele varrer de um lado ao outro. O pano liso
+		vai para onde essa junta aponta (vento e forma puxam para la) e continua
+		a ondular como tecido. (A bandeirinha fica como esta: so fisica.)
+	]]
+	local followAnim = animated and kind == "mastro"
+	if followAnim then
+		corner *= cloth.joints[1][1].Transform.Rotation
+	end
 	local sim = sims[model]
 	if not sim or sim.rig.joints[1][1] ~= cloth.joints[1][1] then
 		sim = PanoSim.new(cloth, corner)
@@ -571,7 +581,7 @@ local function poseRigFlag(player: Player, character: Model, kind: string, t: nu
 		table.insert(avoid, { chest.Position, 1.7 })
 	end
 	PanoSim.step(sim, dt, corner, if waving then 1 else 0.35, t, {
-		shape = if kind == "bandeirinha" then 0.35 else 0.08,
+		shape = if kind == "bandeirinha" then 0.35 elseif followAnim then 0.3 else 0.08,
 		gravity = if kind == "bandeirinha" then 24 else 30,
 		-- A grande: o ar trava-a e fica para tras do mastro; pouco vento, e o
 		-- movimento de quem a agita que a mexe.
