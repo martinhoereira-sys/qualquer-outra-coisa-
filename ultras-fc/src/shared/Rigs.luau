@@ -30,11 +30,12 @@ export type FlagSpec = {
 	rows: number,
 	design: string, -- o desenho do Pano
 	grip: number, -- a que distancia do fundo do mastro fica a mao
+	forward: boolean?, -- o mastro sai da mao para a frente (afastado do corpo), nao ao longo do braco
 }
 
 -- As medidas de cada bandeira (Gear: "mastro" e "bandeirinha").
 Rigs.FLAGS = {
-	mastro = { name = "Bandeira", pole = 10, thick = 0.3, width = 9, height = 6, columns = 16, rows = 8, design = "mastro", grip = 1.2 } :: FlagSpec,
+	mastro = { name = "Bandeira", pole = 10, thick = 0.3, width = 9, height = 6, columns = 16, rows = 8, design = "mastro", grip = 3.3, forward = true } :: FlagSpec,
 	bandeirinha = { name = "Bandeirinha", pole = 4.5, thick = 0.14, width = 3.2, height = 2.1, columns = 8, rows = 3, design = "bandeirinha", grip = 0.5 } :: FlagSpec,
 }
 
@@ -83,7 +84,9 @@ function Rigs.flag(character: Model, kind: string, teamId: string, colour: Color
 	joint.Name = spec.name .. "_Mastro"
 	joint.Part0 = hand
 	joint.Part1 = pole
-	joint.C0 = CFrame.new(0, -hand.Size.Y / 2, 0)
+	-- A bandeira grande agarra-se com as duas maos: o mastro sai da mao direita
+	-- para a frente (afastado do corpo), e sobra mastro atras dela para a esquerda.
+	joint.C0 = CFrame.new(0, -hand.Size.Y / 2, 0) * (if spec.forward then CFrame.Angles(-math.rad(90), 0, 0) else CFrame.identity)
 	joint.C1 = CFrame.new(0, -spec.pole / 2 + spec.grip, 0)
 	joint.Parent = pole
 	pole.CFrame = hand.CFrame * joint.C0 * joint.C1:Inverse()
