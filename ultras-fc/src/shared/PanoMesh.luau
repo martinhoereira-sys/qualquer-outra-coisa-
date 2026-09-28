@@ -186,8 +186,9 @@ end
 	(o sitio de onde se mediram os pontos ao criar).
 ]]
 function PanoMesh.update(cloth: Cloth, corner: CFrame, points: { Vector3 })
-	-- A MeshPart fica no centro da caixa da malha; os pontos sao relativos ao canto.
-	cloth.part.CFrame = corner * CFrame.new(cloth.center)
+	-- A malha desenha os pontos tal como sao dados, a partir da MeshPart: a
+	-- MeshPart fica no canto do pano e os pontos sao relativos a ele.
+	cloth.part.CFrame = corner
 	local mesh = cloth.mesh
 	for k, world in points do
 		local id = cloth.front[k]
