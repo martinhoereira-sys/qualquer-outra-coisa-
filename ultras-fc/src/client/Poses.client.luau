@@ -23,6 +23,7 @@ local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("R
 local Pano = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pano"))
 local PanoRig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PanoRig"))
 local PanoSim = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PanoSim"))
+local PanoMesh = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PanoMesh"))
 local Rigs = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rigs"))
 local Animacoes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animacoes"))
 
@@ -470,6 +471,34 @@ end
 -- O pano simulado de cada bandeira na mao (PanoSim), pelo modelo do rig.
 local sims: { [Instance]: PanoSim.Sim } = setmetatable({}, { __mode = "k" }) :: any
 local lastSim: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
+-- O pano liso (PanoMesh) de cada bandeira; false = nao se pode, fica o de tiras.
+local smooth: { [Instance]: any } = {}
+
+-- As bandeiras que ja se largaram: o pano liso sai com elas.
+task.spawn(function()
+	while true do
+		task.wait(2)
+		for model, cloth in smooth do
+			if not model.Parent then
+				if cloth then
+					PanoMesh.destroy(cloth)
+				end
+				smooth[model] = nil
+			end
+		end
+	end
+end)
+
+-- O desenho do pano liso: a cor escolhida no dealer, ou a da claque, e a sigla.
+local function smoothDesign(player: Player, kind: string): PanoMesh.Design
+	local team = Config.Teams[player:GetAttribute("Team") or ""]
+	local chosen = player:GetAttribute("Cor_" .. kind)
+	return {
+		kind = kind,
+		colour = if typeof(chosen) == "Color3" then chosen elseif team then team.color else Color3.new(1, 1, 1),
+		short = if team then team.short else nil,
+	}
+end
 
 --[[
 	A bandeira grande e a bandeirinha. O MASTRO: com animacao feita
@@ -531,7 +560,31 @@ local function poseRigFlag(player: Player, character: Model, kind: string, t: nu
 	local dt = math.clamp(now - (lastSim[model] or now), 0, 0.1)
 	lastSim[model] = now
 	PanoSim.step(sim, dt, corner, if waving then 1 else 0.35, t)
-	PanoSim.apply(sim, pole)
+
+	-- O pano liso, se este ecra o conseguir fazer; senao, as tiras do rig.
+	local liso = smooth[model]
+	if liso == nil then
+		liso = PanoMesh.new(sim.cols, sim.rows, spec.width, spec.height, smoothDesign(player, kind), workspace) or false
+		smooth[model] = liso
+		if liso then
+			-- As tiras ficam la (para as animacoes), mas nao se veem neste ecra.
+			for _, column in cloth.parts do
+				for _, piece in column do
+					piece.LocalTransparencyModifier = 1
+					for _, gui in piece:GetChildren() do
+						if gui:IsA("SurfaceGui") then
+							gui.Enabled = false
+						end
+					end
+				end
+			end
+		end
+	end
+	if liso then
+		PanoMesh.update(liso, corner, sim.pos)
+	else
+		PanoSim.apply(sim, pole)
+	end
 end
 
 --------------------------------------------------------------------------------
