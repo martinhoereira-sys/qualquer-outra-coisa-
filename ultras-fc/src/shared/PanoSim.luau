@@ -120,6 +120,8 @@ end
 export type StepOptions = {
 	shape: number?,
 	gravity: number?,
+	drag: number?, -- quanto o ar trava o pano (mais = fica mais para tras do mastro)
+	windScale: number?, -- o vento (menos = e o mastro que mexe o pano)
 	avoid: { { any } }?,
 }
 
@@ -128,6 +130,8 @@ function PanoSim.step(sim: Sim, dt: number, corner: CFrame, wind: number, t: num
 	local shape = o.shape or 0
 	local gravity = Vector3.new(0, -(o.gravity or -GRAVITY.Y), 0)
 	local avoid = o.avoid
+	local air = o.drag or AIR
+	local windScale = o.windScale or 1
 	sim.leftover = math.min(sim.leftover + dt, 0.1)
 	local pos, prev = sim.pos, sim.prev
 	local cols, rows = sim.cols, sim.rows
@@ -151,7 +155,7 @@ function PanoSim.step(sim: Sim, dt: number, corner: CFrame, wind: number, t: num
 				local p = pos[k]
 				local v = (p - prev[k]) / STEP
 				local flutter = math.sin(t * 7.1 + i * 0.9 + j * 1.3 + sim.seed) * 6
-				local force = gravity + blow * (gust + flutter) + corner.ZVector * (flutter * 0.8) - v * AIR
+				local force = gravity + blow * ((gust + flutter) * windScale) + corner.ZVector * (flutter * 0.8 * windScale) - v * air
 				if shape > 0 then
 					-- A forma de bandeira esticada: puxa devagar para la.
 					local rest = (corner * CFrame.new(i * sim.w, -j * sim.h, 0)).Position

@@ -596,6 +596,7 @@ Config.Animations = {
 Config.AnimationSpeed = {
 	todas = 0.7,
 	bandeirinha = 0.5, -- mais lenta do que as outras
+	bandeira = 0.5,
 }
 
 --[[

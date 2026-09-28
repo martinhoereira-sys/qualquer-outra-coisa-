@@ -571,8 +571,12 @@ local function poseRigFlag(player: Player, character: Model, kind: string, t: nu
 		table.insert(avoid, { chest.Position, 1.7 })
 	end
 	PanoSim.step(sim, dt, corner, if waving then 1 else 0.35, t, {
-		shape = if kind == "bandeirinha" then 0.35 else 0.15,
-		gravity = if kind == "bandeirinha" then 24 else 38,
+		shape = if kind == "bandeirinha" then 0.35 else 0.05,
+		gravity = if kind == "bandeirinha" then 24 else 30,
+		-- A grande: o ar trava-a e fica para tras do mastro; pouco vento, e o
+		-- movimento de quem a agita que a mexe.
+		drag = if kind == "bandeirinha" then nil else 3.2,
+		windScale = if kind == "bandeirinha" then nil else 0.55,
 		avoid = avoid,
 	})
 
