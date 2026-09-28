@@ -579,7 +579,7 @@ Config.Animations = {
 	velaromana = "134149231915828",
 	salto = "",
 	bandeira = "",
-	bandeirinha = "117092057190229",
+	bandeirinha = "125455109044109",
 	tambor = "",
 	marcha = "",
 	faixa = "",
@@ -595,6 +595,7 @@ Config.Animations = {
 ]]
 Config.AnimationSpeed = {
 	todas = 0.7,
+	bandeirinha = 0.5, -- mais lenta do que as outras
 }
 
 --[[
