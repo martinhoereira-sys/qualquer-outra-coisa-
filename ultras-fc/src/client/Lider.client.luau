@@ -337,9 +337,10 @@ local function showGive()
 	end
 	local anyone = false
 	for _, player in Players:GetPlayers() do
-		if player ~= me and player:GetAttribute("Team") == me:GetAttribute("Team") then
+		-- O proprio lider tambem aparece: pode ficar ele com a bandeira do mastro.
+		if player:GetAttribute("Team") == me:GetAttribute("Team") then
 			anyone = true
-			local row = button(people, player.DisplayName, Color3.fromRGB(48, 52, 66))
+			local row = button(people, if player == me then "Eu (lider)" else player.DisplayName, Color3.fromRGB(48, 52, 66))
 			row.Size = UDim2.new(1, -8, 0, 28)
 			row.TextSize = 13
 			rows[player] = row
