@@ -43,6 +43,15 @@ local function wanted(character: Model, root: BasePart): string?
 	if character:GetAttribute("Festejo") == true then
 		return "festejo"
 	end
+	-- Golo da minha equipa: festeja toda a gente dela (quem joga por ela e a
+	-- sua claque), nao so quem marcou, enquanto dura a festa do golo.
+	local party = workspace:GetAttribute("Celebration")
+	if type(party) == "string" then
+		local mine = if me:GetAttribute("Team") == "jogador" then me:GetAttribute("PitchTeam") else me:GetAttribute("Team")
+		if mine == party then
+			return "festejo"
+		end
+	end
 	local hold = me:GetAttribute("Hold")
 	if type(hold) == "string" and HOLD[hold] then
 		return HOLD[hold]

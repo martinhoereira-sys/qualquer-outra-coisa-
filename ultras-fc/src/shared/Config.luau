@@ -569,7 +569,7 @@ Config.Performance = {
 	  marcha       a andar no corteo, perto da faixa
 	  faixa        quem vai a segurar a faixa do corteo
 	  capo         o lider parado na curva da claque, virado para ela
-	  festejo      quem marcou golo, a correr para a claque
+	  festejo      golo da equipa: festeja toda a gente dela (jogadores e claque)
 	  faixapano    o pano da faixa do corteo (rig proprio, juntas Faixa_*)
 	  bandeirao    o bandeirao a descer (rig proprio, juntas Bandeirao_*)
 ]]
@@ -584,7 +584,7 @@ Config.Animations = {
 	marcha = "",
 	faixa = "",
 	capo = "",
-	festejo = "",
+	festejo = "74546471177853",
 	faixapano = "",
 	bandeirao = "",
 }
