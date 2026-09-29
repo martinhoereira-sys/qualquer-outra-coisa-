@@ -49,6 +49,11 @@ function Progress.levelOf(xp: number): (number, number, number)
 end
 
 function Progress.level(player: Player, path: string): number
+	-- Os admins (Config.Admins) tem tudo desbloqueado, para poderem testar
+	-- tudo (como o dinheiro infinito). O XP e o perfil deles ficam iguais.
+	if table.find(Config.Admins, player.UserId) then
+		return Config.Progress.maxLevel
+	end
 	local profile = Money.profile(player)
 	if not profile then
 		return 1
