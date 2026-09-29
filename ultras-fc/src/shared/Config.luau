@@ -592,7 +592,7 @@ Config.Animations = {
 	festejo = "74546471177853",
 	-- Os festejos de quem marca (niveis de jogador, Config.Progress.perks.celebrationAt).
 	joelho = "139953858994182", -- deslizar de joelhos (nivel 12)
-	mbappe = "135442560312009", -- o do Mbappe (nivel 20)
+	mbappe = "", -- o do Mbappe (nivel 20); desligado: o 135442560312009 foi publicado pelo amigo e este jogo nao o pode usar
 	faixapano = "",
 	bandeirao = "",
 }
