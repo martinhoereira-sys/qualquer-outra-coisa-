@@ -70,7 +70,7 @@ Config.Crowd = {
 	bounceHeight = 1.6,
 	baseRate = 1.6, -- saltos por segundo em repouso
 	drumRate = 3.4, -- ao ritmo do tambor
-	flagEvery = 6, -- de quantos em quantos leva bandeira
+	flagEvery = 0, -- de quantos em quantos bonecos leva bandeira (0 = nenhum: as bandeiras ficam para as pessoas)
 	partyHeight = 1.8, -- no golo, quantas vezes mais alto do que o salto normal
 	sitDrop = 1.1, -- quanto descem os que se sentam, calados
 	botsPerPlayer = 2, -- bonecos que saem da bancada por cada pessoa na claque

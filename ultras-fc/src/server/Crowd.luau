@@ -157,7 +157,7 @@ function Crowd.build(parent: Instance)
 
 				local jitter = (math.random() - 0.5) * 0.01
 				local at = Plan.claqueSeat(teamId, row, t + jitter) + Vector3.new(0, 2.6, 0)
-				table.insert(people, buildSupporter(teamId, at, made % C.flagEvery == 0, folder))
+				table.insert(people, buildSupporter(teamId, at, C.flagEvery > 0 and made % C.flagEvery == 0, folder))
 			end
 		end
 	end
