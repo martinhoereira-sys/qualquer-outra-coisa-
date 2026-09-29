@@ -80,7 +80,8 @@ end
 
 -- O desenho da bandeira, pintado numa imagem 3:2.
 local function paint(design: Design): EditableImage
-	local W, H = 240, 160
+	-- A bandeira grande e quadrada (2 x 2 m); a bandeirinha 3:2.
+	local W, H = if design.kind == "mastro" then 200 else 240, if design.kind == "mastro" then 200 else 160
 	local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
 	local c = design.colour
 	rect(img, 0, 0, W, H, c)

@@ -35,7 +35,7 @@ export type FlagSpec = {
 
 -- As medidas de cada bandeira (Gear: "mastro" e "bandeirinha").
 Rigs.FLAGS = {
-	mastro = { name = "Bandeira", pole = 10, thick = 0.3, width = 9, height = 6, columns = 16, rows = 8, design = "mastro", grip = 3.3, forward = true } :: FlagSpec,
+	mastro = { name = "Bandeira", pole = 14, thick = 0.34, width = 9, height = 9, columns = 12, rows = 12, design = "mastro", grip = 0.4 } :: FlagSpec,
 	bandeirinha = { name = "Bandeirinha", pole = 4.5, thick = 0.14, width = 3.2, height = 2.1, columns = 8, rows = 3, design = "bandeirinha", grip = 0.5 } :: FlagSpec,
 }
 

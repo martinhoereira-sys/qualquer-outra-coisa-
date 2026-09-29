@@ -468,6 +468,140 @@ end
 --------------------------------------------------------------------------------
 
 
+--------------------------------------------------------------------------------
+-- A bandeira grande agitada pelo jogo: duas maos, arcos por cima da cabeca
+--------------------------------------------------------------------------------
+
+--[[
+	Como no video de referencia (bandeira 2x2 m, haste 3 m):
+	- a mao de baixo (direita) segura o fundo da haste a altura da barriga e
+	  faz de apoio: anda um pouco para o lado contrario, como uma alavanca;
+	- a mao de cima (esquerda) empurra a haste mais acima;
+	- a haste faz arcos largos por cima da cabeca, de um lado ao outro, sem
+	  pressa (controlado);
+	- o pano vai sempre atras da haste; nas mudancas de lado passa por tras,
+	  por cima da cabeca, e enrola-se nas pontas.
+	Os bracos chegam a haste por calculo (dois ossos: ombro e cotovelo).
+]]
+
+-- Onde fica uma junta do corpo (Motor6D ou AnimationConstraint), e o seu referencial.
+local function jointFrame(joint: any): CFrame?
+	if joint:IsA("Motor6D") then
+		local part0 = joint.Part0
+		return if part0 then part0.CFrame * joint.C0 else nil
+	end
+	local a0 = joint.Attachment0
+	return if a0 then a0.WorldCFrame else nil
+end
+
+--[[
+	Um braco a chegar a `target` (no mundo): o ombro aponta o braco, o
+	cotovelo dobra o que for preciso. `side` 1 direito, -1 esquerdo.
+]]
+local function reach(shoulder: any, elbow: any?, wrist: any?, side: number, target: Vector3)
+	local sFrame = jointFrame(shoulder)
+	local eFrame = elbow and jointFrame(elbow)
+	local wFrame = wrist and jointFrame(wrist)
+	if not sFrame then
+		return
+	end
+	-- Os comprimentos do braco (medidos no proprio corpo: serve a qualquer avatar).
+	local a = if eFrame then (eFrame.Position - sFrame.Position).Magnitude else 1.3
+	local b = if eFrame and wFrame then (wFrame.Position - eFrame.Position).Magnitude + 0.25 else 1.3
+	a = math.clamp(a, 0.6, 2.5)
+	b = math.clamp(b, 0.6, 2.5)
+
+	local d = sFrame.Rotation:VectorToObjectSpace(target - sFrame.Position)
+	local L = math.clamp(d.Magnitude, math.abs(a - b) + 0.05, a + b - 0.02)
+	local dir = if d.Magnitude > 1e-3 then d.Unit else Vector3.new(0, -1, 0)
+	-- O cotovelo aponta para fora e para tras (como quem segura um mastro).
+	local hint = Vector3.new(side * 0.7, -0.4, 0.6)
+	local perp = hint - dir * hint:Dot(dir)
+	perp = if perp.Magnitude > 1e-3 then perp.Unit else Vector3.new(side, 0, 0)
+	local alpha = math.acos(math.clamp((a * a + L * L - b * b) / (2 * a * L), -1, 1))
+	local beta = math.pi - math.acos(math.clamp((a * a + b * b - L * L) / (2 * a * b), -1, 1))
+	local upper = dir * math.cos(alpha) + perp * math.sin(alpha)
+
+	-- O ombro: o braco (que em repouso aponta para baixo) passa a apontar para `upper`.
+	local yAxis = -upper
+	local xAxis = upper:Cross(dir)
+	xAxis = if xAxis.Magnitude > 1e-4 then xAxis.Unit else Vector3.xAxis
+	local zAxis = xAxis:Cross(yAxis).Unit
+	xAxis = yAxis:Cross(zAxis).Unit
+	shoulder.Transform = CFrame.fromMatrix(Vector3.zero, xAxis, yAxis, zAxis)
+
+	if elbow then
+		-- Dobra para o lado em que o antebraco fica virado para o alvo.
+		local toTarget = (d - upper * a).Unit
+		local rot = CFrame.fromMatrix(Vector3.zero, xAxis, yAxis, zAxis)
+		local plus = rot:VectorToWorldSpace(Vector3.new(0, -math.cos(beta), -math.sin(beta)))
+		local minus = rot:VectorToWorldSpace(Vector3.new(0, -math.cos(beta), math.sin(beta)))
+		elbow.Transform = if plus:Dot(toTarget) >= minus:Dot(toTarget)
+			then CFrame.Angles(beta, 0, 0)
+			else CFrame.Angles(-beta, 0, 0)
+	end
+end
+
+-- O lado para onde o pano da bandeira grande vai, alisado por pessoa (angulo a volta da haste).
+local clothPhi: { [Player]: number } = {}
+local lastWave: { [Player]: number } = {}
+Players.PlayerRemoving:Connect(function(player)
+	clothPhi[player] = nil
+	lastWave[player] = nil
+end)
+
+-- Arco de um lado ao outro: ~2,9 s por ida e volta, controlado.
+local SWING_SPEED = 2.2
+local SWING_WIDTH = 0.95 -- radianos para cada lado (~55 graus)
+
+--[[
+	A haste e os bracos da bandeira grande, sem animacao feita. Devolve onde
+	fica a haste (CFrame: Y ao longo dela, X para o lado do pano).
+]]
+local function waveBigFlag(player: Player, character: Model, rig: Rig?, spec: any, t: number): CFrame?
+	local clock = os.clock()
+	local dt = math.clamp(clock - (lastWave[player] or clock), 0, 0.1)
+	lastWave[player] = clock
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return nil
+	end
+	local waving = player:GetAttribute("Wave") == true
+	local w = t * SWING_SPEED
+	local a = if waving then math.sin(w) * SWING_WIDTH else math.sin(t * 0.7) * 0.06
+	local rootCF = root.CFrame
+
+	-- A haste: inclinada para o lado do arco e um pouco para a frente.
+	local axisLocal = Vector3.new(math.sin(a), math.cos(a), -0.45).Unit -- bem inclinada para a frente: passa a frente e por cima, longe do corpo
+	local axis = rootCF:VectorToWorldSpace(axisLocal)
+	-- A mao de baixo, a barriga; anda para o lado contrario (alavanca).
+	local bottomLocal = Vector3.new(0.2 - 0.5 * math.sin(a), -1.1, -1.6) -- baixa e a frente: o braco vai esticado
+	local bottom = rootCF:PointToWorldSpace(bottomLocal)
+	local top = bottom + axis * 2.2
+
+	-- Para onde vai o pano: atras do movimento; nas mudancas de lado passa por
+	-- tras (por cima da cabeca).
+	local tangent = rootCF:VectorToWorldSpace(Vector3.new(math.cos(a), -math.sin(a), 0))
+	tangent = (tangent - axis * tangent:Dot(axis)).Unit
+	local back = tangent:Cross(axis).Unit
+	local moving = math.cos(w) -- > 0: a ir para a direita
+	local target = if not waving then math.pi / 2 elseif moving > 0 then math.pi else 0
+	local phi = clothPhi[player] or target
+	phi += math.clamp(target - phi, -dt * 4.5, dt * 4.5)
+	clothPhi[player] = phi
+	local side = tangent * math.cos(phi) + back * math.sin(phi)
+
+	local centre = bottom + axis * (spec.pole / 2 - spec.grip)
+	local pole = CFrame.fromMatrix(centre, side, axis)
+
+	-- Os bracos: a direita no fundo, a esquerda mais acima.
+	if rig then
+		reach(rig.rightShoulder, rig.rightElbow, motor(character, "RightHand", "RightWrist"), 1, bottom)
+		reach(rig.leftShoulder, rig.leftElbow, motor(character, "LeftHand", "LeftWrist"), -1, top)
+	end
+	return pole
+end
+
 -- O pano simulado de cada bandeira na mao (PanoSim), pelo modelo do rig.
 local sims: { [Instance]: PanoSim.Sim } = setmetatable({}, { __mode = "k" }) :: any
 local lastSim: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
@@ -506,7 +640,7 @@ end
 	jogo faz os arcos de 180 graus. O PANO e sempre simulado (PanoSim): vai
 	atras do mastro como tecido, seja qual for quem mexe o mastro.
 ]]
-local function poseRigFlag(player: Player, character: Model, kind: string, t: number)
+local function poseRigFlag(player: Player, character: Model, kind: string, t: number, rig: Rig?)
 	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local hand = character:FindFirstChild("RightHand") :: BasePart?
 	local spec = Rigs.FLAGS[kind]
@@ -524,6 +658,15 @@ local function poseRigFlag(player: Player, character: Model, kind: string, t: nu
 	if animated then
 		-- O mastro esta onde a animacao o pos.
 		pole = (poleJoint.Part1 :: BasePart).CFrame
+	elseif kind == "mastro" then
+		-- A bandeira grande: o jogo agita-a com as duas maos (waveBigFlag).
+		local placed = waveBigFlag(player, character, rig, spec, t)
+		if not placed then
+			return
+		end
+		pole = placed
+		-- Part0 * C0 * Transform = Part1 * C1
+		poleJoint.Transform = (hand.CFrame * poleJoint.C0):Inverse() * pole * poleJoint.C1
 	else
 		-- O mastro: arcos de um lado ao outro por cima da cabeca.
 		local right = root.CFrame.RightVector
@@ -581,8 +724,8 @@ local function poseRigFlag(player: Player, character: Model, kind: string, t: nu
 		table.insert(avoid, { chest.Position, 1.7 })
 	end
 	PanoSim.step(sim, dt, corner, if waving then 1 else 0.35, t, {
-		shape = if kind == "bandeirinha" then 0.35 elseif followAnim then 0.3 else 0.08,
-		gravity = if kind == "bandeirinha" then 24 else 30,
+		shape = if kind == "bandeirinha" then 0.35 elseif followAnim then 0.3 else 0.12,
+		gravity = if kind == "bandeirinha" then 24 else 26,
 		-- A grande: o ar trava-a e fica para tras do mastro; pouco vento, e o
 		-- movimento de quem a agita que a mexe.
 		drag = if kind == "bandeirinha" then nil else 2.2,
@@ -599,7 +742,9 @@ local function poseRigFlag(player: Player, character: Model, kind: string, t: nu
 			-- As tiras ficam la (para as animacoes), mas nao se veem neste ecra.
 			for _, column in cloth.parts do
 				for _, piece in column do
-					piece.LocalTransparencyModifier = 1
+					-- (Transparency e nao LocalTransparencyModifier: esse, nas pecas da
+					-- personagem, o Roblox repoe a cada frame. So muda neste ecra.)
+					piece.Transparency = 1
 					for _, gui in piece:GetChildren() do
 						if gui:IsA("SurfaceGui") then
 							gui.Enabled = false
@@ -725,17 +870,10 @@ RunService.Stepped:Connect(function()
 			poseRigFlag(player, character, "bandeirinha", t)
 		elseif hold == "mastro" then
 			-- As duas maos no mastro, por cima da cabeca, a acompanhar os arcos.
-			local waving = player:GetAttribute("Wave") == true
 			dropScarf(player)
 			dropFlag(player)
-			if not Animacoes.has("bandeira") then
-				local swing = if waving then math.sin(t * 1.6) * math.rad(45) else 0
-				arm(rig.rightShoulder, 1, math.rad(168), math.rad(8) + swing)
-				arm(rig.leftShoulder, -1, math.rad(168), math.rad(8) - swing)
-				set(rig.rightElbow, CFrame.identity)
-				set(rig.leftElbow, CFrame.identity)
-			end
-			poseRigFlag(player, character, "mastro", t)
+			-- Sem animacao feita, os bracos sao postos na haste (waveBigFlag).
+			poseRigFlag(player, character, "mastro", t, if Animacoes.has("bandeira") then nil else rig)
 		elseif hold == "bandeira" then
 			-- Os dois bracos no ar, abertos, uma haste em cada mao.
 			local waving = player:GetAttribute("Wave") == true
