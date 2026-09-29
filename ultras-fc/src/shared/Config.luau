@@ -573,6 +573,8 @@ Config.Performance = {
 	  faixa        quem vai a segurar a faixa do corteo
 	  capo         o lider parado na curva da claque, virado para ela
 	  festejo      golo da equipa: festeja toda a gente dela (jogadores e claque)
+	  joelho       quem marcou, nivel 12 de jogador: desliza de joelhos (uma vez)
+	  mbappe       quem marcou, nivel 20 de jogador: o festejo do Mbappe (uma vez)
 	  faixapano    o pano da faixa do corteo (rig proprio, juntas Faixa_*)
 	  bandeirao    o bandeirao a descer (rig proprio, juntas Bandeirao_*)
 ]]
@@ -588,6 +590,9 @@ Config.Animations = {
 	faixa = "",
 	capo = "",
 	festejo = "74546471177853",
+	-- Os festejos de quem marca (niveis de jogador, Config.Progress.perks.celebrationAt).
+	joelho = "139953858994182", -- deslizar de joelhos (nivel 12)
+	mbappe = "135442560312009", -- o do Mbappe (nivel 20)
 	faixapano = "",
 	bandeirao = "",
 }

@@ -614,7 +614,28 @@ Football.onGoal(function(teamId, scorer)
 	if scorerPlayer then
 		local level = Progress.level(scorerPlayer, "jogador")
 		local steps = Config.Progress.perks.celebrationAt
-		local emote = if level >= steps[2] then "saltar" elseif level >= steps[1] then "maos" else nil
+		--[[
+			Os festejos animados (Config.Animations): nivel 12 desliza de
+			joelhos; a partir do 20, ao calhas, esse ou o do Mbappe. Toca uma
+			vez, a correr para a claque (Animacoes.client).
+		]]
+		local unlocked = {}
+		if level >= steps[1] then
+			table.insert(unlocked, "joelho")
+		end
+		if level >= steps[2] then
+			table.insert(unlocked, "mbappe")
+		end
+		local pick = if #unlocked > 0 then unlocked[math.random(1, #unlocked)] else nil
+		if pick and (Config.Animations :: any)[pick] ~= "" then
+			scorerPlayer:SetAttribute("FestejoGolo", pick)
+			task.delay(5, function()
+				if scorerPlayer.Parent and scorerPlayer:GetAttribute("FestejoGolo") == pick then
+					scorerPlayer:SetAttribute("FestejoGolo", nil)
+				end
+			end)
+		end
+		local emote = if pick then nil elseif level >= steps[2] then "saltar" elseif level >= steps[1] then "maos" else nil
 		if emote then
 			scorerPlayer:SetAttribute("Emote", emote)
 			task.delay(6, function()

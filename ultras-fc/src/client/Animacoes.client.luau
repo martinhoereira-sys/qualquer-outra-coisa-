@@ -40,6 +40,11 @@ end
 
 -- O que se esta a fazer agora, pela ordem de importancia.
 local function wanted(character: Model, root: BasePart): string?
+	-- Quem marcou: o seu festejo (joelho, mbappe), uma vez.
+	local own = me:GetAttribute("FestejoGolo")
+	if type(own) == "string" then
+		return own
+	end
 	if character:GetAttribute("Festejo") == true then
 		return "festejo"
 	end
@@ -76,6 +81,8 @@ local function wanted(character: Model, root: BasePart): string?
 	end
 	return nil
 end
+
+local ONCE: { [string]: boolean } = { joelho = true, mbappe = true }
 
 local playing: AnimationTrack? = nil
 local playingName: string? = nil
@@ -115,7 +122,8 @@ RunService.Heartbeat:Connect(function()
 	if name then
 		local track = Animacoes.track(animator, name)
 		if track then
-			track.Looped = true
+			-- Os festejos de quem marcou tocam uma vez; o resto em ciclo.
+			track.Looped = not ONCE[name]
 			track.Priority = Enum.AnimationPriority.Action
 			Animacoes.play(track, name, 0.25)
 			playing = track
