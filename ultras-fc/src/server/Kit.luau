@@ -125,12 +125,52 @@ function Kit.apply(player: Player)
 	end
 end
 
+--[[
+	O corpo de blocos para toda a gente: o boneco classico do Roblox, com as
+	mesmas medidas para todos (o futebol e as animacoes ficam iguais para
+	todos). Fica a roupa, o cabelo e os acessorios de cada um; o corpo, a
+	cabeca e as proporcoes passam a ser as classicas.
+]]
+local function blocky(description: HumanoidDescription): HumanoidDescription
+	local d = description:Clone()
+	d.Head = 0
+	d.Torso = 0
+	d.LeftArm = 0
+	d.RightArm = 0
+	d.LeftLeg = 0
+	d.RightLeg = 0
+	d.Face = 0
+	d.HeightScale = 1
+	d.WidthScale = 1
+	d.DepthScale = 1
+	d.HeadScale = 1
+	d.BodyTypeScale = 0
+	d.ProportionScale = 0
+	-- As animacoes de andar e correr do proprio avatar tambem voltam as normais.
+	d.IdleAnimation = 0
+	d.WalkAnimation = 0
+	d.RunAnimation = 0
+	d.JumpAnimation = 0
+	d.FallAnimation = 0
+	d.ClimbAnimation = 0
+	d.SwimAnimation = 0
+	return d
+end
+
 function Kit.start()
 	local function watch(player: Player)
 		-- O avatar da pessoa, tal como entrou (antes de qualquer equipamento).
 		player.CharacterAppearanceLoaded:Connect(function(character)
+			local humanoidNow = character:FindFirstChildOfClass("Humanoid")
 			if original[player] then
-				-- Renasceu: o papel volta a vestir-se (o jogador ja o faz o Squad).
+				-- Renasceu: volta o corpo de blocos (o Roblox trouxe o avatar dela).
+				if humanoidNow and not character:GetAttribute("Blocos") then
+					character:SetAttribute("Blocos", true)
+					pcall(function()
+						humanoidNow:ApplyDescription(original[player])
+					end)
+				end
+				-- O papel volta a vestir-se (o jogador ja o faz o Squad).
 				if player:GetAttribute("Team") == "arbitro" then
 					task.wait(0.3)
 					refereeKit(player)
@@ -143,7 +183,13 @@ function Kit.start()
 					return humanoid:GetAppliedDescription()
 				end)
 				if ok and description then
-					original[player] = description
+					-- O avatar dela, mas de blocos: e esse que conta daqui para a frente.
+					local block = blocky(description)
+					original[player] = block
+					character:SetAttribute("Blocos", true)
+					pcall(function()
+						humanoid:ApplyDescription(block)
+					end)
 				end
 			end
 		end)
