@@ -631,6 +631,8 @@ local function smoothDesign(player: Player, kind: string): PanoMesh.Design
 		kind = kind,
 		colour = if typeof(chosen) == "Color3" then chosen elseif team then team.color else Color3.new(1, 1, 1),
 		short = if team then team.short else nil,
+		teamId = if team then team.id else nil,
+		hoops = if team then team.hoops == true else false,
 	}
 end
 

@@ -13,10 +13,19 @@
 ]]
 
 local AssetService = game:GetService("AssetService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local TifoDesigns = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("TifoDesigns"))
 
 local PanoMesh = {}
 
-export type Design = { kind: string, colour: Color3, short: string? }
+export type Design = {
+	kind: string,
+	colour: Color3,
+	short: string?,
+	teamId: string?, -- para o emblema da claque (a aguia, o leao)
+	hoops: boolean?, -- riscas horizontais cor/branco
+}
 
 export type Cloth = {
 	part: MeshPart,
@@ -86,15 +95,42 @@ local function paint(design: Design): EditableImage
 	local c = design.colour
 	rect(img, 0, 0, W, H, c)
 	if design.kind == "mastro" then
-		-- Moldura branca, emblema redondo ao meio com a sigla.
-		local t = 7
-		rect(img, 9, 9, W - 18, t, WHITE)
-		rect(img, 9, H - 9 - t, W - 18, t, WHITE)
-		rect(img, 9, 9, t, H - 18, WHITE)
-		rect(img, W - 9 - t, 9, t, H - 18, WHITE)
-		img:DrawCircle(Vector2.new(W / 2, H / 2), 50, DARK, 0, Enum.ImageCombineType.Overwrite)
-		img:DrawCircle(Vector2.new(W / 2, H / 2), 44, WHITE, 0, Enum.ImageCombineType.Overwrite)
-		word(img, design.short or "", W / 2, H / 2, 5, c)
+		if design.hoops then
+			-- Riscas horizontais, cor e branco (a camisola as riscas).
+			local band = H / 7
+			for k = 1, 6, 2 do
+				rect(img, 0, k * band, W, band, WHITE)
+			end
+		else
+			-- Moldura branca.
+			local t = 7
+			rect(img, 9, 9, W - 18, t, WHITE)
+			rect(img, 9, H - 9 - t, W - 18, t, WHITE)
+			rect(img, 9, 9, t, H - 18, WHITE)
+			rect(img, W - 9 - t, 9, t, H - 18, WHITE)
+		end
+		-- O emblema redondo ao meio: o animal da claque (o nosso desenho,
+		-- nao o de nenhum clube real), branco sobre a cor.
+		img:DrawCircle(Vector2.new(W / 2, H / 2), 64, DARK, 0, Enum.ImageCombineType.Overwrite)
+		img:DrawCircle(Vector2.new(W / 2, H / 2), 58, WHITE, 0, Enum.ImageCombineType.Overwrite)
+		img:DrawCircle(Vector2.new(W / 2, H / 2), 54, c, 0, Enum.ImageCombineType.Overwrite)
+		local lines = if design.teamId then TifoDesigns.rows({ emblem = true }, design.teamId) else nil
+		if lines and #lines > 0 then
+			local cols, rowsN = #lines[1], #lines
+			local cell = 3.4
+			local x0 = W / 2 - cols * cell / 2
+			local y0 = H / 2 - rowsN * cell / 2
+			for j, line in lines do
+				for i = 1, cols do
+					local ch = string.sub(line, i, i)
+					if ch == "B" or ch == "P" then
+						rect(img, x0 + (i - 1) * cell, y0 + (j - 1) * cell, cell + 0.6, cell + 0.6, if ch == "B" then WHITE else DARK)
+					end
+				end
+			end
+		else
+			word(img, design.short or "", W / 2, H / 2, 5, WHITE)
+		end
 	else
 		-- A bandeirinha: cor, branco, cor; a sigla na faixa branca.
 		rect(img, 0, H / 3, W, H / 3, WHITE)
