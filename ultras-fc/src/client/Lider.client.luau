@@ -282,6 +282,10 @@ local function showMusic()
 	list.Padding = UDim.new(0, 6)
 	list.Parent = subPanel
 	for i, song in L.canticos do
+		-- Os canticos de uma claque so aparecem ao lider dela.
+		if (song :: any).team and (song :: any).team ~= me:GetAttribute("Team") then
+			continue
+		end
 		local b = button(subPanel, "♪ " .. song.name, Color3.fromRGB(120, 70, 200))
 		b.Size = UDim2.new(1, 0, 0, 36)
 		b.LayoutOrder = i

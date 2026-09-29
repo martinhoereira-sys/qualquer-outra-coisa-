@@ -426,6 +426,8 @@ Config.Lider = {
 		{ name = "Tambor sozinho", id = 140393706670152 },
 		{ name = "A bancada a cantar", id = 9112766203 },
 		{ name = "Festa com buzinas", id = 9112779173 },
+		-- `team`: so aparece a essa claque.
+		{ name = "Sporting o meu Lugar", id = 117260593732846, team = "away" },
 	},
 	farda = Color3.fromRGB(20, 20, 24), -- o casaco da farda (o cachecol e da cor da claque)
 	--[[
