@@ -581,6 +581,8 @@ RunService.RenderStepped:Connect(function(dt)
 				local drift = math.sin(now * 0.35 + w.phase) * 0.45
 				local side = math.clamp(w.marchSide + drift, -w.limit, w.limit)
 				target = point + right * side
+				-- Olham para onde o corteo vai (para a frente, na direcao do lider), nao de lado.
+				face = Vector3.new(direction.X, 0, direction.Z)
 			elseif stage == "corrida" and not arrived then
 				-- A correr para a porta, atras da faixa, o bloco a esticar-se.
 				local point, direction = alongTrail(trail, w.marchBack * 0.7)
@@ -592,6 +594,11 @@ RunService.RenderStepped:Connect(function(dt)
 				speed = M.runSpeed + 6
 			else
 				target = here + w.gather
+				-- A espera: virados para a faixa (e para o lider).
+				local toBanner = Vector3.new(here.X - w.at.X, 0, here.Z - w.at.Z)
+				if toBanner.Magnitude > 0.5 then
+					face = toBanner.Unit
+				end
 			end
 			target = Vector3.new(target.X, 0, target.Z)
 
@@ -600,12 +607,19 @@ RunService.RenderStepped:Connect(function(dt)
 			local stepLength = math.min(delta.Magnitude, speed * dt)
 			local walking = delta.Magnitude > 0.35
 			if walking then
-				w.facing = delta.Unit
 				w.at += delta.Unit * stepLength
 			end
-			if face and delta.Magnitude < 1.5 then
-				w.facing = face
-			end
+			--[[
+				Para onde olham: para a frente do corteo (`face`). So quando vao
+				longe (a apanhar o grupo, a correr) olham para onde andam. Viram-se
+				devagar, como gente: nada de ficar de lado por um passo pequeno.
+			]]
+			local want = if face and (delta.Magnitude < 3 or stage == "marcha") then face
+				elseif walking then delta.Unit
+				else w.facing
+			local turned = w.facing:Lerp(want, math.clamp(dt * 7, 0, 1))
+			turned = Vector3.new(turned.X, 0, turned.Z)
+			w.facing = if turned.Magnitude > 1e-3 then turned.Unit else want
 
 			if stage ~= "marcha" and stage ~= "formatura" and now >= w.nextCheck then
 				w.nextCheck = now + 0.4 + math.random() * 0.2
