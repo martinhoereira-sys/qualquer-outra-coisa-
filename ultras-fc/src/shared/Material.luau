@@ -135,17 +135,17 @@ local function wearScarf(character: Model, colour: Color3, club: any?)
 	model.Name = NECK
 
 	local top = torso.Size.Y / 2
-	local ring = loosePart("Volta", Vector3.new(1.3, 0.32, 1.1), colour, model)
+	local ring = loosePart("Volta", Vector3.new(1.24, 0.3, 1.12), colour, model)
 	ring.Material = Enum.Material.Fabric
-	ring.CFrame = torso.CFrame * CFrame.new(0, top - 0.1, 0)
-	for _, x in { -0.3, 0.3 } do
-		local strip = loosePart("Ponta", Vector3.new(0.36, 1.2, 0.08), colour, model)
+	ring.CFrame = torso.CFrame * CFrame.new(0, top - 0.02, 0)
+	for _, x in { -0.22, 0.22 } do
+		local strip = loosePart("Ponta", Vector3.new(0.3, 0.5, 0.08), colour, model)
 		strip.Material = Enum.Material.Fabric
-		strip.CFrame = torso.CFrame * CFrame.new(x, top - 0.75, -torso.Size.Z / 2 - 0.05)
-		local fringe = loosePart("Franja", Vector3.new(0.37, 0.18, 0.09), WHITE, model)
-		weldTo(strip, fringe, CFrame.new(0, -0.6, 0))
+		strip.CFrame = torso.CFrame * CFrame.new(x, top - 0.3, -torso.Size.Z / 2 - 0.1)
+		local fringe = loosePart("Franja", Vector3.new(0.31, 0.09, 0.09), WHITE, model)
+		weldTo(strip, fringe, CFrame.new(0, -0.25, 0))
 		-- The club emblem on one end.
-		if club and club.emblem and x < 0 then
+		if false and club and club.emblem and x < 0 then -- the end is too narrow for an emblem now
 			local gui = Instance.new("SurfaceGui")
 			gui.Name = "Emblema"
 			gui.Face = Enum.NormalId.Front

@@ -109,6 +109,14 @@ end
 
 -- Takes the kit off (the body colours stay as they are).
 function Uniform.strip(model: Model)
+	-- What the ultra's hood was hiding comes back.
+	for _, d in model:GetDescendants() do
+		local hidden = d:GetAttribute("Escondido")
+		if d:IsA("BasePart") and type(hidden) == "number" then
+			d.Transparency = hidden
+			d:SetAttribute("Escondido", nil)
+		end
+	end
 	local old = model:FindFirstChild(FOLDER)
 	if old then
 		old:Destroy()
@@ -271,17 +279,17 @@ end
 
 --[[
 	THE ULTRA'S OUTFIT: what everyone in a claque wears, never on the pitch.
-	The same cut for every club; only the colours and the name change, and
-	they are read from the club (Config.Clubs): `color` and `accent` for the
-	details, `mask`, `claque` across the chest, the emblem small on the back.
+	The same cut for every club, read from the club (Config.Clubs).
 
-	Dark from head to foot, so the curvas read as dark blocks and the pitch as
-	colour: a dark top with collar, cuffs and a chest band in the club's colour,
-	the claque's name on the band, dark trousers, and a mask over mouth and nose.
-	(The scarf round the neck is the claque's material: Gear.)
+	It is BLACK from head to foot: top, trousers, everything. The club's colour
+	shows in two places only: the scarf round the neck (the claque's material:
+	Gear / Material.wearScarf) and the mask over mouth and nose (`mask`). The
+	claque's name goes across the chest in white, and the club's symbol small
+	on the back, in white too. From the pitch a curva is a black block with a
+	line of colour at the neck.
 ]]
-local ULTRA_DARK = Color3.fromRGB(26, 27, 31)
-local ULTRA_TROUSERS = Color3.fromRGB(20, 21, 25)
+local ULTRA_BLACK = Color3.fromRGB(18, 18, 21)
+local ULTRA_WHITE = Color3.fromRGB(245, 245, 245)
 
 function Uniform.ultra(model: Model, club: any): Folder
 	Uniform.strip(model)
@@ -292,12 +300,6 @@ function Uniform.ultra(model: Model, club: any): Folder
 	end
 	local folder = Instance.new("Folder")
 	folder.Name = FOLDER
-	local colour: Color3 = club.color
-	local detail: Color3 = club.accent or club.color
-	-- A dark club colour would not show on the dark top: the second colour leads then.
-	if club.accent and colour.R * 0.3 + colour.G * 0.59 + colour.B * 0.11 < 0.25 then
-		colour, detail = club.accent, club.color
-	end
 	local head = part(model, "Head")
 	local skin = if head then head.Color else Color3.fromRGB(226, 190, 152)
 
@@ -307,30 +309,27 @@ function Uniform.ultra(model: Model, club: any): Folder
 		colours.Parent = model
 	end
 	local bc = colours :: BodyColors
-	bc.TorsoColor3 = ULTRA_DARK
+	bc.TorsoColor3 = ULTRA_BLACK
 	bc.LeftArmColor3 = skin
 	bc.RightArmColor3 = skin
-	bc.LeftLegColor3 = ULTRA_TROUSERS
-	bc.RightLegColor3 = ULTRA_TROUSERS
+	bc.LeftLegColor3 = ULTRA_BLACK
+	bc.RightLegColor3 = ULTRA_BLACK
 
 	local torso = part(model, "UpperTorso")
 	if torso then
 		local w, h, d = torso.Size.X, torso.Size.Y, torso.Size.Z
-		band("Camisola", torso, 0, h + 0.02, ULTRA_DARK, folder)
-		band("Gola", torso, h / 2 - 0.07, 0.14, colour, folder, PAD + 0.03)
-		-- The chest band, with the claque's name across it.
-		local stripe = band("Risca", torso, h * 0.1, h * 0.3, colour, folder, PAD + 0.02)
-		if club.accent then
-			band("Fio", torso, h * 0.1 - h * 0.18, h * 0.05, detail, folder, PAD + 0.02)
-		end
-		label(stripe, Enum.NormalId.Front, string.upper(club.claque), inkFor(colour), UDim2.fromScale(0.94, 0.8), UDim2.fromScale(0.03, 0.1))
-		local texts = stripe:FindFirstChild("Texto") :: SurfaceGui?
+		band("Camisola", torso, 0, h + 0.02, ULTRA_BLACK, folder)
+		-- The claque's name across the chest, in white.
+		local chest = shell("Peito", torso, Vector3.new(w * 0.96, h * 0.34, 0.03), CFrame.new(0, h * 0.08, -(d / 2 + 0.09)), ULTRA_BLACK, folder)
+		chest.Transparency = 1
+		label(chest, Enum.NormalId.Front, string.upper(club.claque), ULTRA_WHITE, UDim2.fromScale(0.96, 0.9), UDim2.fromScale(0.02, 0.05))
+		local texts = chest:FindFirstChild("Texto") :: SurfaceGui?
 		if texts then
-			texts.CanvasSize = Vector2.new(400, 110)
+			texts.CanvasSize = Vector2.new(400, 120)
 		end
-		-- The club's emblem, small, on the back.
+		-- The club's symbol, small and white, on the back.
 		if club.emblem then
-			local plate = shell("Emblema", torso, Vector3.new(w * 0.34, w * 0.34, 0.03), CFrame.new(0, -h * 0.22, d / 2 + 0.1), ULTRA_DARK, folder)
+			local plate = shell("Emblema", torso, Vector3.new(w * 0.36, w * 0.36, 0.03), CFrame.new(0, h * 0.12, d / 2 + 0.1), ULTRA_BLACK, folder)
 			plate.Transparency = 1
 			local gui = Instance.new("SurfaceGui")
 			gui.Name = "Emblema"
@@ -342,34 +341,49 @@ function Uniform.ultra(model: Model, club: any): Folder
 			holder.BackgroundTransparency = 1
 			holder.Size = UDim2.fromScale(1, 1)
 			holder.Parent = gui
-			Emblem.draw(holder, club, { year = false })
+			Emblem.draw(holder, club, { year = false, mono = ULTRA_WHITE, ground = ULTRA_BLACK })
 		end
 	end
 	local hips = part(model, "LowerTorso")
 	if hips then
-		band("Calcas", hips, 0, hips.Size.Y + 0.02, ULTRA_TROUSERS, folder)
+		band("Calcas", hips, 0, hips.Size.Y + 0.02, ULTRA_BLACK, folder)
 	end
-	-- Long sleeves, with a cuff in the club's colour.
 	for _, name in { "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm" } do
 		local arm = part(model, name)
 		if arm then
-			local h = arm.Size.Y
-			band("Manga", arm, 0, h + 0.02, ULTRA_DARK, folder)
-			if string.find(name, "Lower") then
-				band("Punho", arm, -h / 2 + 0.08, 0.16, detail, folder, PAD + 0.03)
+			band("Manga", arm, 0, arm.Size.Y + 0.02, ULTRA_BLACK, folder)
+		end
+	end
+	for _, name in { "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot" } do
+		local leg = part(model, name)
+		if leg then
+			band("Calcas", leg, 0, leg.Size.Y + 0.02, ULTRA_BLACK, folder)
+		end
+	end
+	-- The black hood: over the hair and anything worn on the head, so the block
+	-- stays black. Only the face is out. (Taking the outfit off shows them again.)
+	for _, child in model:GetChildren() do
+		if child:IsA("Accessory") then
+			local handle = child:FindFirstChild("Handle")
+			if handle and handle:IsA("BasePart") and handle.Transparency < 1 then
+				handle:SetAttribute("Escondido", handle.Transparency)
+				handle.Transparency = 1
 			end
 		end
 	end
-	for _, name in { "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg" } do
-		local leg = part(model, name)
-		if leg then
-			band("Calcas", leg, 0, leg.Size.Y + 0.02, ULTRA_TROUSERS, folder)
-		end
-	end
-	-- The mask: over the mouth and the nose.
 	if head then
 		local s = head.Size
-		shell("Mascara", head, Vector3.new(s.X + 0.08, s.Y * 0.44, s.Z + 0.08), CFrame.new(0, -s.Y * 0.27, 0), club.mask or colour, folder)
+		shell("Capuz", head, Vector3.new(s.X + 0.12, s.Y * 0.36, s.Z + 0.12), CFrame.new(0, s.Y * 0.36, 0), ULTRA_BLACK, folder)
+		shell("Capuz", head, Vector3.new(s.X + 0.12, s.Y + 0.08, s.Z * 0.5), CFrame.new(0, 0, s.Z * 0.31), ULTRA_BLACK, folder)
+		for _, side in { -1, 1 } do
+			shell("Capuz", head, Vector3.new(0.14, s.Y + 0.08, s.Z * 0.62), CFrame.new(side * (s.X / 2 + 0.0), 0, s.Z * 0.2), ULTRA_BLACK, folder)
+		end
+	end
+	-- The mask: a narrow strip over the mouth and the nose, in the club's colour.
+	-- Eyes, forehead and hair stay out.
+	if head then
+		local s = head.Size
+		shell("Mascara", head, Vector3.new(s.X + 0.02, s.Y * 0.24, s.Z + 0.02), CFrame.new(0, -s.Y * 0.2, 0), club.mask or club.color, folder)
 	end
 
 	folder.Parent = model

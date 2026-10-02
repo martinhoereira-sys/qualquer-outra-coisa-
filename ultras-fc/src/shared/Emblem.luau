@@ -33,6 +33,8 @@ local Emblem = {}
 export type Options = {
 	simple: boolean?, -- kept for old callers: the drawing is the same
 	year: boolean?, -- write the founding year underneath (default true)
+	mono: Color3?, -- one colour only: the symbol in this colour...
+	ground: Color3?, -- ...on this one (what the emblem's main colour becomes)
 }
 
 -- Fills `parent` (best square) with the club's emblem.
@@ -55,7 +57,7 @@ function Emblem.draw(parent: GuiObject, club: any, options: Options?): Frame
 	for index, shape in e.shapes do
 		local f = Instance.new("Frame")
 		f.BorderSizePixel = 0
-		f.BackgroundColor3 = e.colours[shape[7]]
+		f.BackgroundColor3 = if o.mono then (if shape[7] == "m" then o.ground or Color3.new(0, 0, 0) else o.mono) else e.colours[shape[7]]
 		f.AnchorPoint = Vector2.new(0.5, 0.5)
 		f.Position = UDim2.fromScale(shape[1], shape[2])
 		f.Size = UDim2.fromScale(shape[3], shape[4])
