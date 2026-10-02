@@ -149,15 +149,20 @@ local function pitch(club: any, at: CFrame, parent: Instance, PITCH: Vector3)
 	for _, x in { -w / 2 + 1, 0, w / 2 - 1 } do
 		part("Linha", Vector3.new(0.4, 0.06, d - 2), at * CFrame.new(x, 0.44, 0), LINE, Enum.Material.SmoothPlastic, folder).CanCollide = false
 	end
-	-- Two goals.
+	-- Two goals, a little smaller than the stadium's (Config.Friendly).
+	local gw, gh = Config.Friendly.goalHalfWidth, Config.Friendly.goalHeight
 	for _, side in { -1, 1 } do
 		local x = side * (w / 2 - 1)
-		for _, z in { -4, 4 } do
-			part("Poste", Vector3.new(0.4, 4.4, 0.4), at * CFrame.new(x, 2.6, z), WHITE, Enum.Material.Metal, folder)
+		for _, z in { -gw, gw } do
+			part("Poste", Vector3.new(0.5, gh, 0.5), at * CFrame.new(x, 0.4 + gh / 2, z), WHITE, Enum.Material.Metal, folder)
 		end
-		part("Trave", Vector3.new(0.4, 0.4, 8.4), at * CFrame.new(x, 4.8, 0), WHITE, Enum.Material.Metal, folder)
-		local net = part("Rede", Vector3.new(0.2, 4.4, 8), at * CFrame.new(x + side * 1.6, 2.6, 0), WHITE, Enum.Material.Fabric, folder)
+		part("Trave", Vector3.new(0.5, 0.5, gw * 2 + 0.5), at * CFrame.new(x, 0.4 + gh + 0.25, 0), WHITE, Enum.Material.Metal, folder)
+		local net = part("Rede", Vector3.new(0.2, gh, gw * 2), at * CFrame.new(x + side * 2.4, 0.4 + gh / 2, 0), WHITE, Enum.Material.Fabric, folder)
 		net.Transparency = 0.6
+		for _, z in { -gw, gw } do
+			local sideNet = part("Rede", Vector3.new(2.4, gh, 0.2), at * CFrame.new(x + side * 1.2, 0.4 + gh / 2, z), WHITE, Enum.Material.Fabric, folder)
+			sideNet.Transparency = 0.6
+		end
 	end
 	-- The fence, in the club's colours: posts and two rails, open in the middle of the side that faces the sede.
 	local colour: Color3 = club.color
@@ -178,10 +183,12 @@ local function pitch(club: any, at: CFrame, parent: Instance, PITCH: Vector3)
 	run(Vector3.new(-hw, 0, hd), Vector3.new(hw, 0, hd))
 	run(Vector3.new(-hw, 0, -hd), Vector3.new(-5, 0, -hd))
 	run(Vector3.new(5, 0, -hd), Vector3.new(hw, 0, -hd))
-	run(Vector3.new(-hw, 0, -hd), Vector3.new(-hw, 0, hd))
-	run(Vector3.new(hw, 0, -hd), Vector3.new(hw, 0, hd))
+	-- (Behind the goals the fence stands back, to leave room for the nets.)
+	local hx = hw + 2
+	run(Vector3.new(-hx, 0, -hd), Vector3.new(-hx, 0, hd))
+	run(Vector3.new(hx, 0, -hd), Vector3.new(hx, 0, hd))
 	-- The emblem at one end.
-	emblemBoard(club, 7, at * CFrame.new(hw, 5.5, 0) * CFrame.Angles(0, math.rad(90), 0), Enum.NormalId.Front, folder)
+	emblemBoard(club, 7, at * CFrame.new(hw + 2.4, 13, 0) * CFrame.Angles(0, math.rad(90), 0), Enum.NormalId.Front, folder)
 	folder.Parent = parent
 end
 

@@ -278,7 +278,7 @@ function Friendly.start()
 			local out = math.abs(p.X) > pitch.half.X or math.abs(p.Z) > pitch.half.Z + 1 or p.Y < -4
 			if out then
 				-- Between the posts and under the bar it is a goal; anywhere else, back to the centre.
-				local goal = math.abs(p.X) > pitch.half.X - 1.5 and math.abs(p.Z) < 4 and p.Y < 4.6
+				local goal = math.abs(p.X) > pitch.half.X - 1.5 and math.abs(p.Z) < F.goalHalfWidth and p.Y < F.goalHeight
 				if goal and pitch.endsAt then
 					-- The +x goal is defended by team 2: team 1 scores there.
 					local side = if p.X > 0 then 1 else 2

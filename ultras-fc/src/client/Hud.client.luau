@@ -752,7 +752,7 @@ ContextActionService:BindAction("Animacoes", function(_, inputState)
 		toggleEmotes()
 	end
 	return Enum.ContextActionResult.Pass
-end, false, Enum.KeyCode.G)
+end, false, Enum.KeyCode.G, Enum.KeyCode.DPadUp)
 
 -- De bicicleta: um botao (ou F) para descer.
 local bikeButton = Instance.new("TextButton")
@@ -781,7 +781,7 @@ ContextActionService:BindAction("Descer", function(_, inputState)
 		Remotes.Bike:FireServer("descer")
 	end
 	return Enum.ContextActionResult.Pass
-end, false, Enum.KeyCode.F)
+end, false, Enum.KeyCode.F, Enum.KeyCode.ButtonB)
 
 local goalLabel = label(gui, "", 30, TEXT)
 goalLabel.Size = UDim2.new(1, 0, 0, 36)
@@ -1736,7 +1736,7 @@ ContextActionService:BindAction("Apitar", function(_, inputState)
 		blowWhistle()
 	end
 	return Enum.ContextActionResult.Pass
-end, false, Enum.KeyCode.E)
+end, false, Enum.KeyCode.E, Enum.KeyCode.ButtonX)
 
 local function showEntry(w: any)
 	if not w then
@@ -1821,7 +1821,7 @@ ContextActionService:BindAction("Pedir", function(_, inputState)
 		Remotes.Pressure:FireServer()
 	end
 	return Enum.ContextActionResult.Pass
-end, true, Enum.KeyCode.B)
+end, true, Enum.KeyCode.B, Enum.KeyCode.DPadLeft)
 
 ContextActionService:SetTitle("Pedir", TXT.appeal)
 
@@ -2303,7 +2303,7 @@ ContextActionService:BindAction("Tifo", function(_, inputState)
 		togglePicker()
 	end
 	return Enum.ContextActionResult.Pass
-end, true, Enum.KeyCode.T)
+end, true, Enum.KeyCode.T, Enum.KeyCode.DPadRight)
 
 ContextActionService:SetTitle("Tifo", "TIFO")
 

@@ -617,17 +617,21 @@ if touchOnly then
 	hint.Visible = false
 end
 
+local padKick: Enum.KeyCode? = nil
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or not playing() then
 		return
 	end
-	if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2) and not chargingSince then
+	-- Gamepad: R2 shoots, L2 shoots with curve, X dives, L1 sprints.
+	local pad = input.KeyCode
+	if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or pad == Enum.KeyCode.ButtonR2 or pad == Enum.KeyCode.ButtonL2) and not chargingSince then
 		chargingSince = os.clock()
-		withSpin = input.UserInputType == Enum.UserInputType.MouseButton2
+		withSpin = input.UserInputType == Enum.UserInputType.MouseButton2 or pad == Enum.KeyCode.ButtonL2
+		padKick = if pad == Enum.KeyCode.ButtonR2 or pad == Enum.KeyCode.ButtonL2 then pad else nil
 		moved = Vector2.zero
-	elseif input.KeyCode == Enum.KeyCode.Q then
+	elseif input.KeyCode == Enum.KeyCode.Q or pad == Enum.KeyCode.ButtonX then
 		dive()
-	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then
+	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift or pad == Enum.KeyCode.ButtonL1 then
 		sprinting = true
 		Remotes.Football:FireServer("sprint", true)
 	end
@@ -638,11 +642,12 @@ UserInputService.InputEnded:Connect(function(input)
 		return
 	end
 	local button = if withSpin then Enum.UserInputType.MouseButton2 else Enum.UserInputType.MouseButton1
-	if input.UserInputType == button and chargingSince then
+	if (input.UserInputType == button or (padKick ~= nil and input.KeyCode == padKick)) and chargingSince then
+		padKick = nil
 		local curve, height = aim()
 		sendKick(charge(), curve, height)
 		chargingSince = nil
-	elseif (input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift) and sprinting then
+	elseif (input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.ButtonL1) and sprinting then
 		sprinting = false
 		Remotes.Football:FireServer("sprint", false)
 	end

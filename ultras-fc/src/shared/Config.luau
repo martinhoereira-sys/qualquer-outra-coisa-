@@ -788,6 +788,9 @@ Config.Rota = {
 	THE FRIENDLIES on the training pitches (server/Friendly).
 ]]
 Config.Friendly = {
+	-- The goals of the training pitches: a little smaller than the stadium's (21 x 9.6).
+	goalHalfWidth = 9,
+	goalHeight = 8.4,
 	minutes = 5,
 	xp = 15, -- player XP for playing one (less than an official match)
 	kick = 34, -- how hard the ball goes when one walks into it
