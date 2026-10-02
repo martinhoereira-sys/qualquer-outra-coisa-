@@ -780,15 +780,15 @@ Config.League = {
 	  maxSmokes  smoke clouds at the same time, at most
 ]]
 Config.Pyro = {
-	light = 0.3,
-	range = 0.6,
-	glow = 0.6,
-	halo = 0.6,
-	particles = 0.6,
-	smokeSize = 0.6, -- how big the puffs of smoke get
-	smokeOpacity = 0.55, -- how solid the smoke is
-	smokeLife = 0.6, -- how long it hangs in the air
-	maxLights = 8,
+	light = 0.55,
+	range = 0.8,
+	glow = 0.85,
+	halo = 0.8,
+	particles = 0.8,
+	smokeSize = 0.75, -- how big the puffs of smoke get
+	smokeOpacity = 0.7, -- how solid the smoke is
+	smokeLife = 0.75, -- how long it hangs in the air
+	maxLights = 12,
 	maxSmokes = 10,
 }
 
@@ -1007,6 +1007,10 @@ Config.Text = {
 		everythingUnlocked = "Everything unlocked",
 	},
 	main = {
+		youGotOutOf = "YOU GOT %d OUT OF %d",
+		rightCallsEarnXp = "Only the right calls earn XP.",
+		youLostTheWhistle = "You lost the whistle",
+		noRefereeingFor = "Too many wrong calls. You cannot referee for %d matches.",
 		outOf = "Out of: ",
 		theUltrasGiveOneRation = "The ultras give one ration per match, and you have used it.",
 		buyMoreFromADealer = "Buy more from a dealer in the street, with the game's coins.",
@@ -1086,6 +1090,11 @@ Config.Text = {
 	},
 	hud = {
 		chooseYourClub = "Choose your club",
+		warnJoin = "You are joining %s.",
+		warnKept = "This club is kept. It is your ultras, your shirt and your curva.",
+		warnChange = "To change later you must go to the other club's clubhouse, in person.",
+		warnSure = "Are you sure?",
+		warnYes = "I AM %s",
 		follow = "FOLLOW THIS CLUB",
 		unfollow = "STOP FOLLOWING",
 		followNote = "your second club: its matches, no ultras, no curva, no gear",
@@ -1589,6 +1598,7 @@ Config.March = {
 	readyNeeded = 3, -- quantos tem de estar na sede para o lider poder sair (ou todos, se forem menos)
 	autoStartAfter = 20, -- sem lider a dar a ordem, a faixa forma e sai sozinha, com folga para chegar
 	formSeconds = 8, -- a formatura: filas direitas, quietos, antes de sair
+	formLook = 70, -- forming up, they look at the point this far ahead on the route: down the street, to the stadium
 	formAhead = 20, -- ao formar, a faixa avanca isto pela rua: as filas ficam atras dela, fora da sede
 	runDistance = 55, -- a esta distancia da porta acaba a marcha e corre-se para dentro
 	runSpeed = 20, -- a corrida para dentro
@@ -1738,6 +1748,7 @@ Config.Referee = {
 	suspicionDecay = 1.4, -- por segundo, quando se porta bem
 	caughtAt = 100,
 	banMatches = 2,
+	wrongLimit = 4, -- this many wrong calls in one match and the whistle is taken away
 	pressureWindow = 20, -- segundos que um pedido da bancada continua a contar
 }
 

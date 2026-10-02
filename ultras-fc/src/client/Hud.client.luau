@@ -271,6 +271,27 @@ do
 					no.Activated:Connect(function()
 						showClubs()
 					end)
+				elseif mine == nil then
+					-- The first choice is kept: nobody makes it without knowing.
+					stage:ClearAllChildren()
+					title.Text = club.name
+					subtitle.Text = string.format(TXT.warnJoin, club.nameUpper)
+					for n, words in { TXT.warnKept, TXT.warnChange, TXT.warnSure } do
+						local l = label(stage, words, 15, if n == 3 then TEXT else MUTED)
+						l.Font = if n == 3 then Enum.Font.GothamBlack else Enum.Font.Gotham
+						l.Size = UDim2.fromOffset(WIDTH, 22)
+						l.Position = UDim2.fromOffset(0, 20 + (n - 1) * 28)
+					end
+					local backButton = card(WIDTH / 2 - 250, 124, 200, 64, Color3.fromRGB(58, 62, 72))
+					line(backButton, TXT.back, 16, TEXT, 22, Enum.Font.GothamBlack)
+					backButton.Activated:Connect(function()
+						showClubs()
+					end)
+					local yes = card(WIDTH / 2 - 30, 124, 280, 64, club.color)
+					line(yes, string.format(TXT.warnYes, club.nameUpper), 16, TEXT, 22, Enum.Font.GothamBlack)
+					yes.Activated:Connect(function()
+						pick(role.send)
+					end)
 				elseif role.stay then
 					Remotes.PickTeam:FireServer(role.send)
 					task.delay(0.4, showClubs)
@@ -336,7 +357,12 @@ do
 			end
 		end
 
+		-- Nobody referees a match of their own club, nor of the club they follow:
+		-- the card is not even there (the server refuses it too).
+		local myClub, myFollowed = player:GetAttribute("Clube"), player:GetAttribute("Clube2")
+		local involved = match.home == myClub or match.away == myClub or match.home == myFollowed or match.away == myFollowed
 		local ref = card((WIDTH - REF_W) / 2, 22, REF_W, TOP_H, YELLOW)
+		ref.Visible = not involved
 		local sheet = Instance.new("Frame")
 		sheet.BackgroundColor3 = INK
 		sheet.BorderSizePixel = 0

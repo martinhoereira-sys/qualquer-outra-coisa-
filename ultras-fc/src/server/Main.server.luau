@@ -219,6 +219,14 @@ local function pickTeam(player: Player, teamId: any)
 
 	-- O apito e um papel como os outros, escolhido a entrada.
 	if teamId == "arbitro" then
+		-- Nobody referees a match of their own club, nor of the club they follow.
+		local mine, second = Money.clubOf(player)
+		for _, slot in Config.TeamOrder do
+			local playing = Config.Teams[slot].club
+			if playing == mine or playing == second then
+				return
+			end
+		end
 		if Referee.take(player) then
 			markSwitch(player)
 			Squad.leave(player)
@@ -643,6 +651,14 @@ MatchLoop.onChange(function(snapshot)
 		calado. Empate, ninguem.
 	]]
 	if entered and snapshot.phase == "fulltime" then
+		-- The referee is told how many calls were right (counted on the server).
+		local ref = Referee.current()
+		if ref then
+			local right, total = Referee.tallyOf(ref)
+			if total > 0 then
+				Remotes.Npc:FireClient(ref, { title = string.format(TXT.youGotOutOf, right, total), lines = { TXT.rightCallsEarnXp } })
+			end
+		end
 		Referee.endMatch()
 		-- The result goes to the league table, if real people were in this match.
 		local people = #Squad.humans()
@@ -1189,6 +1205,12 @@ Football.onEvent(function(kind, f)
 	end
 end)
 Referee.onDecision(Progress.refDecision)
+-- Too many wrong calls: the whistle is taken away, and the match goes on with the automatic referee.
+Referee.onDismissed(function(player)
+	local right, total = Referee.tallyOf(player)
+	Remotes.Npc:FireClient(player, { title = TXT.youLostTheWhistle, lines = { string.format(TXT.youGotOutOf, right, total), string.format(TXT.noRefereeingFor, Config.Referee.banMatches) } })
+	task.spawn(sendToSquare, player)
+end)
 Gear.setBonus(Progress.gearBonus)
 Gear.setPerks(Progress.gearPerks)
 Gear.setDrumRule(Progress.drumWithoutLeader)

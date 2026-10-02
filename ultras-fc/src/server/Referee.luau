@@ -101,9 +101,46 @@ local onDecision: ((Player, boolean, boolean) -> ())? = nil
 function Referee.onDecision(fn: (Player, boolean, boolean) -> ())
 	onDecision = fn
 end
+--[[
+	THE DECISIONS COUNT. The server knows the truth of each play; every call
+	of the person with the whistle is compared with it (`correct`). The tally
+	of the match is kept here: right calls out of all calls. Too many wrong
+	ones in the same match (Config.Referee.wrongLimit) and the whistle is taken
+	away there and then, with a ban of some matches, like being caught.
+	At the end the referee is told: "YOU GOT 9 OUT OF 11".
+]]
+local tally: { [Player]: { right: number, total: number } } = {}
+local onDismissed: ((Player) -> ())? = nil
+function Referee.onDismissed(fn: (Player) -> ())
+	onDismissed = fn
+end
+
+function Referee.tallyOf(player: Player): (number, number)
+	local t = tally[player]
+	return if t then t.right else 0, if t then t.total else 0
+end
+
 local function decided(ref: Player?, correct: boolean, caught: boolean)
-	if ref and onDecision then
+	if not ref then
+		return
+	end
+	local t = tally[ref] or { right = 0, total = 0 }
+	tally[ref] = t
+	t.total += 1
+	if correct then
+		t.right += 1
+	end
+	if onDecision then
 		task.spawn(onDecision :: (Player, boolean, boolean) -> (), ref, correct, caught)
+	end
+	if not caught and t.total - t.right >= R.wrongLimit and whistle == ref then
+		bans[ref] = R.banMatches
+		ref:SetAttribute("Team", nil)
+		whistle = nil
+		suspicion = 0
+		if onDismissed then
+			task.spawn(onDismissed :: (Player) -> (), ref)
+		end
 	end
 end
 
@@ -507,6 +544,7 @@ end
 -- Fim de jogo: desconta uma partida a quem esta suspenso.
 function Referee.endMatch()
 	window = nil
+	table.clear(tally)
 	for player, left in bans do
 		bans[player] = math.max(left - 1, 0)
 	end

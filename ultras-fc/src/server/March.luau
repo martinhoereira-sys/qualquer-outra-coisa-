@@ -282,6 +282,27 @@ function March.form(teamId: string): boolean
 		left -= segment.Magnitude
 		at = b
 	end
+	-- They form up looking down the street, the way to the stadium: at a point
+	-- well ahead on the route, not along the short first step out of the door
+	-- (which points at the wall across the street).
+	local ahead, walked = at, 0
+	local from = at
+	for i = banner.leg + 1, #points do
+		local b = points[i]
+		local step = Vector3.new(b.X - from.X, 0, b.Z - from.Z)
+		if walked + step.Magnitude >= M.formLook then
+			ahead = from + step.Unit * (M.formLook - walked)
+			walked = M.formLook
+			break
+		end
+		walked += step.Magnitude
+		from = b
+		ahead = b
+	end
+	local facing = Vector3.new(ahead.X - at.X, 0, ahead.Z - at.Z)
+	if facing.Magnitude > 1 then
+		look = facing.Unit
+	end
 	banner.model.CFrame = CFrame.lookAt(Vector3.new(at.X, banner.model.Position.Y, at.Z), Vector3.new(at.X, banner.model.Position.Y, at.Z) + look)
 	banner.formedAt = os.clock()
 	setStage(banner, "formatura")
