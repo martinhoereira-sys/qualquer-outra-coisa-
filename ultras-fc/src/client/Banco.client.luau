@@ -9,6 +9,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local TXT = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config")).Text.banco
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -119,7 +120,7 @@ glow.Color = ColorSequence.new(SCREEN_2, SCREEN)
 glow.Rotation = 90
 glow.Parent = screen
 
-local header = text(screen, "🏧  MULTIBANCO", 24, TEXT, Enum.Font.GothamBlack)
+local header = text(screen, TXT.atm, 24, TEXT, Enum.Font.GothamBlack)
 header.Size = UDim2.fromOffset(360, 30)
 header.Position = UDim2.fromOffset(20, 14)
 local close = button(screen, "X", 18, RED)
@@ -127,7 +128,7 @@ close.AnchorPoint = Vector2.new(1, 0)
 close.Size = UDim2.fromOffset(38, 38)
 close.Position = UDim2.new(1, -14, 0, 12)
 
-local balanceLabel = text(screen, "SALDO", 13, MUTED, Enum.Font.GothamBlack)
+local balanceLabel = text(screen, TXT.balance, 13, MUTED, Enum.Font.GothamBlack)
 balanceLabel.Size = UDim2.fromOffset(200, 16)
 balanceLabel.Position = UDim2.fromOffset(20, 54)
 local balance = text(screen, "0$", 40, GOLD, Enum.Font.GothamBlack)
@@ -135,7 +136,7 @@ balance.Size = UDim2.fromOffset(300, 46)
 balance.Position = UDim2.fromOffset(20, 70)
 
 -- A lista de pessoas no jogo.
-local whoLabel = text(screen, "ENVIAR A", 13, MUTED, Enum.Font.GothamBlack)
+local whoLabel = text(screen, TXT.sendTo, 13, MUTED, Enum.Font.GothamBlack)
 whoLabel.Size = UDim2.fromOffset(200, 16)
 whoLabel.Position = UDim2.fromOffset(20, 126)
 local list = Instance.new("ScrollingFrame")
@@ -158,11 +159,11 @@ listPad.PaddingTop = UDim.new(0, 6)
 listPad.PaddingLeft = UDim.new(0, 6)
 listPad.PaddingRight = UDim.new(0, 10)
 listPad.Parent = list
-local empty = text(list, "Ninguem mais no jogo agora.", 14, MUTED, Enum.Font.Gotham)
+local empty = text(list, TXT.nobodyElseInTheGame, 14, MUTED, Enum.Font.Gotham)
 empty.Size = UDim2.new(1, 0, 0, 30)
 
 -- O valor.
-local amountLabel = text(screen, "VALOR", 13, MUTED, Enum.Font.GothamBlack)
+local amountLabel = text(screen, TXT.amount, 13, MUTED, Enum.Font.GothamBlack)
 amountLabel.Size = UDim2.fromOffset(200, 16)
 amountLabel.Position = UDim2.fromOffset(320, 126)
 local amountBox = Instance.new("TextBox")
@@ -195,12 +196,12 @@ for i, v in { 10, 50, 100, 500 } do
 	end)
 end
 
-local selectedLabel = text(screen, "Escolhe a pessoa na lista.", 14, MUTED, Enum.Font.GothamBold)
+local selectedLabel = text(screen, TXT.pickThePersonFromThe, 14, MUTED, Enum.Font.GothamBold)
 selectedLabel.TextWrapped = true
 selectedLabel.Size = UDim2.fromOffset(272, 36)
 selectedLabel.Position = UDim2.fromOffset(320, 256)
 
-local send = button(screen, "ENVIAR", 22, GREEN, SCREEN)
+local send = button(screen, TXT.send, 22, GREEN, SCREEN)
 send.Size = UDim2.fromOffset(272, 56)
 send.Position = UDim2.fromOffset(320, 296)
 
@@ -223,7 +224,7 @@ local function paintRows()
 			name.TextColor3 = if who == selected then SCREEN else TEXT
 		end
 	end
-	selectedLabel.Text = if selected then "Enviar a " .. selected.DisplayName else "Escolhe a pessoa na lista."
+	selectedLabel.Text = if selected then TXT.sendTo2 .. selected.DisplayName else TXT.pickThePersonFromThe
 	selectedLabel.TextColor3 = if selected then TEXT else MUTED
 end
 
@@ -308,16 +309,16 @@ send.Activated:Connect(function()
 	local who = selected
 	if not who then
 		status.TextColor3 = RED
-		status.Text = "Escolhe a quem enviar."
+		status.Text = TXT.pickWhoToSendTo
 		return
 	end
 	if not value or value < 1 then
 		status.TextColor3 = RED
-		status.Text = "Escreve quanto queres enviar."
+		status.Text = TXT.typeHowMuchYouWant
 		return
 	end
 	status.TextColor3 = MUTED
-	status.Text = "A enviar..."
+	status.Text = TXT.sending
 	Remotes.Banco:FireServer("enviar", who.UserId, value)
 end)
 
@@ -357,7 +358,7 @@ toastText.Size = UDim2.fromScale(1, 1)
 toastText.ZIndex = 71
 
 local function received(amount: number, from: string)
-	toastText.Text = "💸 " .. from .. " enviou-te " .. grouped(amount) .. "$"
+	toastText.Text = "💸 " .. from .. TXT.sentYou .. grouped(amount) .. "$"
 	TweenService:Create(toast, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Position = UDim2.new(0.5, 0, 0, 64) }):Play()
 	task.delay(4, function()
 		TweenService:Create(toast, TweenInfo.new(0.3), { Position = UDim2.new(0.5, 0, 0, -80) }):Play()

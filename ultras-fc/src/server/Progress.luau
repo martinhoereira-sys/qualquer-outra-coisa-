@@ -22,6 +22,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local TXT = Config.Text.progress
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local StadiumPlan = require(Shared:WaitForChild("StadiumPlan"))
 local Money = require(script.Parent:WaitForChild("Money"))
@@ -380,7 +381,7 @@ local function endOfMatch()
 				local bonus = if avg >= A.louderAt then A.louderXP elseif avg >= A.loudAt then A.loudXP else 0
 				if bonus > 0 then
 					gain(player, "adepto", bonus)
-					table.insert(lines, "Claque alta: +" .. bonus .. " XP")
+					table.insert(lines, TXT.loudUltras .. bonus .. " XP")
 				end
 			end
 		end
@@ -388,7 +389,7 @@ local function endOfMatch()
 			local level = Progress.level(player, "adepto")
 			local salary = S.adepto.base + S.adepto.perLevel * level + Config.Money.perCorteo * s.corteoCredit
 			pay += salary
-			table.insert(lines, "Adepto: +" .. s.adepto .. " XP, salario " .. money(salary))
+			table.insert(lines, TXT.supporter .. s.adepto .. TXT.xpWages .. money(salary))
 		end
 
 		-- Jogador: resultado e salario.
@@ -401,7 +402,7 @@ local function endOfMatch()
 			local level = Progress.level(player, "jogador")
 			local salary = S.jogador.base + S.jogador.perLevel * level + S.jogador.perGoal * s.goals
 			pay += salary
-			table.insert(lines, "Jogador: +" .. s.jogador .. " XP, salario " .. money(salary))
+			table.insert(lines, TXT.player .. s.jogador .. TXT.xpWages .. money(salary))
 		end
 
 		-- Arbitro: o jogo apitado (com pelo menos metade) e nao ser apanhado.
@@ -413,9 +414,9 @@ local function endOfMatch()
 				local level = Progress.level(player, "arbitro")
 				local salary = S.arbitro.base + S.arbitro.perLevel * level
 				pay += salary
-				table.insert(lines, "Arbitro: +" .. s.arbitro .. " XP, salario " .. money(salary))
+				table.insert(lines, TXT.referee .. s.arbitro .. TXT.xpWages .. money(salary))
 			else
-				table.insert(lines, "Arbitro: apanhado, sem salario neste jogo")
+				table.insert(lines, TXT.refereeCaughtNoWagesThis)
 			end
 		end
 
@@ -577,30 +578,30 @@ local function nextReward(path: string, level: number): string
 	local list: { { at: number, text: string } } = {}
 	if path == "adepto" then
 		for _, at in K.tochaAt do
-			table.insert(list, { at = at, text = "mais uma tocha por jogo" })
+			table.insert(list, { at = at, text = TXT.oneMoreFlarePerMatch })
 		end
 		for _, at in K.fumoAt do
-			table.insert(list, { at = at, text = "mais um fumo por jogo" })
+			table.insert(list, { at = at, text = TXT.oneMoreSmokePerMatch })
 		end
 		for _, at in K.velaAt do
-			table.insert(list, { at = at, text = "mais uma vela romana por jogo" })
+			table.insert(list, { at = at, text = TXT.oneMoreRomanCandlePer })
 		end
-		table.insert(list, { at = K.bannerAt, text = "segurar a faixa do corteo" })
-		table.insert(list, { at = K.bigFlareAt, text = "tocha grande" })
-		table.insert(list, { at = K.longCandleAt, text = "vela romana com " .. K.longCandleShots .. " tiros" })
-		table.insert(list, { at = K.exclusiveColoursAt, text = "cores douradas e prateadas" })
+		table.insert(list, { at = K.bannerAt, text = TXT.carryTheCorteoBanner })
+		table.insert(list, { at = K.bigFlareAt, text = TXT.bigFlare })
+		table.insert(list, { at = K.longCandleAt, text = TXT.romanCandleWith .. K.longCandleShots .. TXT.shots })
+		table.insert(list, { at = K.exclusiveColoursAt, text = TXT.goldAndSilverColours })
 	elseif path == "jogador" then
-		table.insert(list, { at = K.numberAt, text = "escolher o numero" })
-		table.insert(list, { at = K.positionAt, text = "escolher a posicao" })
-		table.insert(list, { at = K.bootsAt, text = "cor das botas" })
-		table.insert(list, { at = K.captainAt, text = "bracadeira de capitao" })
+		table.insert(list, { at = K.numberAt, text = TXT.chooseYourNumber })
+		table.insert(list, { at = K.positionAt, text = TXT.chooseYourPosition })
+		table.insert(list, { at = K.bootsAt, text = TXT.bootColour })
+		table.insert(list, { at = K.captainAt, text = TXT.captainSArmband })
 		for _, at in K.celebrationAt do
-			table.insert(list, { at = at, text = "festejo novo" })
+			table.insert(list, { at = at, text = TXT.newCelebration })
 		end
-		table.insert(list, { at = K.nameAt, text = "nome nas costas" })
-		table.insert(list, { at = K.goldBootsAt, text = "botas douradas" })
+		table.insert(list, { at = K.nameAt, text = TXT.nameOnTheBack })
+		table.insert(list, { at = K.goldBootsAt, text = TXT.goldenBoots })
 	else
-		return "salario maior a cada nivel"
+		return TXT.higherWagesEveryLevel
 	end
 	local best: { at: number, text: string }? = nil
 	for _, r in list do
@@ -608,7 +609,7 @@ local function nextReward(path: string, level: number): string
 			best = r
 		end
 	end
-	return if best then "Nivel " .. best.at .. ": " .. best.text else "Tudo desbloqueado"
+	return if best then TXT.level .. best.at .. ": " .. best.text else TXT.everythingUnlocked
 end
 
 --[[

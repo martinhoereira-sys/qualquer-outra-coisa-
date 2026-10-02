@@ -21,6 +21,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local TXT = Config.Text.perfil
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local player = Players.LocalPlayer
@@ -38,27 +39,27 @@ type PathInfo = { id: string, title: string, icon: string, colour: Color3, dark:
 local PATHS: { PathInfo } = {
 	{
 		id = "adepto",
-		title = "ADEPTO",
+		title = TXT.supporter,
 		icon = "📣",
 		colour = Color3.fromRGB(240, 90, 70),
 		dark = Color3.fromRGB(120, 36, 30),
-		how = { "Marchar no corteo perto da faixa", "Estar na bancada durante o jogo", "Tocha ou fumo depois de um golo", "Estar no apito inicial" },
+		how = { TXT.marchInTheCorteoNear, TXT.beInTheStandDuring, TXT.aFlareOrSmokeAfter, TXT.beThereAtKickOff },
 	},
 	{
 		id = "jogador",
-		title = "JOGADOR",
+		title = TXT.player,
 		icon = "⚽",
 		colour = Color3.fromRGB(70, 200, 110),
 		dark = Color3.fromRGB(26, 96, 50),
-		how = { "Minutos jogados", "Golos e assistencias", "Roubar a bola", "Defesas (guarda-redes)" },
+		how = { TXT.minutesPlayed, TXT.goalsAndAssists, TXT.winningTheBall, TXT.savesGoalkeeper },
 	},
 	{
 		id = "arbitro",
-		title = "ARBITRO",
+		title = TXT.referee,
 		icon = "🟨",
 		colour = Color3.fromRGB(250, 200, 60),
 		dark = Color3.fromRGB(120, 90, 20),
-		how = { "Apitar o jogo inteiro", "Decidir o que e justo", "Nao ser apanhado em corrupcao" },
+		how = { TXT.refereeTheWholeMatch, TXT.makeTheFairCall, TXT.donTGetCaughtBeing },
 	},
 }
 
@@ -141,7 +142,7 @@ end
 -- O botao e o painel
 --------------------------------------------------------------------------------
 
-local open = button(gui, "⭐ PERFIL", 13, GOLD, BG, 10)
+local open = button(gui, TXT.profile, 13, GOLD, BG, 10)
 open.Size = UDim2.fromOffset(110, 28)
 open.Position = UDim2.fromOffset(16, 204)
 
@@ -154,7 +155,7 @@ corner(panel, 14)
 local top = box(panel, UDim2.new(1, 0, 0, 64), UDim2.fromOffset(0, 0), Color3.fromRGB(60, 50, 120), 31)
 corner(top, 14)
 gradient(top, Color3.fromRGB(110, 70, 200), Color3.fromRGB(40, 90, 190), 0)
-local title = text(top, "O TEU PERFIL", 26, TEXT, Enum.Font.GothamBlack)
+local title = text(top, TXT.yourProfile, 26, TEXT, Enum.Font.GothamBlack)
 title.Size = UDim2.fromOffset(300, 64)
 title.Position = UDim2.fromOffset(20, 0)
 local wallet = button(top, "💰 0$", 22, Color3.fromRGB(30, 26, 20), GOLD)
@@ -168,7 +169,7 @@ close.Position = UDim2.new(1, -14, 0.5, 0)
 
 -- Os separadores.
 local tabs: { [string]: { button: TextButton, page: Frame } } = {}
-local TAB_ORDER = { { id = "niveis", label = "⭐ NIVEIS" }, { id = "dinheiro", label = "💰 DINHEIRO" }, { id = "equipamento", label = "👕 EQUIPAMENTO" } }
+local TAB_ORDER = { { id = "niveis", label = TXT.levels }, { id = "dinheiro", label = TXT.money }, { id = "equipamento", label = TXT.kit } }
 for i, t in TAB_ORDER do
 	local b = button(panel, t.label, 15, CARD)
 	b.Size = UDim2.fromOffset(200, 38)
@@ -216,7 +217,7 @@ for i, path in PATHS do
 	local circle = box(card, UDim2.fromOffset(92, 92), UDim2.fromOffset(79, 46), Color3.fromRGB(255, 255, 255), 33)
 	circle.BackgroundTransparency = 0.82
 	corner(circle, 46)
-	local small = text(circle, "NIVEL", 12, TEXT, Enum.Font.GothamBold, 34)
+	local small = text(circle, TXT.level, 12, TEXT, Enum.Font.GothamBold, 34)
 	small.TextXAlignment = Enum.TextXAlignment.Center
 	small.Size = UDim2.new(1, 0, 0, 16)
 	small.Position = UDim2.fromOffset(0, 14)
@@ -235,7 +236,7 @@ for i, path in PATHS do
 	missing.Size = UDim2.new(1, -24, 0, 18)
 	missing.Position = UDim2.fromOffset(12, 168)
 
-	local howTitle = text(card, "COMO GANHAR XP", 12, TEXT, Enum.Font.GothamBlack, 33)
+	local howTitle = text(card, TXT.howToEarnXp, 12, TEXT, Enum.Font.GothamBlack, 33)
 	howTitle.Size = UDim2.new(1, -24, 0, 16)
 	howTitle.Position = UDim2.fromOffset(14, 196)
 	local how = text(card, "• " .. table.concat(path.how, "\n• "), 13, TEXT, Enum.Font.Gotham, 33)
@@ -263,7 +264,7 @@ local moneyPage = tabs.dinheiro.page
 local balance = box(moneyPage, UDim2.fromOffset(250, 150), UDim2.fromOffset(0, 0), GOLD, 32)
 corner(balance, 14)
 gradient(balance, Color3.fromRGB(255, 210, 80), Color3.fromRGB(200, 130, 30), 90)
-local balanceTitle = text(balance, "TENS", 16, BG, Enum.Font.GothamBlack, 33)
+local balanceTitle = text(balance, TXT.youHave, 16, BG, Enum.Font.GothamBlack, 33)
 balanceTitle.TextXAlignment = Enum.TextXAlignment.Center
 balanceTitle.Size = UDim2.new(1, 0, 0, 24)
 balanceTitle.Position = UDim2.fromOffset(0, 16)
@@ -271,7 +272,7 @@ local balanceValue = text(balance, "0$", 48, BG, Enum.Font.GothamBlack, 33)
 balanceValue.TextXAlignment = Enum.TextXAlignment.Center
 balanceValue.Size = UDim2.new(1, 0, 0, 56)
 balanceValue.Position = UDim2.fromOffset(0, 42)
-local balanceNote = text(balance, "Escudos: o dinheiro do jogo", 13, BG, Enum.Font.GothamBold, 33)
+local balanceNote = text(balance, TXT.escudosTheGameSMoney, 13, BG, Enum.Font.GothamBold, 33)
 balanceNote.TextXAlignment = Enum.TextXAlignment.Center
 balanceNote.Size = UDim2.new(1, 0, 0, 18)
 balanceNote.Position = UDim2.fromOffset(0, 108)
@@ -293,15 +294,15 @@ local function infoCard(parent: Instance, pos: UDim2, size: UDim2, colour: Color
 	return body
 end
 
-local earnBody = infoCard(moneyPage, UDim2.fromOffset(262, 0), UDim2.fromOffset(518, 214), GREEN, "COMO GANHAR ESCUDOS")
+local earnBody = infoCard(moneyPage, UDim2.fromOffset(262, 0), UDim2.fromOffset(518, 214), GREEN, TXT.howToEarnEscudos)
 earnBody.Visible = false
 -- Uma linha por maneira de ganhar: icone, nome, explicacao e o valor.
 local earnRows: { [string]: TextLabel } = {}
 for i, row in {
-	{ id = "salario", icon = "🏁", title = "Salario no fim do jogo", note = "sobe com o nivel de cada papel" },
-	{ id = "diaria", icon = "🎁", title = "Recompensa diaria", note = "entra todos os dias seguidos" },
-	{ id = "caixa", icon = "🏪", title = "Assaltar caixas", note = "nas lojas da cidade" },
-	{ id = "golo", icon = "⚽", title = "Golos da tua equipa", note = "toda a claque ganha" },
+	{ id = "salario", icon = "🏁", title = TXT.wagesAtFullTime, note = TXT.goesUpWithEachRole },
+	{ id = "diaria", icon = "🎁", title = TXT.dailyReward, note = TXT.comeBackEveryDayIn },
+	{ id = "caixa", icon = "🏪", title = TXT.robTheTills, note = TXT.inTheCitySShops },
+	{ id = "golo", icon = "⚽", title = TXT.yourTeamSGoals, note = TXT.allTheUltrasEarn },
 } do
 	local line = box(earnBody.Parent :: Instance, UDim2.new(1, -40, 0, 38), UDim2.fromOffset(26, 36 + (i - 1) * 43), Color3.fromRGB(40, 44, 58), 33)
 	corner(line, 8)
@@ -320,17 +321,17 @@ for i, row in {
 	value.Position = UDim2.new(1, -160, 0, 0)
 	earnRows[row.id] = value
 end
-local spendBody = infoCard(moneyPage, UDim2.fromOffset(262, 226), UDim2.fromOffset(518, 134), GOLD, "ONDE GASTAR")
+local spendBody = infoCard(moneyPage, UDim2.fromOffset(262, 226), UDim2.fromOffset(518, 134), GOLD, TXT.whereToSpend)
 spendBody.TextSize = 15
-spendBody.Text = "🔥 <b>Dealers na rua</b>: tochas, fumo, estrobo, vela romana e cores.\n📍 Procura o letreiro DEALER por cima deles. De bicicleta chegas depressa (ha bicicletas a porta da sede).\n🏧 <b>Multibanco</b>: envia escudos a um amigo."
-local dailyCard = infoCard(moneyPage, UDim2.fromOffset(0, 162), UDim2.fromOffset(250, 144), Color3.fromRGB(120, 170, 255), "RECOMPENSA DIARIA")
+spendBody.Text = TXT.bStreetDealersBFlares
+local dailyCard = infoCard(moneyPage, UDim2.fromOffset(0, 162), UDim2.fromOffset(250, 144), Color3.fromRGB(120, 170, 255), TXT.dailyReward2)
 
 --------------------------------------------------------------------------------
 -- EQUIPAMENTO: o que o nivel de jogador desbloqueia
 --------------------------------------------------------------------------------
 
 local kitPage = tabs.equipamento.page
-local kitNote = text(kitPage, "⚽ So aspeto: o nivel nunca te faz jogar melhor. Desbloqueia-se com o nivel de JOGADOR.", 14, MUTED, Enum.Font.GothamBold)
+local kitNote = text(kitPage, TXT.looksOnlyYourLevelNever, 14, MUTED, Enum.Font.GothamBold)
 kitNote.Size = UDim2.new(1, 0, 0, 20)
 kitNote.Position = UDim2.fromOffset(0, 0)
 
@@ -349,7 +350,7 @@ local function kitCard(x: number, heading: string, colour: Color3): (Frame, Text
 end
 
 -- Numero.
-local numberCard, numberLock = kitCard(0, "🔢 NUMERO", Color3.fromRGB(120, 170, 255))
+local numberCard, numberLock = kitCard(0, TXT.number, Color3.fromRGB(120, 170, 255))
 local chosenNumber = 10
 local numberBox = text(numberCard, "10", 64, TEXT, Enum.Font.GothamBlack, 33)
 numberBox.TextXAlignment = Enum.TextXAlignment.Center
@@ -361,15 +362,15 @@ minus.Position = UDim2.fromOffset(20, 138)
 local plus = button(numberCard, "+", 26, Color3.fromRGB(60, 66, 88), TEXT, 33)
 plus.Size = UDim2.fromOffset(56, 44)
 plus.Position = UDim2.new(1, -76, 0, 138)
-local wear = button(numberCard, "VESTIR", 16, GOLD, BG, 33)
+local wear = button(numberCard, TXT.wear, 16, GOLD, BG, 33)
 wear.Size = UDim2.new(1, -40, 0, 40)
 wear.Position = UDim2.fromOffset(20, 190)
 
 -- Posicao.
-local positionCard, positionLock = kitCard(265, "📍 POSICAO", Color3.fromRGB(70, 200, 110))
+local positionCard, positionLock = kitCard(265, TXT.position, Color3.fromRGB(70, 200, 110))
 local positionButtons: { [string]: TextButton } = {}
 for i, zone in { "ataque", "meio", "defesa" } do
-	local b = button(positionCard, string.upper(zone), 16, Color3.fromRGB(60, 66, 88), TEXT, 33)
+	local b = button(positionCard, (if zone == "ataque" then TXT.attack elseif zone == "meio" then TXT.midfield else TXT.defence), 16, Color3.fromRGB(60, 66, 88), TEXT, 33)
 	b.Size = UDim2.new(1, -40, 0, 46)
 	b.Position = UDim2.fromOffset(20, 50 + (i - 1) * 56)
 	b.Activated:Connect(function()
@@ -379,7 +380,7 @@ for i, zone in { "ataque", "meio", "defesa" } do
 end
 
 -- Botas.
-local bootsCard, bootsLock = kitCard(530, "👟 BOTAS", Color3.fromRGB(255, 140, 60))
+local bootsCard, bootsLock = kitCard(530, TXT.boots, Color3.fromRGB(255, 140, 60))
 local bootButtons: { TextButton } = {}
 for i, boot in Config.BootColours do
 	local b = button(bootsCard, "", 10, boot.color, TEXT, 33)
@@ -419,12 +420,12 @@ local function salaryText(p: { [string]: any }): string
 	local a = S.adepto.base + S.adepto.perLevel * la
 	local j = S.jogador.base + S.jogador.perLevel * lj
 	local r = S.arbitro.base + S.arbitro.perLevel * lr
-	return "<b>1. Salario no fim de cada jogo</b> (sobe com o nivel). Hoje recebes:\n"
-		.. "   📣 adepto " .. a .. "$ a " .. (a + Config.Money.perCorteo) .. "$ (mais se fizeres o corteo)\n"
-		.. "   ⚽ jogador " .. j .. "$ (+" .. S.jogador.perGoal .. "$ por golo)   🟨 arbitro " .. r .. "$\n"
-		.. "<b>2. Recompensa diaria</b>: entra todos os dias.\n"
-		.. "<b>3. Assaltar caixas</b> nas lojas da cidade: 15$ a 35$.\n"
-		.. "<b>4. Golos da tua equipa</b>: +" .. Config.Money.perGoal .. "$ a toda a claque."
+	return TXT.b1WagesAtThe
+		.. TXT.supporter2 .. a .. TXT.to .. (a + Config.Money.perCorteo) .. TXT.moreIfYouMarchIn
+		.. TXT.player2 .. j .. "$ (+" .. S.jogador.perGoal .. TXT.perGoalReferee .. r .. "$\n"
+		.. TXT.b2DailyRewardB
+		.. TXT.b3RobTheTills
+		.. TXT.b4YourTeamS .. Config.Money.perGoal .. TXT.forAllTheUltras
 end
 
 local function paint()
@@ -444,10 +445,10 @@ local function paint()
 			card.level.Text = tostring(data.level)
 			if data.level >= P.maxLevel then
 				card.bar.Size = UDim2.fromScale(1, 1)
-				card.missing.Text = "NIVEL MAXIMO!"
+				card.missing.Text = TXT.maxLevel
 			else
 				card.bar.Size = UDim2.fromScale(math.clamp(data.xp / data.need, 0, 1), 1)
-				card.missing.Text = "Faltam " .. (data.need - data.xp) .. " XP para o nivel " .. (data.level + 1)
+				card.missing.Text = (data.need - data.xp) .. TXT.xpToLevel .. (data.level + 1)
 			end
 			card.reward.Text = "🎁 " .. data.nextReward
 		end
@@ -457,13 +458,13 @@ local function paint()
 	-- O salario que se ganha agora: o do papel mais alto.
 	local S = P.salary
 	local best = math.max(S.adepto.base + S.adepto.perLevel * p.paths.adepto.level, S.jogador.base + S.jogador.perLevel * p.paths.jogador.level, S.arbitro.base + S.arbitro.perLevel * p.paths.arbitro.level)
-	earnRows.salario.Text = "ate " .. best .. "$ +"
-	earnRows.diaria.Text = P.daily[1] .. "$ a " .. P.daily[#P.daily] .. "$"
+	earnRows.salario.Text = TXT.upTo .. best .. "$ +"
+	earnRows.diaria.Text = P.daily[1] .. TXT.to .. P.daily[#P.daily] .. "$"
 	earnRows.caixa.Text = "15$ a 35$"
 	earnRows.golo.Text = "+" .. Config.Money.perGoal .. "$"
 	local streak = p.streak or 0
 	local nextDay = (streak % #P.daily) + 1
-	dailyCard.Text = "Hoje: dia <b>" .. math.max(streak, 1) .. "</b> de " .. #P.daily .. " seguidos.\n\nAmanha, se voltares: <b>+" .. P.daily[nextDay] .. "$</b>\nFalhar um dia volta ao dia 1.\nO dia 7 da " .. P.daily[#P.daily] .. "$!"
+	dailyCard.Text = TXT.todayDayB .. math.max(streak, 1) .. TXT.bOf .. #P.daily .. TXT.inARowNNtomorrow .. P.daily[nextDay] .. TXT.bNmissADayAnd .. P.daily[#P.daily] .. "$!"
 
 	local level = p.paths.jogador.level
 	local canNumber = level >= K.numberAt
@@ -477,7 +478,7 @@ local function paint()
 		chosenNumber = p.prefs.number
 		numberBox.Text = tostring(chosenNumber)
 	end
-	numberLock.Text = if canNumber then (if p.prefs.number then "Vestes o " .. p.prefs.number .. " (se ninguem da tua equipa o tiver)." else "Escolhe e carrega em VESTIR.") else "🔒 Nivel " .. K.numberAt .. " de jogador"
+	numberLock.Text = if canNumber then (if p.prefs.number then TXT.youWearNumber .. p.prefs.number .. TXT.ifNobodyOnYourTeam else TXT.pickOneAndPressWear) else TXT.playerLevel .. K.numberAt .. ""
 	local canPosition = level >= K.positionAt
 	for zone, b in positionButtons do
 		local on = p.prefs.position == zone
@@ -485,7 +486,7 @@ local function paint()
 		b.BackgroundColor3 = if on then Color3.fromRGB(70, 200, 110) else Color3.fromRGB(60, 66, 88)
 		b.BackgroundTransparency = if canPosition then 0 else 0.7
 	end
-	positionLock.Text = if canPosition then "Ficas num lugar dessa zona do campo, se houver livre." else "🔒 Nivel " .. K.positionAt .. " de jogador"
+	positionLock.Text = if canPosition then TXT.youGetASpotIn else TXT.playerLevel .. K.positionAt .. ""
 	local canBoots = level >= K.bootsAt
 	for i, b in bootButtons do
 		b.Active = canBoots
@@ -495,7 +496,7 @@ local function paint()
 		stroke.Thickness = if p.prefs.boots == i then 3 else 0
 		stroke.Parent = b
 	end
-	bootsLock.Text = if level >= K.goldBootsAt then "✨ Botas douradas (nivel " .. K.goldBootsAt .. ")" elseif canBoots then "A cor das tuas botas." else "🔒 Nivel " .. K.bootsAt .. " de jogador"
+	bootsLock.Text = if level >= K.goldBootsAt then TXT.goldenBootsLevel .. K.goldBootsAt .. ")" elseif canBoots then TXT.theColourOfYourBoots else TXT.playerLevel .. K.bootsAt .. ""
 end
 
 local function toggle(show: boolean?)
@@ -618,10 +619,10 @@ calStroke.Parent = calendar
 local calTop = box(calendar, UDim2.new(1, 0, 0, 70), UDim2.fromOffset(0, 0), GOLD, 51)
 corner(calTop, 16)
 gradient(calTop, Color3.fromRGB(255, 200, 70), Color3.fromRGB(240, 120, 40), 0)
-local calTitle = text(calTop, "🎁 RECOMPENSA DIARIA", 28, BG, Enum.Font.GothamBlack, 52)
+local calTitle = text(calTop, TXT.dailyReward3, 28, BG, Enum.Font.GothamBlack, 52)
 calTitle.Size = UDim2.new(1, -80, 0, 40)
 calTitle.Position = UDim2.fromOffset(22, 6)
-local calSub = text(calTop, "Entra todos os dias: cada dia seguido da mais! Falhar um dia volta ao dia 1.", 14, BG, Enum.Font.GothamBold, 52)
+local calSub = text(calTop, TXT.comeBackEveryDayEach, 14, BG, Enum.Font.GothamBold, 52)
 calSub.Size = UDim2.new(1, -80, 0, 18)
 calSub.Position = UDim2.fromOffset(22, 44)
 local calClose = button(calTop, "X", 18, Color3.fromRGB(40, 30, 20), TEXT, 53)
@@ -641,7 +642,7 @@ for i = 1, #P.daily do
 	stroke.Color = GOLD
 	stroke.Thickness = 0
 	stroke.Parent = card
-	local label = text(card, "DIA " .. i, 13, MUTED, Enum.Font.GothamBlack, 52)
+	local label = text(card, TXT.day .. i, 13, MUTED, Enum.Font.GothamBlack, 52)
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.Size = UDim2.new(1, 0, 0, 18)
 	label.Position = UDim2.fromOffset(0, 8)
@@ -673,7 +674,7 @@ for i = 1, #P.daily do
 	x += w + 8
 end
 
-local claim = button(calendar, "RECEBER", 22, GREEN, BG, 52)
+local claim = button(calendar, TXT.claim, 22, GREEN, BG, 52)
 claim.AnchorPoint = Vector2.new(0.5, 1)
 claim.Size = UDim2.fromOffset(320, 56)
 claim.Position = UDim2.new(0.5, 0, 1, -22)
@@ -699,18 +700,18 @@ local function paintCalendar()
 		card.frame.BackgroundColor3 = if claimed then Color3.fromRGB(34, 60, 44) elseif isToday then Color3.fromRGB(70, 56, 24) else CARD
 		card.stroke.Thickness = if isToday and d.claimable then 3 else 0
 		card.badge.Visible = isToday or claimed
-		card.badge.Text = if claimed then "RECEBIDO" elseif isToday then "HOJE" else ""
+		card.badge.Text = if claimed then TXT.claimed elseif isToday then TXT.today else ""
 		card.badge.BackgroundColor3 = if claimed then GREEN else GOLD
 		card.label.TextColor3 = if isToday then GOLD else MUTED
 	end
 	if d.claimable then
-		claim.Text = "RECEBER  +" .. P.daily[d.day] .. "$"
+		claim.Text = TXT.claim2 .. P.daily[d.day] .. "$"
 		claim.BackgroundColor3 = GREEN
 		claim.Active = true
 		claim.AutoButtonColor = true
 	else
 		local left = (d.secondsLeft or 0) - (os.clock() - dailyReceivedAt)
-		claim.Text = "VOLTA AMANHA  ·  " .. clock(left)
+		claim.Text = TXT.comeBackTomorrow .. clock(left)
 		claim.BackgroundColor3 = Color3.fromRGB(70, 74, 90)
 		claim.Active = false
 		claim.AutoButtonColor = false
@@ -746,7 +747,7 @@ local function openCalendar()
 end
 
 -- O botao do calendario, no separador do dinheiro.
-local calButton = button(moneyPage, "📅 VER CALENDARIO", 14, Color3.fromRGB(120, 170, 255), BG, 33)
+local calButton = button(moneyPage, TXT.seeTheCalendar, 14, Color3.fromRGB(120, 170, 255), BG, 33)
 calButton.Size = UDim2.fromOffset(214, 34)
 calButton.Position = UDim2.fromOffset(18, 314)
 calButton.Activated:Connect(openCalendar)
@@ -801,7 +802,7 @@ local summaryStroke = Instance.new("UIStroke")
 summaryStroke.Color = GOLD
 summaryStroke.Thickness = 3
 summaryStroke.Parent = summary
-local summaryTitle = text(summary, "🏁 FIM DO JOGO", 24, GOLD, Enum.Font.GothamBlack, 41)
+local summaryTitle = text(summary, TXT.fullTime, 24, GOLD, Enum.Font.GothamBlack, 41)
 summaryTitle.TextXAlignment = Enum.TextXAlignment.Center
 summaryTitle.Size = UDim2.new(1, 0, 0, 32)
 summaryTitle.Position = UDim2.fromOffset(0, 12)
@@ -816,7 +817,7 @@ summaryPay.TextXAlignment = Enum.TextXAlignment.Center
 summaryPay.Size = UDim2.new(1, 0, 0, 34)
 summaryPay.Position = UDim2.new(0, 0, 1, -46)
 
-local PATH_TITLE = { adepto = "📣 ADEPTO", jogador = "⚽ JOGADOR", arbitro = "🟨 ARBITRO" }
+local PATH_TITLE = { adepto = TXT.supporter3, jogador = TXT.player3, arbitro = TXT.referee2 }
 
 Remotes.Perfil.OnClientEvent:Connect(function(data)
 	if type(data) ~= "table" then
@@ -830,9 +831,9 @@ Remotes.Perfil.OnClientEvent:Connect(function(data)
 		onDaily(data.daily)
 		openCalendar()
 	elseif data.kind == "nivel" then
-		showToast("⭐ SUBISTE DE NIVEL!", (PATH_TITLE[data.path] or "") .. "  ·  NIVEL " .. tostring(data.level), 4)
+		showToast(TXT.levelUp, (PATH_TITLE[data.path] or "") .. TXT.level2 .. tostring(data.level), 4)
 	elseif data.kind == "diaria" then
-		showToast("🎁 RECOMPENSA DIARIA", "Dia " .. tostring(data.day) .. " seguido  ·  +" .. tostring(data.reward) .. "$", 5)
+		showToast(TXT.dailyReward3, TXT.day2 .. tostring(data.day) .. TXT.inARow .. tostring(data.reward) .. "$", 5)
 	elseif data.kind == "resumo" and type(data.lines) == "table" then
 		summaryBody.Text = table.concat(data.lines, "\n")
 		summaryPay.Text = if (data.pay or 0) > 0 then "💰 +" .. tostring(data.pay) .. "$" else ""

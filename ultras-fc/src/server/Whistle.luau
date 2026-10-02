@@ -13,6 +13,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local TXT = Config.Text.whistle
 local Squad = require(script.Parent:WaitForChild("Squad"))
 local Football = require(script.Parent:WaitForChild("Football"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
@@ -35,7 +36,7 @@ function Whistle.onWhistled(fn: (Foul, boolean) -> ())
 end
 
 local function whereText(foul: Foul): string
-	return if foul.inBox then "dentro da area" elseif foul.nearLine then "em cima da linha da area" else "no meio-campo"
+	return if foul.inBox then TXT.insideTheBox elseif foul.nearLine then TXT.rightOnTheEdgeOf else TXT.inMidfield
 end
 
 -- Se foi dentro da area e penalti; na duvida da linha, conta onde foi mesmo.
@@ -51,8 +52,8 @@ end
 function Whistle.foul(foul: Foul)
 	local fouledTeam = foul.fouled.teamId
 	local id = Referee.openWindow({
-		title = "Entrada de " .. Squad.label(foul.fouler) .. " sobre " .. Squad.label(foul.fouled),
-		detail = whereText(foul) .. (if foul.fromBehind then "  ·  por tras" else "  ·  de frente"),
+		title = TXT.tackleBy .. Squad.label(foul.fouler) .. TXT.on .. Squad.label(foul.fouled),
+		detail = whereText(foul) .. (if foul.fromBehind then TXT.fromBehind else TXT.fromTheFront),
 		favours = fouledTeam,
 		against = foul.fouler.teamId,
 		fair = function()
@@ -69,12 +70,12 @@ local function askCard(foul: Foul, place: string)
 	local foulerTeam = foul.fouler.teamId
 	local id = Referee.raise({
 		kind = "cartao",
-		title = "Cartao para " .. Squad.label(foul.fouler) .. "?",
-		detail = (if place == "penalti" then "penalti" else "livre") .. "  ·  " .. whereText(foul),
+		title = TXT.cardFor .. Squad.label(foul.fouler) .. "?",
+		detail = (if place == "penalti" then TXT.penalty else TXT.freeKick) .. "  ·  " .. whereText(foul),
 		options = {
-			{ id = "nada", label = "Nada", favours = foulerTeam },
-			{ id = "amarelo", label = "Amarelo", favours = fouledTeam },
-			{ id = "vermelho", label = "Vermelho", favours = fouledTeam },
+			{ id = "nada", label = TXT.nothing, favours = foulerTeam },
+			{ id = "amarelo", label = TXT.yellow, favours = fouledTeam },
+			{ id = "vermelho", label = TXT.red, favours = fouledTeam },
 		},
 		fair = foul.card,
 		default = "nada",
@@ -101,11 +102,11 @@ Referee.onWindowClosed(function(window, whistled, caught)
 	if foul.nearLine then
 		local id = Referee.raise({
 			kind = "lugar",
-			title = "Onde foi a falta de " .. Squad.label(foul.fouler) .. "?",
-			detail = "em cima da linha da area",
+			title = TXT.whereWasTheFoulBy .. Squad.label(foul.fouler) .. "?",
+			detail = TXT.rightOnTheEdgeOf,
 			options = {
-				{ id = "livre", label = "Livre fora da area", favours = foul.fouler.teamId },
-				{ id = "penalti", label = "Penalti", favours = foul.fouled.teamId },
+				{ id = "livre", label = TXT.freeKickOutsideTheBox, favours = foul.fouler.teamId },
+				{ id = "penalti", label = TXT.penalty2, favours = foul.fouled.teamId },
 			},
 			fair = fairPlace(foul),
 			default = fairPlace(foul),
@@ -136,18 +137,18 @@ function Whistle.resolved(incident: Referee.Incident, choice: string): string?
 
 	local action = place or fairPlace(foul)
 	local lines = {
-		(if action == "penalti" then "PENALTI" else "LIVRE") .. "  " .. Config.Teams[foul.fouled.teamId].short,
+		(if action == "penalti" then TXT.penaltyCall else TXT.freeKickCall) .. "  " .. Config.Teams[foul.fouled.teamId].short,
 	}
 
 	if choice == "amarelo" or choice == "vermelho" then
 		local who = Squad.label(foul.fouler)
 		local out = Squad.book(foul.fouler, choice)
 		if choice == "vermelho" then
-			table.insert(lines, "VERMELHO  " .. who)
+			table.insert(lines, TXT.red2 .. who)
 		elseif out then
-			table.insert(lines, "2.º AMARELO  " .. who .. "  ·  EXPULSO")
+			table.insert(lines, TXT.t2ndYellow .. who .. TXT.sentOff)
 		else
-			table.insert(lines, "AMARELO  " .. who)
+			table.insert(lines, TXT.yellow2 .. who)
 		end
 	end
 

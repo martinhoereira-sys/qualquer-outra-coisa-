@@ -9,6 +9,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local TXT = Config.Text.main
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Teams = require(script.Parent:WaitForChild("Teams"))
@@ -343,10 +344,10 @@ Gear.onEmpty(function(player, kind)
 		end
 	end
 	Remotes.Npc:FireClient(player, {
-		title = "Acabou: " .. name,
+		title = TXT.outOf .. name,
 		lines = {
-			"A claque da uma racao por jogo, e ja a gastaste.",
-			"Compra mais a um dealer na rua, com as moedas do jogo.",
+			TXT.theUltrasGiveOneRation,
+			TXT.buyMoreFromADealer,
 		},
 	})
 end)
@@ -433,10 +434,10 @@ MatchLoop.onChange(function(snapshot)
 					local who = f.player
 					if who and f.teamId == teamId then
 						Remotes.Npc:FireClient(who, {
-							title = "O autocarro do clube chegou",
+							title = TXT.theClubBusIsHere,
 							lines = {
-								"Esta a porta da academia, de portas abertas.",
-								"Arranca para o estadio daqui a " .. math.floor(wait) .. " segundos.",
+								TXT.itIsAtTheAcademy,
+								TXT.itLeavesForTheStadium .. math.floor(wait) .. TXT.seconds,
 							},
 						})
 					end
@@ -582,7 +583,7 @@ Transit.onTeamArrived(function(teamId)
 			Squad.place(f, Stadium.lockerSpot(f.teamId, f.slot), Vector3.new(0, 0, -Stadium.mainSide()))
 			local who = f.player
 			if who then
-				Remotes.Npc:FireClient(who, { title = "Chegaram ao estadio", lines = { "Balneario. Daqui a pouco entram em campo." } })
+				Remotes.Npc:FireClient(who, { title = TXT.youAreAtTheStadium, lines = { TXT.dressingRoomYouWalkOut } })
 			end
 		end
 	end
@@ -745,7 +746,7 @@ end)
 Whistle.onWhistled(function(foul, caught)
 	sound("apito_falta", foul.at)
 	-- Apanhado, o ecra junta "ARBITRO APANHADO" a frente.
-	local text = "APITO  ·  falta de " .. Squad.label(foul.fouler)
+	local text = TXT.whistleFoulBy .. Squad.label(foul.fouler)
 	Remotes.RefState:FireAllClients({
 		state = Referee.state(),
 		resolved = { kind = "apito", choice = "apitar", caught = caught, text = text },

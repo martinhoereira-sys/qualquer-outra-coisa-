@@ -15,6 +15,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local TXT = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config")).Text.kit
 local Lider = require(script.Parent:WaitForChild("Lider"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
 local Uniform = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Uniform"))
@@ -77,7 +78,7 @@ local function refereeKit(player: Player)
 		t.Font = Enum.Font.GothamBlack
 		t.TextScaled = true
 		t.TextColor3 = SHORTS
-		t.Text = "ÁRBITRO"
+		t.Text = TXT.referee
 		t.Parent = gui
 	end
 end

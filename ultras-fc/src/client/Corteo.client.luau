@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local TXT = Config.Text.corteo
 local PanoRig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PanoRig"))
 local Rigs = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rigs"))
 local Animacoes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animacoes"))
@@ -398,7 +399,7 @@ local function runCall(group: Group)
 	text.TextScaled = true
 	text.TextColor3 = Color3.new(1, 1, 1)
 	text.TextStrokeTransparency = 0.2
-	text.Text = "CORRE PARA DENTRO!"
+	text.Text = TXT.runInside
 	text.Parent = gui
 	gui.Parent = me:WaitForChild("PlayerGui")
 	runGui = gui

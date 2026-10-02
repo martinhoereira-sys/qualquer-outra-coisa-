@@ -16,6 +16,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local TXT = Config.Text.bandeirao
 local BP = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BandeiraoPlan"))
 
 local B = Config.Lider.bandeirao
@@ -73,11 +74,11 @@ end
 function Bandeirao.trigger(teamId: string, phase: string): (boolean, string?)
 	local half = HALF[phase]
 	if not half then
-		return false, "O bandeirão só desce com o jogo a decorrer."
+		return false, TXT.theGiantFlagOnlyComes
 	end
 	local key = teamId .. ":" .. half
 	if used[key] then
-		return false, "Já usaste o bandeirão nesta parte."
+		return false, TXT.youHaveAlreadyUsedThe
 	end
 	local stadium = workspace:FindFirstChild("Stadium")
 	if not stadium then

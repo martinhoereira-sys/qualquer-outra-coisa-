@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local TXT = Config.Text.liderHud
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 local Plan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
@@ -135,12 +136,12 @@ cardTitle.Position = UDim2.fromOffset(16, 10)
 cardTitle.Size = UDim2.new(1, -170, 0, 48)
 cardTitle.TextXAlignment = Enum.TextXAlignment.Left
 
-local cardHint = label(card, "Carrega E para entrar  ·  ignora se não quiseres", 13, MUTED)
+local cardHint = label(card, TXT.pressEToJoinIn, 13, MUTED)
 cardHint.Position = UDim2.fromOffset(16, 60)
 cardHint.Size = UDim2.new(1, -170, 0, 20)
 cardHint.TextXAlignment = Enum.TextXAlignment.Left
 
-local join = button(card, "ENTRAR  (E)", Color3.fromRGB(40, 170, 90))
+local join = button(card, TXT.joinInE, Color3.fromRGB(40, 170, 90))
 join.AnchorPoint = Vector2.new(1, 0.5)
 join.Position = UDim2.new(1, -14, 0.5, 0)
 join.Size = UDim2.fromOffset(140, 60)
@@ -169,7 +170,7 @@ local function acceptInvite()
 	end
 	Remotes.Lider:FireServer("aceitar", invite.id)
 	closeInvite()
-	say("Entraste!")
+	say(TXT.youReIn)
 end
 
 join.Activated:Connect(acceptInvite)
@@ -205,7 +206,7 @@ end)
 -- O painel do lider
 --------------------------------------------------------------------------------
 
-local toggle = button(gui, "📣 ORDENS", Color3.fromRGB(200, 60, 50))
+local toggle = button(gui, TXT.orders, Color3.fromRGB(200, 60, 50))
 toggle.AnchorPoint = Vector2.new(1, 0.5)
 toggle.Position = UDim2.new(1, -14, 0.5, -170)
 toggle.Size = UDim2.fromOffset(150, 44)
@@ -223,13 +224,13 @@ panel.Visible = false
 panel.Parent = gui
 corner(panel, 14)
 
-local header = label(panel, "LÍDER · as tuas ordens", 16, GOLD)
+local header = label(panel, TXT.capoYourOrders, 16, GOLD)
 header.Font = Enum.Font.GothamBlack
 header.Position = UDim2.fromOffset(14, 8)
 header.Size = UDim2.new(1, -28, 0, 22)
 header.TextXAlignment = Enum.TextXAlignment.Left
 
-local sub = label(panel, "Ninguém é obrigado: a claque recebe um aviso e decide.", 12, MUTED)
+local sub = label(panel, TXT.nobodyIsForcedTheUltras, 12, MUTED)
 sub.Position = UDim2.fromOffset(14, 30)
 sub.Size = UDim2.new(1, -28, 0, 30)
 sub.TextXAlignment = Enum.TextXAlignment.Left
@@ -267,7 +268,7 @@ local function showOrders()
 end
 
 local function backButton()
-	local back = button(subPanel, "◀ voltar", CARD)
+	local back = button(subPanel, TXT.back, CARD)
 	back.Size = UDim2.new(1, 0, 0, 30)
 	back.TextSize = 13
 	back.Activated:Connect(showOrders)
@@ -294,7 +295,7 @@ local function showMusic()
 			Remotes.Lider:FireServer("musica", i)
 		end)
 	end
-	local stop = button(subPanel, "■ PARAR", Color3.fromRGB(90, 90, 100))
+	local stop = button(subPanel, TXT.stop, Color3.fromRGB(90, 90, 100))
 	stop.Size = UDim2.new(1, 0, 0, 32)
 	stop.LayoutOrder = 99
 	stop.Activated:Connect(function()
@@ -306,7 +307,7 @@ local budgetText = "?"
 local giveInfo: TextLabel? = nil
 local chosenTarget: Player? = nil
 
-local ITEM_LABEL = { tocha = "🔥 Tocha", fumo = "💨 Fumo", bandeira = "🚩 Bandeira", faixa = "🎌 Faixa", mastro = "🏴 Mastro (só 1)" }
+local ITEM_LABEL = { tocha = TXT.flare, fumo = TXT.smoke, bandeira = TXT.flag, faixa = TXT.banner, mastro = TXT.poleFlagOnly1 }
 
 local function showGive()
 	grid.Visible = false
@@ -314,7 +315,7 @@ local function showGive()
 	subPanel.Visible = true
 	backButton()
 
-	local info = label(subPanel, "Podes dar " .. budgetText .. " neste jogo. Escolhe a pessoa, depois o quê.", 12, MUTED)
+	local info = label(subPanel, TXT.youCanGive .. budgetText .. TXT.thisMatchPickThePerson, 12, MUTED)
 	giveInfo = info
 	info.Position = UDim2.fromOffset(0, 34)
 	info.Size = UDim2.new(1, 0, 0, 30)
@@ -345,7 +346,7 @@ local function showGive()
 		-- O proprio lider tambem aparece: pode ficar ele com a bandeira do mastro.
 		if player:GetAttribute("Team") == me:GetAttribute("Team") then
 			anyone = true
-			local row = button(people, if player == me then "Eu (lider)" else player.DisplayName, Color3.fromRGB(48, 52, 66))
+			local row = button(people, if player == me then TXT.meCapo else player.DisplayName, Color3.fromRGB(48, 52, 66))
 			row.Size = UDim2.new(1, -8, 0, 28)
 			row.TextSize = 13
 			rows[player] = row
@@ -356,7 +357,7 @@ local function showGive()
 		end
 	end
 	if not anyone then
-		local none = label(people, "Ainda não há mais ninguém na claque.", 13, MUTED)
+		local none = label(people, TXT.nobodyElseInTheUltras, 13, MUTED)
 		none.Size = UDim2.new(1, 0, 0, 40)
 	end
 	paint()
@@ -376,7 +377,7 @@ local function showGive()
 		b.Activated:Connect(function()
 			local target = chosenTarget
 			if not target or not target.Parent then
-				say("Escolhe primeiro a pessoa.")
+				say(TXT.pickThePersonFirst)
 				return
 			end
 			Remotes.Lider:FireServer("dar", target.UserId, kind)
@@ -385,16 +386,16 @@ local function showGive()
 end
 
 local ORDERS = {
-	{ id = "formar", text = "FORMAR", colour = Color3.fromRGB(60, 110, 200) },
-	{ id = "marchar", text = "MARCHAR", colour = Color3.fromRGB(40, 150, 90) },
-	{ id = "saltar", text = "SALTAR", colour = Color3.fromRGB(230, 140, 30) },
-	{ id = "agachar", text = "AGACHAR", colour = Color3.fromRGB(200, 160, 40) },
-	{ id = "bracos", text = "BRAÇOS", colour = Color3.fromRGB(40, 150, 170) },
-	{ id = "acender", text = "ACENDER", colour = Color3.fromRGB(210, 50, 40) },
-	{ id = "bandeirao", text = "BANDEIRÃO", colour = Color3.fromRGB(150, 60, 190) },
-	{ id = "musica", text = "MÚSICA ▸", colour = Color3.fromRGB(120, 70, 200) },
-	{ id = "dar", text = "DAR MATERIAL ▸", colour = Color3.fromRGB(210, 120, 40) },
-	{ id = "farda", text = "FARDA", colour = Color3.fromRGB(50, 50, 60) },
+	{ id = "formar", text = TXT.formUp, colour = Color3.fromRGB(60, 110, 200) },
+	{ id = "marchar", text = TXT.march, colour = Color3.fromRGB(40, 150, 90) },
+	{ id = "saltar", text = TXT.jump, colour = Color3.fromRGB(230, 140, 30) },
+	{ id = "agachar", text = TXT.crouch, colour = Color3.fromRGB(200, 160, 40) },
+	{ id = "bracos", text = TXT.arms, colour = Color3.fromRGB(40, 150, 170) },
+	{ id = "acender", text = TXT.lightUp, colour = Color3.fromRGB(210, 50, 40) },
+	{ id = "bandeirao", text = TXT.giantFlag, colour = Color3.fromRGB(150, 60, 190) },
+	{ id = "musica", text = TXT.music, colour = Color3.fromRGB(120, 70, 200) },
+	{ id = "dar", text = TXT.giveGear, colour = Color3.fromRGB(210, 120, 40) },
+	{ id = "farda", text = TXT.uniform, colour = Color3.fromRGB(50, 50, 60) },
 }
 
 for i, order in ORDERS do
@@ -447,10 +448,10 @@ Remotes.Lider.OnClientEvent:Connect(function(data)
 		openInvite(data.id, tostring(data.order), tostring(data.text))
 	elseif kind == "aviso" or kind == "resposta" or kind == "estado" then
 		if type(data.left) == "number" and type(data.budget) == "number" then
-			budgetText = data.left .. " de " .. data.budget
+			budgetText = data.left .. TXT.of .. data.budget
 			local info = giveInfo
 			if info and info.Parent then
-				info.Text = "Podes dar " .. budgetText .. " neste jogo. Escolhe a pessoa, depois o que."
+				info.Text = TXT.youCanGive .. budgetText .. TXT.thisMatchPickThePerson
 			end
 		end
 		if type(data.text) == "string" then
@@ -461,7 +462,7 @@ Remotes.Lider.OnClientEvent:Connect(function(data)
 		local humanoid = me.Character and me.Character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			humanoid:MoveTo(data.at)
-			say("A caminho do teu lugar na formatura (mexe-te para cancelar).")
+			say(TXT.onTheWayToYour)
 			if walking then
 				walking:Disconnect()
 			end

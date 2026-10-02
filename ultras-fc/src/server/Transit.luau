@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local TXT = Config.Text.transit
 local BusBuilder = require(script.Parent:WaitForChild("BusBuilder"))
 
 local Transit = {}
@@ -284,15 +285,15 @@ local function setDoors(bus: Bus, open: boolean)
 end
 
 --[[
-	Entrar: um botao em cada porta ("Entrar") senta quem o usa num banco livre.
+	Entrar: um botao em cada porta (TXT.board) senta quem o usa num banco livre.
 	Subir para um autocarro alto aos saltos nao tinha graca nenhuma.
 ]]
 local function addBoarding(bus: Bus)
 	for _, d in bus.model:GetDescendants() do
 		if d:IsA("BasePart") and d.Name == "Entrada" then
 			local prompt = Instance.new("ProximityPrompt")
-			prompt.ActionText = "Entrar"
-			prompt.ObjectText = "Autocarro " .. bus.line
+			prompt.ActionText = TXT.board
+			prompt.ObjectText = TXT.bus .. bus.line
 			prompt.HoldDuration = 0
 			prompt.MaxActivationDistance = 9
 			prompt.RequiresLineOfSight = false

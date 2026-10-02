@@ -22,6 +22,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local TXT = Config.Text.football
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local F = Config.Football
@@ -81,7 +82,7 @@ powerFill.BackgroundColor3 = BRASS
 -- O folego, sempre a vista.
 local staminaTrack, staminaFill = bar(-122, 200, 6)
 staminaFill.BackgroundColor3 = TEXT
-local staminaTag = text(staminaTrack, "folego", 11, MUTED)
+local staminaTag = text(staminaTrack, TXT.stamina, 11, MUTED)
 staminaTag.Font = Enum.Font.Gotham
 staminaTag.AnchorPoint = Vector2.new(1, 0.5)
 staminaTag.Position = UDim2.new(0, -8, 0.5, 0)
@@ -122,12 +123,12 @@ dot.Parent = pad
 local dotCorner = Instance.new("UICorner")
 dotCorner.CornerRadius = UDim.new(1, 0)
 dotCorner.Parent = dot
-local padTag = text(pad, "efeito · altura", 11, MUTED)
+local padTag = text(pad, TXT.curveHeight, 11, MUTED)
 padTag.Font = Enum.Font.Gotham
 padTag.AnchorPoint = Vector2.new(0.5, 1)
 padTag.Position = UDim2.new(0.5, 0, 0, -4)
 
-local hint = text(gui, "clique esquerdo  chutar    ·    clique direito  chutar com efeito    ·    Shift  correr    ·    Ctrl  trancar camara", 12, MUTED)
+local hint = text(gui, TXT.leftClickShootRightClick, 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -26)
@@ -166,7 +167,7 @@ diveButton.BorderSizePixel = 0
 diveButton.Font = Enum.Font.GothamBold
 diveButton.TextSize = 14
 diveButton.TextColor3 = TEXT
-diveButton.Text = "ATIRAR-SE"
+diveButton.Text = TXT.dive
 diveButton.Visible = false
 diveButton.Parent = gui
 local diveCorner = Instance.new("UICorner")
@@ -580,8 +581,8 @@ end)
 
 
 if touchOnly then
-	local kickButton = roundButton("CHUTAR", 120, UDim2.new(1, -190, 1, -40))
-	local sprintButton = roundButton("CORRER", 84, UDim2.new(1, -330, 1, -50))
+	local kickButton = roundButton(TXT.shoot, 120, UDim2.new(1, -190, 1, -40))
+	local sprintButton = roundButton(TXT.sprint, 84, UDim2.new(1, -330, 1, -50))
 
 	kickButton.MouseButton1Down:Connect(function()
 		if playing() then
@@ -608,7 +609,7 @@ if touchOnly then
 	-- O de se atirar, redondo e por cima do CHUTAR.
 	diveButton.Size = UDim2.fromOffset(96, 96)
 	diveButton.Position = UDim2.new(1, -200, 1, -180)
-	diveButton.Text = "ATIRAR"
+	diveButton.Text = TXT.dive
 	local diveRound = diveButton:FindFirstChildOfClass("UICorner")
 	if diveRound then
 		diveRound.CornerRadius = UDim.new(1, 0)
@@ -681,7 +682,7 @@ RunService.RenderStepped:Connect(function()
 	-- Bola nas maos de um guarda-redes: quanto tempo falta para a perder.
 	local heldUntil = workspace:GetAttribute("HeldUntil")
 	if type(heldUntil) == "number" and isKeeper() and workspace:GetAttribute("HeldTeam") == player:GetAttribute("PitchTeam") then
-		holdLabel.Text = string.format("BOLA NAS MAOS  ·  %d", math.max(math.ceil(heldUntil - workspace:GetServerTimeNow()), 0))
+		holdLabel.Text = string.format(TXT.ballInHandD, math.max(math.ceil(heldUntil - workspace:GetServerTimeNow()), 0))
 	else
 		holdLabel.Text = ""
 	end
@@ -692,9 +693,9 @@ RunService.RenderStepped:Connect(function()
 		countdown.Text = tostring(math.ceil(left))
 		local teamId = workspace:GetAttribute("KickoffTeam")
 		local team = Config.Teams[if type(teamId) == "string" then teamId else ""]
-		countdownNote.Text = if team then "pontape de saida  ·  " .. team.name else "pontape de saida"
+		countdownNote.Text = if team then TXT.kickOff .. team.name else TXT.kickOff2
 	elseif left > -0.8 then
-		countdown.Text = "APITO"
+		countdown.Text = TXT.whistle
 		countdownNote.Text = ""
 	else
 		countdown.Text = ""
@@ -814,7 +815,7 @@ boxHint.BackgroundTransparency = 0.15
 boxHint.Font = Enum.Font.GothamBold
 boxHint.TextSize = 16
 boxHint.TextColor3 = Color3.fromRGB(255, 214, 90)
-boxHint.Text = "O guarda-redes tem a bola: sai da área!"
+boxHint.Text = TXT.theGoalkeeperHasTheBall
 boxHint.Visible = false
 boxHint.Parent = gui
 local boxCorner = Instance.new("UICorner")

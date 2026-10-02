@@ -34,6 +34,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local TXT = Config.Text.gear
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 local Pyro = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pyro"))
@@ -71,15 +72,15 @@ local FLAGS: { [string]: boolean } = { bandeirinha = true, bandeira = true, mast
 local mastroHolder: { [string]: Player } = {}
 
 local LABEL: { [string]: string } = {
-	tocha = "Tocha",
-	fumo = "Fumo",
-	vela = "Vela",
-	estrobo = "Estrobo",
-	cachecol = "Cachecol",
-	bandeirinha = "Bandeirinha",
-	bandeira = "Bandeira",
-	mastro = "Mastro",
-	tambor = "Tambor",
+	tocha = TXT.flare,
+	fumo = TXT.smoke,
+	vela = TXT.candle,
+	estrobo = TXT.strobe,
+	cachecol = TXT.scarf,
+	bandeirinha = TXT.smallFlag,
+	bandeira = TXT.bigFlag,
+	mastro = TXT.poleFlag,
+	tambor = TXT.drum,
 }
 
 --[[

@@ -18,6 +18,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local TXT = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config")).Text.shops
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -81,8 +82,8 @@ local function addRegister(register: Instance)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Assaltar"
-	prompt.ActionText = "Assaltar a caixa"
-	prompt.ObjectText = "Caixa"
+	prompt.ActionText = TXT.robTheTill
+	prompt.ObjectText = TXT.till
 	prompt.HoldDuration = ROB_HOLD
 	prompt.MaxActivationDistance = 8
 	prompt.RequiresLineOfSight = false
@@ -97,10 +98,10 @@ local function addRegister(register: Instance)
 		Money.add(player, amount)
 		prompt.Enabled = false
 		Remotes.Npc:FireClient(player, {
-			title = "Caixa assaltada",
+			title = TXT.tillRobbed,
 			lines = {
-				"Levaste " .. amount .. " moedas.",
-				"Esta caixa fica vazia uns minutos. Ha mais lojas na cidade.",
+				TXT.youTook .. amount .. TXT.coins,
+				TXT.thisTillStaysEmptyFor,
 			},
 		})
 		task.delay(ROB_EMPTY, function()

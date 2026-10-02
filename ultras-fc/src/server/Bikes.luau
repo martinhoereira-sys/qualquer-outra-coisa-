@@ -16,6 +16,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local TXT = Config.Text.bikes
 
 local Bikes = {}
 
@@ -66,7 +67,7 @@ end
 ]]
 function Bikes.build(colour: Color3, base: CFrame, parent: Instance): Model
 	local model = Instance.new("Model")
-	model.Name = "Bicicleta"
+	model.Name = TXT.bike
 
 	-- O centro invisivel onde tudo se prende (e onde se solda a quem pedala).
 	local frame = piece("Quadro", Vector3.new(0.2, 0.2, 0.2), colour, model)
@@ -175,8 +176,8 @@ local function park(player: Player, colour: Color3, at: CFrame)
 	parkedBy[player] = bike
 
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "Pegar bicicleta"
-	prompt.ObjectText = "Bicicleta"
+	prompt.ActionText = TXT.takeABike
+	prompt.ObjectText = TXT.bike
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false

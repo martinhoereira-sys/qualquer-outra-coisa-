@@ -1,7 +1,7 @@
 --!strict
 --[[
 	Os multibancos da cidade (os modelos com "ATM" no nome, postos no mapa):
-	chega-se, carrega-se em "Multibanco", e abre-se o ecra (Banco.client) com
+	chega-se, carrega-se em TXT.atm, e abre-se o ecra (Banco.client) com
 	o saldo e para enviar Escudos a outra pessoa que esteja no jogo.
 
 	Tudo validado aqui: ao pe de um multibanco, a outra pessoa no jogo, o
@@ -10,6 +10,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local TXT = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config")).Text.bank
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
@@ -40,9 +41,9 @@ local function addMachine(model: Model)
 	end
 	table.insert(machines, anchor)
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "Multibanco"
-	prompt.ActionText = "Multibanco"
-	prompt.ObjectText = "Enviar dinheiro"
+	prompt.Name = TXT.atm
+	prompt.ActionText = TXT.atm
+	prompt.ObjectText = TXT.sendMoney
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false
@@ -91,29 +92,29 @@ function Bank.start()
 		end
 		local value = math.floor(amount)
 		if not nearMachine(player) then
-			reply(player, false, "Tens de estar ao pe de um multibanco.")
+			reply(player, false, TXT.youHaveToBeNext)
 			return
 		end
 		local now = os.clock()
 		if now - (lastSend[player] or -math.huge) < COOLDOWN then
-			reply(player, false, "Espera uns segundos antes de enviar outra vez.")
+			reply(player, false, TXT.waitAFewSecondsBefore)
 			return
 		end
 		if value < 1 or value > MAX_SEND then
-			reply(player, false, "Podes enviar de 1$ a " .. MAX_SEND .. "$ de cada vez.")
+			reply(player, false, TXT.youCanSendFrom1 .. MAX_SEND .. TXT.atATime)
 			return
 		end
 		local target = Players:GetPlayerByUserId(targetId)
 		if not target or target == player then
-			reply(player, false, "Essa pessoa ja nao esta no jogo.")
+			reply(player, false, TXT.thatPersonIsNoLonger)
 			return
 		end
 		lastSend[player] = now
 		if Money.transfer(player, target, value) then
-			reply(player, true, "Enviaste " .. value .. "$ a " .. target.DisplayName .. ".")
+			reply(player, true, TXT.youSent .. value .. TXT.to .. target.DisplayName .. ".")
 			Remotes.Banco:FireClient(target, { kind = "recebido", amount = value, from = player.DisplayName })
 		else
-			reply(player, false, "Nao tens saldo que chegue (ou o perfil ainda nao carregou).")
+			reply(player, false, TXT.youDoNotHaveEnough)
 		end
 	end)
 

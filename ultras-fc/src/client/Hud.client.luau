@@ -20,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Emblem = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Emblem"))
 local Derby = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Derby"))
 local Config = require(Shared:WaitForChild("Config"))
+local TXT = Config.Text.hud
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local TifoDesigns = require(Shared:WaitForChild("TifoDesigns"))
 
@@ -85,11 +86,11 @@ menu.BackgroundColor3 = INK
 menu.BackgroundTransparency = 0.06
 menu.Parent = gui
 
-local title = label(menu, "Escolhe o teu papel", 34, TEXT)
+local title = label(menu, TXT.chooseYourRole, 34, TEXT)
 title.Size = UDim2.new(1, -40, 0, 44)
 title.Position = UDim2.new(0, 20, 0.5, -196)
 
-local subtitle = label(menu, "Sais da sede, vais com o corteo, e entras no estadio", 16, MUTED)
+local subtitle = label(menu, TXT.leaveTheClubhouseMarchIn, 16, MUTED)
 subtitle.Font = Enum.Font.Gotham
 subtitle.Size = UDim2.new(1, -40, 0, 22)
 subtitle.Position = UDim2.new(0, 20, 0.5, -154)
@@ -126,7 +127,7 @@ end
 
 for index, teamId in Config.TeamOrder do
 	local team = Config.Teams[teamId]
-	choice(team.name, "claque  ·  tochas, fumo, corteo", team.color, (index == 1) and -232 or 12, 220, -100, teamId)
+	choice(team.name, TXT.ultrasFlaresSmokeCorteo, team.color, (index == 1) and -232 or 12, 220, -100, teamId)
 end
 
 -- Jogar: escolhe-se a equipa, e fica-se com o primeiro lugar livre. Com o
@@ -134,12 +135,12 @@ end
 for index, teamId in Config.TeamOrder do
 	local team = Config.Teams[teamId]
 	local x = (index == 1) and -232 or 12
-	choice("Jogar pelo " .. team.short, "jogador  ·  4 + guarda-redes", team.color:Lerp(INK, 0.35), x, 150, -8, "jogador:" .. teamId)
+	choice(TXT.playFor .. team.short, TXT.player4Goalkeeper, team.color:Lerp(INK, 0.35), x, 150, -8, "jogador:" .. teamId)
 	-- A baliza, ao lado: se ninguem a quiser, fica la um boneco.
-	choice("GR", "baliza", team.keeperColor:Lerp(INK, 0.35), x + 156, 64, -8, "baliza:" .. teamId)
+	choice(TXT.gk, TXT.inGoal, team.keeperColor:Lerp(INK, 0.35), x + 156, 64, -8, "baliza:" .. teamId)
 end
 
-choice("Apitar o jogo", "arbitro  ·  decides, e podes ceder", Color3.fromRGB(46, 50, 58), -232, 452, 84, "arbitro")
+choice(TXT.refereeTheMatch, TXT.refereeYouDecideAndYou, Color3.fromRGB(46, 50, 58), -232, 452, 84, "arbitro")
 
 --------------------------------------------------------------------------------
 -- Quem sou
@@ -158,24 +159,24 @@ local function refreshRole()
 	local role = myRole()
 	if role == "arbitro" then
 		myTeam = nil
-		roleLabel.Text = "apitas este jogo"
+		roleLabel.Text = TXT.youRefereeThisMatch
 		roleLabel.TextColor3 = TEXT
 	elseif role == "jogador" then
 		myTeam = nil
 		local pitchTeam = Config.Teams[player:GetAttribute("PitchTeam") or ""]
 		if pitchTeam then
-			local where = if player:GetAttribute("Keeper") == true then "  ·  na baliza" else ""
-			roleLabel.Text = "jogas pelo " .. pitchTeam.name .. "  ·  n.º " .. tostring(player:GetAttribute("Number") or "") .. where
+			local where = if player:GetAttribute("Keeper") == true then TXT.inGoal2 else ""
+			roleLabel.Text = TXT.youPlayFor .. pitchTeam.name .. TXT.no .. tostring(player:GetAttribute("Number") or "") .. where
 			roleLabel.TextColor3 = pitchTeam.color
 		end
 	elseif role and Config.Teams[role] then
 		myTeam = role
-		local suffix = player:GetAttribute("Leader") and "  ·  lider" or ""
-		roleLabel.Text = "claque do " .. Config.Teams[role].name .. suffix
+		local suffix = player:GetAttribute("Leader") and TXT.capo or ""
+		roleLabel.Text = TXT.ultrasOf .. Config.Teams[role].name .. suffix
 		roleLabel.TextColor3 = Config.Teams[role].color
 	else
 		myTeam = nil
-		roleLabel.Text = "segue um dos feixes de luz ate a sede de uma claque"
+		roleLabel.Text = TXT.followOneOfTheLight
 		roleLabel.TextColor3 = MUTED
 	end
 end
@@ -293,7 +294,7 @@ homeButton.BorderSizePixel = 0
 homeButton.Font = Enum.Font.GothamBold
 homeButton.TextSize = 12
 homeButton.TextColor3 = TEXT
-homeButton.Text = "SEDE"
+homeButton.Text = TXT.home
 homeButton.Parent = gui
 
 local homeCorner = Instance.new("UICorner")
@@ -317,7 +318,7 @@ swapButton.BorderSizePixel = 0
 swapButton.Font = Enum.Font.GothamBold
 swapButton.TextSize = 12
 swapButton.TextColor3 = TEXT
-swapButton.Text = "TROCAR"
+swapButton.Text = TXT.switch
 swapButton.Parent = gui
 
 local swapCorner = Instance.new("UICorner")
@@ -342,7 +343,7 @@ end)
 task.spawn(function()
 	while true do
 		local wait = switchWait()
-		swapButton.Text = if wait > 0 then string.format("TROCAR %ds", wait) else "TROCAR"
+		swapButton.Text = if wait > 0 then string.format(TXT.switchWait, wait) else TXT.switch
 		swapButton.TextTransparency = if wait > 0 then 0.45 else 0
 		task.wait(0.5)
 	end
@@ -383,7 +384,7 @@ emoteButton.BorderSizePixel = 0
 emoteButton.Font = Enum.Font.GothamBold
 emoteButton.TextSize = 12
 emoteButton.TextColor3 = TEXT
-emoteButton.Text = "G  ANIMACOES"
+emoteButton.Text = TXT.gEmotes
 emoteButton.Parent = gui
 
 local emoteCorner = Instance.new("UICorner")
@@ -457,7 +458,7 @@ bikeButton.BorderSizePixel = 0
 bikeButton.Font = Enum.Font.GothamBold
 bikeButton.TextSize = 12
 bikeButton.TextColor3 = TEXT
-bikeButton.Text = "F  DESCER"
+bikeButton.Text = TXT.fGetOff
 bikeButton.Visible = false
 bikeButton.Parent = gui
 local bikeCorner = Instance.new("UICorner")
@@ -508,11 +509,11 @@ bigNote.Visible = false
 	segundos: o que aconteceu, de quem e, quem bate, e quanto falta.
 ]]
 local RESTART_TEXT = {
-	lancamento = "LANCAMENTO",
-	canto = "CANTO",
-	baliza = "PONTAPE DE BALIZA",
-	livre = "FALTA  ·  LIVRE",
-	penalti = "PENALTI",
+	lancamento = TXT.throwIn,
+	canto = TXT.corner,
+	baliza = TXT.goalKick,
+	livre = TXT.foulFreeKick,
+	penalti = TXT.penalty,
 }
 
 local restartBox = Instance.new("Frame")
@@ -564,7 +565,7 @@ local function refreshRestart()
 	restartStripe.BackgroundColor3 = if team then team.color else TEXT
 	local taker = workspace:GetAttribute("RestartTaker")
 	local teamName = if team then team.short else ""
-	restartTaker.Text = if type(taker) == "string" then "bate " .. taker .. "  ·  " .. teamName else teamName
+	restartTaker.Text = if type(taker) == "string" then TXT.takenBy .. taker .. "  ·  " .. teamName else teamName
 	restartBox.Visible = true
 end
 workspace:GetAttributeChangedSignal("Restart"):Connect(refreshRestart)
@@ -646,7 +647,7 @@ gearLabel.Size = UDim2.new(1, 0, 0, 18)
 gearLabel.Position = UDim2.new(0.5, 0, 1, -142)
 gearLabel.AnchorPoint = Vector2.new(0.5, 0)
 
-local hint = label(gui, "1-4 material na barra    ·    clica para acender    ·    B  pedir ao arbitro    ·    T  tifo    ·    espaco  saltar", 12, MUTED)
+local hint = label(gui, TXT.t14GearOnThe, 12, MUTED)
 hint.Font = Enum.Font.Gotham
 hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -118)
@@ -676,11 +677,11 @@ local stock: { [string]: number } = {
 
 -- Os nomes no rodape, pela ordem da barra.
 local STOCK_LABEL = {
-	{ "tocha", "tochas" },
-	{ "fumo", "fumos" },
-	{ "vela", "velas" },
-	{ "estrobo", "estrobos" },
-	{ "bandeira", "bandeira grande" },
+	{ "tocha", TXT.flares },
+	{ "fumo", TXT.smokes },
+	{ "vela", TXT.candles },
+	{ "estrobo", TXT.strobes },
+	{ "bandeira", TXT.bigFlag },
 }
 
 -- As moedas do jogo (atributo "Moedas", posto pelo servidor).
@@ -693,7 +694,7 @@ end
 local function updateGearLabel()
 	local pieces = {}
 	if stock.tocha < 0 then
-		table.insert(pieces, "material sem limite")
+		table.insert(pieces, TXT.unlimitedGear)
 	else
 		for _, entry in STOCK_LABEL do
 			local n = stock[entry[1]] or 0
@@ -702,11 +703,11 @@ local function updateGearLabel()
 			end
 		end
 		if #pieces == 0 then
-			table.insert(pieces, "sem pirotecnia: compra a um dealer na rua")
+			table.insert(pieces, TXT.noPyroBuyFromA)
 		end
 	end
 	if stock.tambor > 0 then
-		table.insert(pieces, "tambor")
+		table.insert(pieces, TXT.drum)
 	end
 	table.insert(pieces, (if player:GetAttribute("MoedasInfinitas") then "∞" else tostring(coins())) .. "$")
 	gearLabel.Text = table.concat(pieces, "   ·   ")
@@ -809,7 +810,7 @@ shopTitle.Size = UDim2.fromOffset(300, 30)
 shopTitle.Position = UDim2.fromOffset(20, 16)
 shopTitle.ZIndex = 21
 
-local shopSub = label(shop, "material da rua · paga-se em escudos", 13, MUTED)
+local shopSub = label(shop, TXT.streetGearPaidInEscudos, 13, MUTED)
 shopSub.Font = Enum.Font.Gotham
 shopSub.TextXAlignment = Enum.TextXAlignment.Left
 shopSub.Size = UDim2.fromOffset(340, 16)
@@ -896,7 +897,7 @@ itemOwned.Size = UDim2.fromOffset(210, 18)
 itemOwned.Position = UDim2.fromOffset(144, 100)
 itemOwned.ZIndex = 22
 
-local colourTitle = label(detail, "COR", 12, MUTED)
+local colourTitle = label(detail, TXT.colour, 12, MUTED)
 colourTitle.TextXAlignment = Enum.TextXAlignment.Left
 colourTitle.Size = UDim2.fromOffset(200, 14)
 colourTitle.Position = UDim2.fromOffset(14, 174)
@@ -952,7 +953,7 @@ end
 
 local function ownedText(kind: string): string
 	local n = stock[kind] or 0
-	return if n < 0 then "sem limite" else "tens " .. n
+	return if n < 0 then TXT.unlimited else TXT.youHave .. n
 end
 
 -- O modelo da montra: parecido ao que se leva na mao (Gear.buildHeld).
@@ -1065,7 +1066,7 @@ end
 -- As cores: um circulo por cor, a escolhida com aro.
 for index, entry in Config.PyroColours do
 	local col = index - 1
-	local swatch = textButton(detail, if entry.color then "" else "EQ", 10, INK, Color3.new(1, 1, 1))
+	local swatch = textButton(detail, if entry.color then "" else TXT.tm, 10, INK, Color3.new(1, 1, 1))
 	swatch.Font = Enum.Font.GothamBlack
 	swatch.Size = UDim2.fromOffset(26, 26)
 	swatch.Position = UDim2.fromOffset(14 + col * 30.5, 196)
@@ -1075,12 +1076,12 @@ for index, entry in Config.PyroColours do
 		-- As exclusivas so a partir do nivel de adepto certo (o servidor confirma).
 		if (entry :: any).exclusive and ((player:GetAttribute("Nivel_adepto") :: number?) or 1) < Config.Progress.perks.exclusiveColoursAt then
 			feedback.TextColor3 = SHOP_BAD
-			feedback.Text = entry.name .. ": so a partir do nivel " .. Config.Progress.perks.exclusiveColoursAt .. " de adepto"
+			feedback.Text = entry.name .. TXT.fromSupporterLevel .. Config.Progress.perks.exclusiveColoursAt .. ""
 			return
 		end
 		Remotes.Shop:FireServer("cor", selectedKind, index)
 		feedback.TextColor3 = TEXT
-		feedback.Text = "cor escolhida: " .. entry.name
+		feedback.Text = TXT.colourChosen .. entry.name
 	end)
 	swatches[index] = { button = swatch, stroke = stroke }
 end
@@ -1097,12 +1098,12 @@ for index, pack in Config.ShopPacks do
 		local cost = item.price * pack.pay
 		if not rich() and coins() < cost then
 			feedback.TextColor3 = SHOP_BAD
-			feedback.Text = "faltam " .. (cost - coins()) .. "$"
+			feedback.Text = TXT.youAreShortBy .. (cost - coins()) .. "$"
 			return
 		end
 		Remotes.Shop:FireServer("buy", selectedKind, index)
 		feedback.TextColor3 = SHOP_GOOD
-		feedback.Text = "comprado: " .. pack.amount .. "x " .. item.label
+		feedback.Text = TXT.bought .. pack.amount .. "x " .. item.label
 	end)
 	packButtons[index] = b
 end
@@ -1137,7 +1138,7 @@ refreshShop = function()
 		swatch.button.BackgroundColor3 = colourAt(index)
 		local entry = Config.PyroColours[index] :: any
 		local locked = entry.exclusive and ((player:GetAttribute("Nivel_adepto") :: number?) or 1) < Config.Progress.perks.exclusiveColoursAt
-		swatch.button.Text = if locked then "25" elseif entry.color then "" else "EQ"
+		swatch.button.Text = if locked then "25" elseif entry.color then "" else TXT.tm
 		swatch.button.BackgroundTransparency = if locked then 0.5 else 0
 		swatch.stroke.Thickness = if index == chosen then 3 else 0
 	end
@@ -1145,7 +1146,7 @@ refreshShop = function()
 	for index, pack in Config.ShopPacks do
 		local cost = item.price * pack.pay
 		local b = packButtons[index]
-		b.Text = if pack.amount == 1 then "1x  ·  " .. cost else pack.amount .. "x  ·  " .. cost .. "  (poupas " .. (item.price * pack.amount - cost) .. ")"
+		b.Text = if pack.amount == 1 then "1x  ·  " .. cost else pack.amount .. "x  ·  " .. cost .. TXT.save .. (item.price * pack.amount - cost) .. ")"
 		local can = rich() or coins() >= cost
 		b.BackgroundColor3 = if can then BRASS else Color3.fromRGB(90, 80, 66)
 	end
@@ -1320,7 +1321,7 @@ Remotes.Incident.OnClientEvent:Connect(function(incident, pressureByTeam)
 			table.insert(parts, Config.Teams[teamId].short .. ": " .. count)
 		end
 	end
-	panelPressure.Text = #parts > 0 and ("a bancada pede  —  " .. table.concat(parts, "   ")) or ""
+	panelPressure.Text = #parts > 0 and (TXT.theStandWants .. table.concat(parts, "   ")) or ""
 
 	-- O mesmo lance chega outra vez a cada grito das bancadas: nao se mexe nos
 	-- botoes nem no relogio, so na pressao.
@@ -1403,7 +1404,7 @@ whistleButton.BorderSizePixel = 0
 whistleButton.Font = Enum.Font.GothamBlack
 whistleButton.TextSize = 24
 whistleButton.TextColor3 = INK
-whistleButton.Text = "E   APITAR"
+whistleButton.Text = TXT.eWhistle
 whistleButton.Visible = false
 whistleButton.Parent = gui
 
@@ -1440,11 +1441,11 @@ local function showEntry(w: any)
 	entryTitle.Text = string.upper(w.title)
 	local role = myRole()
 	if role == "arbitro" then
-		entryDetail.Text = w.detail .. "   ·   apitas?"
+		entryDetail.Text = w.detail .. TXT.doYouBlow
 	elseif myTeam then
-		entryDetail.Text = w.detail .. "   ·   B  pede falta"
+		entryDetail.Text = w.detail .. TXT.bAppealForAFoul
 	else
-		entryDetail.Text = w.detail .. "   ·   o arbitro apita?"
+		entryDetail.Text = w.detail .. TXT.willTheRefereeBlow
 	end
 	entryEndsAt = w.endsAt
 	entrySeconds = w.seconds
@@ -1469,11 +1470,11 @@ Remotes.RefState.OnClientEvent:Connect(function(payload)
 	showEntry(payload.window)
 	local state = payload.state
 	if state and state.name then
-		refBadge.Text = "arbitro: " .. state.name
+		refBadge.Text = TXT.referee .. state.name
 		suspTrack.Visible = true
 		suspFill.Size = UDim2.fromScale(math.clamp(state.suspicion / state.max, 0, 1), 1)
 	else
-		refBadge.Text = "sem arbitro"
+		refBadge.Text = TXT.noReferee
 		suspTrack.Visible = false
 	end
 
@@ -1492,7 +1493,7 @@ Remotes.RefState.OnClientEvent:Connect(function(payload)
 		end
 		local text = resolved.text
 		if resolved.caught then
-			text = "ARBITRO APANHADO" .. (if text then "   ·   " .. text else "")
+			text = TXT.refereeCaught .. (if text then "   ·   " .. text else "")
 		end
 		if text then
 			goalLabel.Text = text
@@ -1516,7 +1517,7 @@ ContextActionService:BindAction("Pedir", function(_, inputState)
 	return Enum.ContextActionResult.Pass
 end, true, Enum.KeyCode.B)
 
-ContextActionService:SetTitle("Pedir", "PEDIR")
+ContextActionService:SetTitle("Pedir", TXT.appeal)
 
 --------------------------------------------------------------------------------
 -- Ligacao ao servidor
@@ -1535,14 +1536,14 @@ Remotes.Atmosphere.OnClientEvent:Connect(function(levels)
 end)
 
 local PHASE_TEXT = {
-	clubhouse = { "NA SEDE", "material, lider e a tua claque" },
-	corteo = { "CORTEO", "o lider guia, a claque vai atras da faixa" },
-	espera = { "A ESPERA DAS BANCADAS", "" },
-	entrada = { "ENTRADA EM CAMPO", "" },
-	first = { "1a PARTE", "" },
-	halftime = { "INTERVALO", "" },
-	second = { "2a PARTE", "" },
-	fulltime = { "FIM DO JOGO", "a seguir, novo dia na sede" },
+	clubhouse = { TXT.atTheClubhouse, TXT.gearTheCapoAndYour },
+	corteo = { TXT.corteo, TXT.corteoNote },
+	espera = { TXT.waitingForTheStands, "" },
+	entrada = { TXT.teamsComeOut, "" },
+	first = { TXT.t1stHalf, "" },
+	halftime = { TXT.halfTime, "" },
+	second = { TXT.t2ndHalf, "" },
+	fulltime = { TXT.fullTime, TXT.nextANewDayAt },
 }
 
 local function scoreLine(score: { [string]: number }): string
@@ -1574,7 +1575,7 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 	if snapshot.phase == "espera" then
 		local ready, total = workspace:GetAttribute("StandsReady"), workspace:GetAttribute("StandsTotal")
 		if type(ready) == "number" and type(total) == "number" and total > 0 then
-			phaseNote.Text = string.format("%d/%d na bancada", ready, total)
+			phaseNote.Text = string.format(TXT.dDInTheStand, ready, total)
 		end
 	end
 	phaseClock.Text = string.format("%d:%02d", snapshot.clock // 60, snapshot.clock % 60)
@@ -1586,7 +1587,7 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 			local team = Config.Teams[snapshot.lastGoal]
 			-- A quem tem tocha ou fumo e e da claque que marcou: e agora.
 			local lightUp = myTeam == snapshot.lastGoal and (stock.tocha ~= 0 or stock.fumo ~= 0)
-			showBig("GOLO", team.color, team.name .. "    " .. scoreLine(snapshot.score), if lightUp then "ACENDE AS TOCHAS" else "", 6)
+			showBig(TXT.goal, team.color, team.name .. "    " .. scoreLine(snapshot.score), if lightUp then TXT.lightTheFlares else "", 6)
 		end
 	end
 
@@ -1597,13 +1598,13 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 			local home, away = snapshot.score.home, snapshot.score.away
 			local winner = if home > away then Config.Teams.home elseif away > home then Config.Teams.away else nil
 			showBig(
-				"FIM DO JOGO",
+				TXT.fullTime,
 				if winner then winner.color else TEXT,
 				scoreLine(snapshot.score),
-				if winner then "vitoria do " .. winner.name else "empate",
+				if winner then TXT.winFor .. winner.name else TXT.draw,
 				snapshot.clock
 			)
-		elseif bigTitle.Text == "FIM DO JOGO" then
+		elseif bigTitle.Text == TXT.fullTime then
 			bigUntil = 0
 		end
 	end
@@ -1624,10 +1625,10 @@ end)
 local function refreshLineHint()
 	local line = workspace:GetAttribute("EntranceLine") == true
 	if line and myTeam and (stock.tocha ~= 0 or stock.fumo ~= 0) then
-		showBig("", TEXT, "", "ACENDE AS TOCHAS", Config.Entrance.lineSeconds)
+		showBig("", TEXT, "", TXT.lightTheFlares, Config.Entrance.lineSeconds)
 		bigTitle.Visible = false
 		bigScore.Visible = false
-	elseif not line and bigNote.Text == "ACENDE AS TOCHAS" and bigTitle.Text == "" then
+	elseif not line and bigNote.Text == TXT.lightTheFlares and bigTitle.Text == "" then
 		bigUntil = 0
 	end
 end
@@ -1745,7 +1746,7 @@ if table.find(Config.Admins, player.UserId) then
 	skip.Font = Enum.Font.GothamBold
 	skip.TextSize = 12
 	skip.TextColor3 = TEXT
-	skip.Text = "]  SALTAR FASE"
+	skip.Text = TXT.skipPhase
 	skip.Parent = gui
 
 	local skipCorner = Instance.new("UICorner")
@@ -1888,7 +1889,7 @@ for i, design in TIFO.designs do
 
 	-- Nas frases, a frase por cima da pre-visualizacao.
 	if design.message then
-		local words = label(grid, if design.message == "%TEAM%" then "NOME DA CLAQUE" else design.message, 12, TEXT)
+		local words = label(grid, if design.message == "%TEAM%" then TXT.ultrasName else design.message, 12, TEXT)
 		words.Font = Enum.Font.GothamBlack
 		words.Size = UDim2.fromScale(1, 1)
 		words.TextWrapped = true
@@ -2027,13 +2028,13 @@ RunService.RenderStepped:Connect(function()
 			tifoButtonNote.Text = "no ar"
 			tifoButtonNote.TextColor3 = MUTED
 		elseif left <= 0 then
-			tifoButtonNote.Text = "acabaram-se neste jogo"
+			tifoButtonNote.Text = TXT.noneLeftThisMatch
 			tifoButtonNote.TextColor3 = MUTED
 		elseif isMoment() then
-			tifoButtonNote.Text = "MOMENTO CERTO  ·  vale o dobro"
+			tifoButtonNote.Text = TXT.rightMomentCountsDouble
 			tifoButtonNote.TextColor3 = BRASS
 		else
-			tifoButtonNote.Text = "fora de tempo  ·  vale metade"
+			tifoButtonNote.Text = TXT.wrongMomentCountsHalf
 			tifoButtonNote.TextColor3 = MUTED
 		end
 	end
@@ -2058,7 +2059,7 @@ RunService.RenderStepped:Connect(function()
 		else
 			tifoBanner.Text = "TIFO " .. string.upper(shown.name)
 		end
-		tifoBannerNote.Text = team.name .. (shown.strong and "  ·  no momento certo" or "  ·  fora de tempo")
+		tifoBannerNote.Text = team.name .. (shown.strong and TXT.atTheRightMoment or TXT.atTheWrongMoment)
 	else
 		tifoBanner.Text = ""
 		tifoBannerNote.Text = ""
@@ -2068,11 +2069,11 @@ RunService.RenderStepped:Connect(function()
 	if myCard and t < myCard.lowerAt then
 		cardPrompt.Visible = true
 		if myCard.lifted then
-			cardText.Text = "cartolina no ar"
+			cardText.Text = TXT.cardUp
 		elseif t < myCard.raiseAt then
-			cardText.Text = "a tua cor  ·  T para levantar"
+			cardText.Text = TXT.yourColourTToLift
 		else
-			cardText.Text = "T  LEVANTA A CARTOLINA"
+			cardText.Text = TXT.tLiftYourCard
 		end
 	else
 		cardPrompt.Visible = false
@@ -2084,10 +2085,10 @@ end)
 --------------------------------------------------------------------------------
 
 --[[
-	Quem marca no treino: "GOLO" grande a meio do ecra, e o nome por baixo.
+	Quem marca no treino: TXT.goal grande a meio do ecra, e o nome por baixo.
 	So para quem esta na academia (perto dela); no estadio nao se ve.
 ]]
-local trainingGoal = label(gui, "GOLO!", 72, Color3.fromRGB(255, 214, 90))
+local trainingGoal = label(gui, TXT.goal2, 72, Color3.fromRGB(255, 214, 90))
 trainingGoal.Font = Enum.Font.GothamBlack
 trainingGoal.AnchorPoint = Vector2.new(0.5, 0.5)
 trainingGoal.Size = UDim2.fromOffset(600, 90)
@@ -2111,7 +2112,7 @@ Remotes.Academia.OnClientEvent:Connect(function(info)
 	if not root or (root.Position - at).Magnitude > 260 then
 		return
 	end
-	trainingScorer.Text = if type(info.name) == "string" then info.name .. " marcou no treino" else "no treino"
+	trainingScorer.Text = if type(info.name) == "string" then info.name .. TXT.scoredInTraining else TXT.inTraining
 	trainingGoal.Visible = true
 	local stamp = os.clock()
 	goalShownAt = stamp

@@ -25,6 +25,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local TXT = Config.Text.lider
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Gear = require(script.Parent:WaitForChild("Gear"))
@@ -124,7 +125,7 @@ local function sign(player: Player)
 	text.Size = UDim2.new(1, 0, 0.72, 0)
 	text.Font = Enum.Font.GothamBlack
 	text.TextScaled = true
-	text.Text = "LÍDER"
+	text.Text = TXT.capo
 	text.TextColor3 = colour:Lerp(Color3.new(1, 1, 1), 0.15)
 	text.TextStrokeColor3 = Color3.fromRGB(10, 10, 12)
 	text.TextStrokeTransparency = 0
@@ -212,13 +213,13 @@ end
 --------------------------------------------------------------------------------
 
 local TEXTS = {
-	formar = "O líder mandou FORMAR à porta da sede",
-	saltar = "O líder mandou SALTAR",
-	acender = "O líder mandou ACENDER as tochas",
-	farda = "O líder mandou vestir a FARDA",
-	agachar = "O líder mandou AGACHAR — todos em baixo!",
-	bracos = "O líder mandou BALANÇAR OS BRAÇOS",
-	bandeirao = "BANDEIRÃO! Acende a tocha por baixo do pano",
+	formar = TXT.theCapoCalledFormUp,
+	saltar = TXT.theCapoCalledJump,
+	acender = TXT.theCapoCalledLightUp,
+	farda = TXT.theCapoCalledUniformOn,
+	agachar = TXT.theCapoCalledCrouchEverybody,
+	bracos = TXT.theCapoCalledSwayYour,
+	bandeirao = TXT.giantFlagLightYourFlare,
 }
 
 local function invite(leader: Player, teamId: string, order: string)
@@ -299,7 +300,7 @@ local function accept(player: Player, id: number)
 		task.spawn(function()
 			local lit = Gear.lightNow(player)
 			if not lit then
-				Remotes.Lider:FireClient(player, { kind = "aviso", text = "Não tens tochas nem fumo: compra a um dealer." })
+				Remotes.Lider:FireClient(player, { kind = "aviso", text = TXT.youHaveNoFlaresOr })
 			end
 		end)
 	elseif order == "farda" then
@@ -339,30 +340,30 @@ local function give(leader: Player, teamId: string, targetId: any, kind: any)
 	end
 	local target = Players:GetPlayerByUserId(targetId)
 	if not target or Teams.get(target) ~= teamId then
-		tell(leader, "Essa pessoa não é da claque.")
+		tell(leader, TXT.thatPersonIsNotIn)
 		return
 	end
 	-- A bandeira do mastro nao se gasta: e so uma, e muda de mao.
 	if kind == "mastro" then
 		Gear.setMastro(teamId, target)
-		Remotes.Lider:FireClient(target, { kind = "aviso", text = "O líder escolheu-te para agitar a bandeira do mastro! Está na tua barra." })
-		tell(leader, target.DisplayName .. " agita agora a bandeira do mastro.")
+		Remotes.Lider:FireClient(target, { kind = "aviso", text = TXT.theCapoPickedYouTo })
+		tell(leader, target.DisplayName .. TXT.nowWavesThePoleFlag)
 		return
 	end
 	if left(leader) <= 0 then
-		tell(leader, "Já deste tudo o que podias neste jogo. Sobe de nível para dares mais.")
+		tell(leader, TXT.youHaveGivenAllYou)
 		return
 	end
 	given[leader] = (given[leader] or 0) + 1
-	local names = { tocha = "uma tocha", fumo = "um fumo", bandeira = "a bandeira grande", faixa = "a faixa" }
+	local names = { tocha = TXT.aFlare, fumo = TXT.aSmoke, bandeira = TXT.theBigFlag, faixa = TXT.theBanner }
 	if kind == "faixa" then
 		March.grantHold(target)
 	else
 		Gear.give(target, kind, 1)
 		Gear.sync(target)
 	end
-	Remotes.Lider:FireClient(target, { kind = "aviso", text = "O líder deu-te " .. names[kind] .. "!" })
-	tell(leader, "Deste " .. names[kind] .. " a " .. target.DisplayName .. ".")
+	Remotes.Lider:FireClient(target, { kind = "aviso", text = TXT.theCapoGaveYou .. names[kind] .. "!" })
+	tell(leader, TXT.youGave .. names[kind] .. TXT.to .. target.DisplayName .. ".")
 end
 
 local function onOrder(player: Player, order: any, a: any, b: any)
@@ -396,11 +397,11 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 			local song = L.canticos[index] :: any
 			if index >= 1 and song and (song.club == nil or song.club == Config.Teams[teamId].club) then
 				folder:SetAttribute("Musica_" .. teamId, index .. ":" .. workspace:GetServerTimeNow())
-				notice(teamId, "O líder pôs a tocar: " .. L.canticos[index].name, nil)
-				tell(player, "A tocar: " .. L.canticos[index].name)
+				notice(teamId, TXT.theCapoPutOn .. L.canticos[index].name, nil)
+				tell(player, TXT.playing .. L.canticos[index].name)
 			else
 				folder:SetAttribute("Musica_" .. teamId, nil)
-				tell(player, "Música parada.")
+				tell(player, TXT.musicStopped)
 			end
 		end
 		return
@@ -410,12 +411,12 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 	if order == "acender" then
 		local used = lit[player] or 0
 		if used >= Lider.lightBudget(player) then
-			tell(player, "Já mandaste acender " .. used .. " vezes neste jogo. Sobe de nível para poderes mais.")
+			tell(player, TXT.youHaveCalledLightUp .. used .. TXT.timesThisMatchLevelUp)
 			return
 		end
 		local key = teamId .. ":acender"
 		if os.clock() < (nextOrder[key] or 0) then
-			tell(player, "As tochas ainda estão a arder. Espera um bocado.")
+			tell(player, TXT.theFlaresAreStillBurning)
 			return
 		end
 		nextOrder[key] = os.clock() + L.lightCooldown
@@ -423,52 +424,52 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 		botOrder(teamId, "Acender", L.lightSeconds)
 		invite(player, teamId, "acender")
 		local rest = Lider.lightBudget(player) - lit[player]
-		tell(player, "Tochas no ar! Podes mandar acender mais " .. rest .. " vez" .. (if rest == 1 then "" else "es") .. " neste jogo.")
+		tell(player, TXT.flaresUp .. rest .. (if rest == 1 then TXT.moreTime else TXT.moreTimes))
 		return
 	end
 
 	if not ready(teamId, order) then
-		tell(player, "Espera uns segundos antes de repetir a ordem.")
+		tell(player, TXT.waitAFewSecondsBefore)
 		return
 	end
 
 	if order == "formar" then
 		if not March.isActive() then
-			tell(player, "Só se forma antes do cortejo, à porta da sede.")
+			tell(player, TXT.youOnlyFormUpBefore)
 			return
 		end
 		if not March.form(teamId) then
-			tell(player, "A claque já formou (ou já saiu).")
+			tell(player, TXT.theUltrasHaveAlreadyFormed)
 			return
 		end
 		formSlot[teamId] = 0
 		invite(player, teamId, "formar")
-		tell(player, "A claque está a formar.")
+		tell(player, TXT.theUltrasAreFormingUp)
 	elseif order == "marchar" then
 		if not March.launch(teamId) then
-			tell(player, "O cortejo já saiu (ou ainda não é hora).")
+			tell(player, TXT.theCorteoHasAlreadyLeft)
 			return
 		end
-		notice(teamId, "O cortejo vai arrancar: vai atrás da faixa!", player)
-		tell(player, "O cortejo arranca depois da formatura.")
+		notice(teamId, TXT.theCorteoIsAboutTo, player)
+		tell(player, TXT.theCorteoLeavesAfterThe)
 	elseif order == "saltar" then
 		botOrder(teamId, "Saltar", L.jumpSeconds)
 		invite(player, teamId, "saltar")
-		tell(player, "A claque salta.")
+		tell(player, TXT.theUltrasJump)
 	elseif order == "agachar" or order == "bracos" then
 		-- As coreografias: a bancada inteira ao mesmo tempo, ao ritmo do tambor.
 		botOrder(teamId, if order == "agachar" then "Agachar" else "Bracos", L.jumpSeconds)
 		invite(player, teamId, order)
-		tell(player, if order == "agachar" then "A claque agacha-se." else "A claque balança os braços.")
+		tell(player, if order == "agachar" then TXT.theUltrasCrouch else TXT.theUltrasSwayTheirArms)
 	elseif order == "farda" then
 		botOrder(teamId, "Farda", nil)
 		invite(player, teamId, "farda")
 		Lider.dress(player)
-		tell(player, "A claque veste a farda.")
+		tell(player, TXT.theUltrasPutTheUniform)
 	elseif order == "bandeirao" then
 		local hook = bandeiraoHook
 		if not hook then
-			tell(player, "O bandeirão ainda não está pronto.")
+			tell(player, TXT.theGiantFlagIsNot)
 			return
 		end
 		local ok, why = hook(teamId)
@@ -477,7 +478,7 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 			botOrder(teamId, "Acender", L.bandeirao.unroll + L.bandeirao.hold)
 			invite(player, teamId, "bandeirao")
 		end
-		tell(player, if ok then "O bandeirão está a descer!" else (why or "Agora não dá."))
+		tell(player, if ok then TXT.theGiantFlagIsComing else (why or TXT.notNow))
 	end
 end
 
