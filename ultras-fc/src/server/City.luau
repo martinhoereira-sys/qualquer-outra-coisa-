@@ -211,7 +211,10 @@ function City.place(teamId: string)
 	if site and not site.existing then
 		-- A ground built from Config (SedeBuilder): the door is beside the sede, on the street side.
 		local base = CFrame.new(site.x, site.y or 0.7, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0)
-		local doorAt = (base * CFrame.new(36, 0, -22)).Position
+		-- (The sede is at the north end of the ground, whatever the size of the pitch.)
+		local built = workspace:FindFirstChild("Recintos") and workspace.Recintos:FindFirstChild("Recinto_" .. club.club)
+		local total = (built and built:GetAttribute("Total")) or 86
+		local doorAt = (base * CFrame.new(36, 0, -total / 2 + 21)).Position
 		local forward = base.RightVector
 		local frame = CFrame.lookAt(doorAt, doorAt - forward)
 		local holder = Instance.new("Folder")

@@ -1181,12 +1181,20 @@ end)
 
 -- O botao "SEDE": volta-se quando se quer, nunca a forca.
 local lastHome: { [Player]: number } = {}
-Remotes.Home.OnServerEvent:Connect(function(player)
+Remotes.Home.OnServerEvent:Connect(function(player, where)
 	local now = os.clock()
 	if (lastHome[player] or 0) + 3 > now then
 		return
 	end
 	lastHome[player] = now
+	-- "estadio": straight to my stand, when the match has already started
+	-- (nobody is stuck in a corteo that left late).
+	local teamId = Teams.get(player)
+	local phase = MatchLoop.phase()
+	if where == "estadio" and teamId and phase ~= "clubhouse" and phase ~= "corteo" then
+		task.spawn(sendToClaque, player, teamId)
+		return
+	end
 	task.spawn(sendHome, player)
 end)
 Players.PlayerRemoving:Connect(function(player)
@@ -1326,6 +1334,17 @@ if game:GetService("RunService"):IsStudio() then
 		local n = workspace:GetAttribute("TestDerby")
 		if type(n) == "number" then
 			Derby.set(n)
+		end
+	end)
+end
+-- Studio only: the workspace attribute "TestLeader" makes the first player in a claque its capo (for tests).
+if game:GetService("RunService"):IsStudio() then
+	workspace:GetAttributeChangedSignal("TestLeader"):Connect(function()
+		for _, player in Players:GetPlayers() do
+			if Teams.get(player) then
+				Teams.claimLeader(player)
+				break
+			end
 		end
 	end)
 end

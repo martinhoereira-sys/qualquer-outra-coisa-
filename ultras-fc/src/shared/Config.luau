@@ -415,7 +415,7 @@ Config.Clubs = {
 	galata = {
 		club = "galata",
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = -264, z = -234, block = "4_4" },
+		site = { x = -268, z = -234, block = "4_4", maxWidth = 70 }, -- narrower: there is a cash machine at the east edge of the block
 		name = "Galata SK",
 		fullName = "Galata SK",
 		nameUpper = "GALATA SK",
@@ -779,6 +779,11 @@ Config.TeamOrder = { "home", "away" }
 	THE LEAGUE. Points for a win and a draw; the season is a week (Monday to
 	Sunday) and the table starts again each Monday (server/League).
 ]]
+-- The arrows of the corteo and the button to go straight to the stadium (client/Rota).
+Config.Rota = {
+	arrivedWithin = 230, -- studs from the centre of the pitch: closer than this, one has arrived
+}
+
 Config.League = {
 	win = 3,
 	draw = 1,
@@ -897,6 +902,11 @@ Config.Admins = {
 	Config.Clubs. To change a word on the screen, change it here.
 ]]
 Config.Text = {
+	rota = {
+		arrowsOn = "ARROWS: ON",
+		arrowsOff = "ARROWS: OFF",
+		straight = "GO STRAIGHT TO THE STADIUM",
+	},
 	league = {
 		open = "TABLE",
 		title = "LEAGUE TABLE",

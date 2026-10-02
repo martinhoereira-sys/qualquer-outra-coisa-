@@ -58,6 +58,66 @@ type Banner = {
 }
 
 local banners: { [string]: Banner } = {}
+
+--[[
+	THE ROUTE IS THE ARROWS. The banner always goes along the route to the
+	stadium (the arrows on the ground), whoever leads it. The leader sets the
+	PACE, not the direction: the banner keeps a few steps ahead of the leader
+	along the route and never turns round with them or leaves the street.
+]]
+local progress: { [string]: number } = {} -- how far along its route each banner is, in studs
+
+-- The point `s` studs along the path, the direction there, and the leg it is on.
+local function along(points: { Vector3 }, s: number): (Vector3, Vector3, number)
+	local left = math.max(s, 0)
+	local dir = Vector3.new(0, 0, -1)
+	for i = 1, #points - 1 do
+		local a, b = points[i], points[i + 1]
+		local step = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+		if step.Magnitude > 0.1 then
+			dir = step.Unit
+			if left <= step.Magnitude then
+				return Vector3.new(a.X, 0, a.Z) + dir * left, dir, i
+			end
+			left -= step.Magnitude
+		end
+	end
+	local last = points[#points]
+	return Vector3.new(last.X, 0, last.Z), dir, math.max(#points - 1, 1)
+end
+
+-- How far along the path the point nearest to `p` is (looking only from `from` studs on).
+local function project(points: { Vector3 }, p: Vector3, from: number): number
+	local best, bestDistance = from, math.huge
+	local walked = 0
+	for i = 1, #points - 1 do
+		local a, b = points[i], points[i + 1]
+		local step = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+		local length = step.Magnitude
+		if length > 0.1 then
+			local t = math.clamp(Vector3.new(p.X - a.X, 0, p.Z - a.Z):Dot(step.Unit), 0, length)
+			local s = walked + t
+			if s >= from - 40 then
+				local at = Vector3.new(a.X, 0, a.Z) + step.Unit * t
+				local distance = (Vector3.new(p.X, 0, p.Z) - at).Magnitude
+				if distance < bestDistance then
+					best, bestDistance = s, distance
+				end
+			end
+			walked += length
+		end
+	end
+	return best
+end
+
+-- The route, for the arrows on each screen: "x,z;x,z;..."
+local function publishRoute(banner: Banner)
+	local list = {}
+	for _, point in banner.waypoints do
+		table.insert(list, string.format("%d,%d", point.X, point.Z))
+	end
+	banner.model:SetAttribute("Rota", table.concat(list, ";"))
+end
 local credit: { [Player]: number } = {} -- 0 a 1: quanto do percurso acompanhou
 -- A quem o lider deu a faixa (DAR MATERIAL), neste corteo.
 local granted: { [Player]: boolean } = {}
@@ -159,6 +219,8 @@ function March.arm(parent: Instance)
 				launchPending = false,
 			}
 			banners[teamId].model:SetAttribute("Stage", "espera")
+			progress[teamId] = nil
+			publishRoute(banners[teamId])
 		end
 	end
 end
@@ -435,19 +497,20 @@ function March.step(dt: number)
 				-- Chegou o lider: passa a ser ele.
 				releaseLeader(banner)
 			else
-				local at = hrp.Position
-				local movedBy = Vector3.new(at.X - banner.lastLeaderAt.X, 0, at.Z - banner.lastLeaderAt.Z)
-				if movedBy.Magnitude > 0.2 then
-					banner.heading = banner.heading:Lerp(movedBy.Unit, 0.25).Unit
-				end
-				banner.lastLeaderAt = at
-
+				-- Along the route, a few steps ahead of the leader: the leader sets the pace.
+				local points = banner.waypoints
 				local here = banner.model.Position
-				local want = Vector3.new(at.X, 3, at.Z) + banner.heading * M.leadDistance
-				local delta = want - here
-				local stepLength = math.min(delta.Magnitude, (M.leaderSpeed + 6) * dt)
-				local nextAt = if delta.Magnitude > 0.05 then here + delta.Unit * stepLength else here
-				banner.model.CFrame = CFrame.lookAt(nextAt, nextAt + banner.heading)
+				local done = progress[teamId] or project(points, here, 0)
+				local leaderAt = project(points, hrp.Position, done)
+				local target = math.max(done, leaderAt + M.leadDistance)
+				done += math.min(target - done, (M.leaderSpeed + 6) * dt)
+				progress[teamId] = done
+				local spot, dir, leg = along(points, done)
+				banner.leg = leg
+				banner.heading = dir
+				banner.lastLeaderAt = hrp.Position
+				local nextAt = Vector3.new(spot.X, here.Y, spot.Z)
+				banner.model.CFrame = CFrame.lookAt(nextAt, nextAt + dir)
 
 				-- Perto da porta da claque: acaba a marcha, corre-se para dentro. O
 				-- lider larga a faixa (corre ao seu passo) e ela vai direita a porta.

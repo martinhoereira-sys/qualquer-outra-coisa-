@@ -27,7 +27,10 @@ local Emblem = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Em
 local SedeBuilder = {}
 
 local SCALE = 0.7 -- the sede is a little smaller than the hand-made one
-local PITCH = Vector3.new(56, 0.4, 34)
+-- The training pitch: as big as the block lets it be, up to this (the stadium's
+-- own pitch does not fit in a city block).
+local PITCH_MAX = Vector3.new(110, 0.4, 64)
+local MARGIN = 5 -- pavement left round the ground
 local GAP = 6 -- between the sede and the pitch
 
 -- The walls: black, white or dark grey, so the grounds look alike but not the same.
@@ -133,7 +136,7 @@ local function sede(club: any, index: number, at: CFrame, parent: Instance): (Mo
 	return model, size
 end
 
-local function pitch(club: any, at: CFrame, parent: Instance)
+local function pitch(club: any, at: CFrame, parent: Instance, PITCH: Vector3)
 	local folder = Instance.new("Model")
 	folder.Name = "Campo"
 	local w, d = PITCH.X, PITCH.Z
@@ -234,8 +237,19 @@ function SedeBuilder.build(clubId: string): number
 	local y = site.y or 0.7 -- on top of the pavement of the block
 	local base = CFrame.new(site.x, y, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0)
 
-	-- The sede in the north half of the site, the pitch in the south half.
+	-- How big the pitch can be here: what is left of the block beside the sede.
 	local sedeDepth = 60 * SCALE
+	local PITCH = PITCH_MAX
+	local city = workspace:FindFirstChild("Cidade")
+	local blocks = city and city:FindFirstChild("Quarteiroes")
+	local block = blocks and site.block and blocks:FindFirstChild("Quarteirao_" .. site.block)
+	local floor = block and block:FindFirstChild("Passeio")
+	if floor and floor:IsA("BasePart") then
+		local roomX = floor.Size.X - MARGIN * 2
+		local roomZ = math.min(floor.Size.Z, 140) - MARGIN * 2 - sedeDepth - GAP - 4
+		PITCH = Vector3.new(math.clamp(roomX - 4, 40, site.maxWidth or PITCH_MAX.X), PITCH_MAX.Y, math.clamp(roomZ, 30, PITCH_MAX.Z))
+	end
+	-- The sede in the north half of the site, the pitch in the south half.
 	local total = sedeDepth + GAP + PITCH.Z + 4
 	local removed = clear(base, Vector3.new(math.max(80 * SCALE, PITCH.X + 4) + 4, 0, total + 4))
 	local model, size = sede(club, index, base * CFrame.new(0, 0, -total / 2 + sedeDepth / 2), ground)
@@ -246,7 +260,8 @@ function SedeBuilder.build(clubId: string): number
 		sign(club.claque, Vector3.new(22, 3, 0.3), front * CFrame.new(0, size.Y * 0.62 - 5.2, 0) * CFrame.Angles(0, math.pi, 0), club.color, inkFor(club.color), ground)
 		sign(club.nameUpper, Vector3.new(22, 2, 0.3), front * CFrame.new(0, size.Y * 0.62 + 4.6, 0) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(20, 20, 24), WHITE, ground)
 	end
-	pitch(club, base * CFrame.new(0, 0, total / 2 - PITCH.Z / 2 - 2), ground)
+	pitch(club, base * CFrame.new(0, 0, total / 2 - PITCH.Z / 2 - 2), ground, PITCH)
+	ground:SetAttribute("Total", total)
 	ground.Parent = root
 	return removed
 end
