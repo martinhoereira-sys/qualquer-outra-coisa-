@@ -1645,7 +1645,7 @@ Config.March = {
 	spacing = 2.4, -- studs between two people side by side in the block
 	-- The banner that opens the corteo: three players wide, half a player tall,
 	-- straight, held at chest height by the two at its ends; it barely moves.
-	banner = { width = 12, height = 2.4, chest = 3.6, sway = 0.08 },
+	banner = { width = 12, height = 2.4, chest = 3.6, sway = 0 }, -- sway 0: a flat board of cloth, it does not move
 	radius = 45, -- a que distancia da faixa ainda se conta como ir no corteo
 	atmosphereBonus = 55, -- ambiente de partida para uma claque que fez o caminho
 }
