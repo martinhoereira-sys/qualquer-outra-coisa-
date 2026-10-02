@@ -122,9 +122,9 @@ function Pano.draw(canvas: GuiObject, design: Design)
 		local club = design.club
 		if club and club.emblem and design.text == club.claque then
 			-- The claque's own faixa carries the club emblem at both ends.
-			emblemAt(canvas, club, 0.008, 0.5, 0.94, 0)
-			emblemAt(canvas, club, 0.992, 0.5, 0.94, 1)
-			label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.7, 0.62), UDim2.fromScale(0.15, 0.19))
+			-- The emblem: as tall as the letters, at one end, inside the cloth.
+			emblemAt(canvas, club, 0.02, 0.5, 0.62, 0)
+			label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.78, 0.62), UDim2.fromScale(0.2, 0.19))
 		else
 			label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.94, 0.62), UDim2.fromScale(0.03, 0.19))
 		end

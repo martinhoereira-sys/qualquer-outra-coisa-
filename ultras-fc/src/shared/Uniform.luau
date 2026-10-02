@@ -385,7 +385,14 @@ function Uniform.ultra(model: Model, club: any): Folder
 		-- the eyes. With the hood, only the eyes are left out.
 		shell("Mascara", head, Vector3.new(s.X + 0.06, s.Y * 0.3, s.Z + 0.1), CFrame.new(0, -s.Y * 0.35, -0.02), club.mask or club.color, folder)
 	end
-	-- Black gloves: no skin showing but the eyes.
+	-- Dark glasses over the eyes.
+	if head then
+		local s = head.Size
+		local glasses = shell("Oculos", head, Vector3.new(s.X * 0.8, s.Y * 0.17, 0.08), CFrame.new(0, s.Y * 0.07, -(s.Z / 2 + 0.03)), Color3.fromRGB(8, 8, 10), folder)
+		glasses.Material = Enum.Material.SmoothPlastic
+		glasses.Reflectance = 0.15
+	end
+	-- Black gloves: no skin showing.
 	for _, name in { "LeftHand", "RightHand" } do
 		local hand = part(model, name)
 		if hand then

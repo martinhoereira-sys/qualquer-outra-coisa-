@@ -208,7 +208,8 @@ local function track(banner: Instance)
 		o lider, uma pessoa, a levar o tambor).
 	]]
 	local columns = M.columns
-	local spacing = banner.Size.X / columns
+	-- The block behind is as wide as the street, not as the banner.
+	local spacing = math.max(banner.Size.X / columns, M.spacing)
 	for i = 0, M.bots - 1 do
 		local row = i // columns
 		local column = i % columns
@@ -493,7 +494,7 @@ RunService.RenderStepped:Connect(function(dt)
 					end
 				end
 			else
-				PanoRig.hang(faixaRig, now, if moving then 0.55 else 0.3, #group.teamId)
+				PanoRig.hang(faixaRig, now, if moving then M.banner.sway else M.banner.sway * 0.5, #group.teamId)
 			end
 		end
 

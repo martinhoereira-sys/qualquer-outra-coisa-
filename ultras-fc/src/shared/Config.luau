@@ -764,6 +764,7 @@ Config.TeamOrder = { "home", "away" }
 	  glow       how bright the flame itself is
 	  halo       size of the round glow at the tip
 	  particles  share of the particles (smoke, flame, sparks)
+	  smokeSize, smokeOpacity, smokeLife  the smoke: size, how solid, how long
 	  maxLights  lights lit at the same time, at most (the rest burn without one)
 	  maxSmokes  smoke clouds at the same time, at most
 ]]
@@ -773,6 +774,9 @@ Config.Pyro = {
 	glow = 0.6,
 	halo = 0.6,
 	particles = 0.6,
+	smokeSize = 0.6, -- how big the puffs of smoke get
+	smokeOpacity = 0.55, -- how solid the smoke is
+	smokeLife = 0.6, -- how long it hangs in the air
 	maxLights = 8,
 	maxSmokes = 10,
 }
@@ -1562,6 +1566,10 @@ Config.March = {
 	takeRadius = 20, -- o lider a esta distancia da faixa passa a guia-la
 	arriveRadius = 30, -- a esta distancia da porta da claque, o corteo chegou
 	speed = 7, -- passo da faixa, em studs por segundo: o de quem vai a pe, devagar, nunca a correr
+	spacing = 2.4, -- studs between two people side by side in the block
+	-- The banner that opens the corteo: three players wide, half a player tall,
+	-- straight, held at chest height by the two at its ends; it barely moves.
+	banner = { width = 12, height = 2.4, chest = 3.6, sway = 0.08 },
 	radius = 45, -- a que distancia da faixa ainda se conta como ir no corteo
 	atmosphereBonus = 55, -- ambiente de partida para uma claque que fez o caminho
 }
@@ -2256,6 +2264,21 @@ Config.Tifo = {
 			},
 		},
 	},
+}
+
+--[[
+	THE FUTURE: switches only, all off. Nothing is built behind them yet; they
+	are here so that nothing in the code gets in their way.
+]]
+Config.Futuro = {
+	presidente = false,
+	atributos = false,
+	transferencias = false,
+	treinadores = false,
+	segundoEstadio = false,
+	roupaDeClaque = false,
+	var = false,
+	taca = false,
 }
 
 return Config

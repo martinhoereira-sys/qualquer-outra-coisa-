@@ -70,6 +70,21 @@ local function curve(points: { { number } }): NumberSequence
 	return NumberSequence.new(keys)
 end
 
+-- Thins a smoke emitter (Config.Pyro): smaller puffs, more see-through, gone sooner.
+local function thin(e: ParticleEmitter)
+	local sizes = {}
+	for _, k in e.Size.Keypoints do
+		table.insert(sizes, NumberSequenceKeypoint.new(k.Time, k.Value * Q.smokeSize))
+	end
+	e.Size = NumberSequence.new(sizes)
+	local alphas = {}
+	for _, k in e.Transparency.Keypoints do
+		table.insert(alphas, NumberSequenceKeypoint.new(k.Time, 1 - (1 - k.Value) * Q.smokeOpacity))
+	end
+	e.Transparency = NumberSequence.new(alphas)
+	e.Lifetime = NumberRange.new(e.Lifetime.Min * Q.smokeLife, e.Lifetime.Max * Q.smokeLife)
+end
+
 local function emitter(name: string, texture: string, parent: Instance, rate: number): ParticleEmitter
 	local e = Instance.new("ParticleEmitter")
 	e.Name = name
@@ -199,6 +214,7 @@ function Pyro.flare(at: Attachment, colour: Color3)
 	smoke.Acceleration = Vector3.new(0, 2.5, 0)
 	smoke.Drag = 0.35
 	smoke.RotSpeed = NumberRange.new(-25, 25)
+	thin(smoke)
 end
 
 --[[
@@ -219,6 +235,7 @@ function Pyro.smoke(at: Attachment, colour: Color3)
 	jet.Speed = NumberRange.new(14, 20)
 	jet.SpreadAngle = Vector2.new(12, 12)
 	jet.Drag = 1.6
+	thin(jet)
 
 	-- A nuvem: particulas enormes e lentas, que abrem para os lados, sobem
 	-- acima do telhado e ficam no ar muito tempo.
@@ -234,6 +251,7 @@ function Pyro.smoke(at: Attachment, colour: Color3)
 	cloud.Acceleration = Vector3.new(0, 1.6, 0)
 	cloud.Drag = 0.45
 	cloud.RotSpeed = NumberRange.new(-12, 12)
+	thin(cloud)
 
 	-- O rolo baixo, que tapa as pessoas a volta de quem acendeu.
 	local low = emitter("Rolo", BASE_SMOKE, at, 9)
@@ -247,6 +265,7 @@ function Pyro.smoke(at: Attachment, colour: Color3)
 	low.SpreadAngle = Vector2.new(180, 20)
 	low.Acceleration = Vector3.new(0, 0.4, 0)
 	low.Drag = 0.7
+	thin(low)
 end
 
 -- O jacto acaba e a nuvem fica: quem acendeu o fumo chama isto uns segundos depois.

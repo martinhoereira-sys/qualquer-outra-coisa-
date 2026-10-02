@@ -94,8 +94,8 @@ local function buildBanner(teamId: string, at: Vector3, parent: Instance): Part
 
 	local banner = Instance.new("Part")
 	banner.Name = "Banner_" .. teamId
-	-- Larga como a rua cheia de gente atras dela.
-	banner.Size = Vector3.new(26, 5, 0.6)
+	-- Cloth carried by hand: three players wide, half a player tall (Config.March.banner).
+	banner.Size = Vector3.new(M.banner.width, M.banner.height, 0.3)
 	banner.CFrame = CFrame.new(at)
 	banner.Color = team.color
 	banner.Material = Enum.Material.Fabric
@@ -115,12 +115,7 @@ local function buildBanner(teamId: string, at: Vector3, parent: Instance): Part
 	pano.Parent = parent
 	banner.Transparency = 1
 
-	-- Brilha, para se ver de longe qual e o ponto de encontro.
-	local light = Instance.new("PointLight")
-	light.Brightness = 3
-	light.Range = 45
-	light.Color = team.color
-	light.Parent = banner
+	-- It is cloth: no light, no glow.
 
 	return banner
 end
