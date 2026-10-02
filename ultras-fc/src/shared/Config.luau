@@ -24,7 +24,9 @@ local Config = {}
 	  second   the colour of the hoops / stripes / sash
 	  trim     collar and cuffs (optional)
 	  shorts, socks, sockTop (optional)
-	A second kit is just one more entry in `kits` (e.g. `away = { ... }`): no new code.
+	  thin     thin hoops (optional)
+	Every club has two kits: `home` (the main one) and `away` (the alternate).
+	Which one is worn is decided by itself before each match (Config.pickKits).
 
 	`emblem` is drawn from shapes and text (shared/Emblem):
 	  colours  the colours used, by a short key
@@ -32,6 +34,7 @@ local Config = {}
 ]]
 local WHITE = Color3.fromRGB(245, 245, 245)
 local BLACK = Color3.fromRGB(24, 24, 28)
+local NAVY = Color3.fromRGB(20, 34, 84)
 
 Config.Clubs = {
 	aguias = {
@@ -49,6 +52,8 @@ Config.Clubs = {
 		keeperColor = Color3.fromRGB(240, 200, 40), -- yellow
 		kits = {
 			home = { pattern = "plain", shirt = Color3.fromRGB(196, 58, 48), second = WHITE, trim = WHITE, shorts = WHITE, socks = Color3.fromRGB(196, 58, 48) },
+			-- Black with red details.
+			away = { pattern = "plain", shirt = BLACK, second = Color3.fromRGB(196, 58, 48), trim = Color3.fromRGB(196, 58, 48), shorts = BLACK, socks = BLACK, sockTop = Color3.fromRGB(196, 58, 48) },
 		},
 		-- The emblem: an eagle, wings open, on a shield (see shared/Emblem for how the shapes are written).
 		emblem = {
@@ -87,6 +92,8 @@ Config.Clubs = {
 		keeperColor = Color3.fromRGB(128, 132, 140), -- grey
 		kits = {
 			home = { pattern = "hoops", shirt = Color3.fromRGB(0, 133, 80), second = WHITE, trim = Color3.fromRGB(245, 205, 40), shorts = BLACK, socks = Color3.fromRGB(0, 133, 80), sockTop = Color3.fromRGB(245, 205, 40) },
+			-- Black with thin yellow hoops.
+			away = { pattern = "hoops", thin = true, shirt = BLACK, second = Color3.fromRGB(245, 205, 40), trim = Color3.fromRGB(245, 205, 40), shorts = BLACK, socks = BLACK, sockTop = Color3.fromRGB(245, 205, 40) },
 		},
 		-- The emblem: a lion on its hind legs, on a disc with a yellow ring (see shared/Emblem for how the shapes are written).
 		emblem = {
@@ -127,6 +134,8 @@ Config.Clubs = {
 		keeperColor = Color3.fromRGB(240, 130, 30), -- orange
 		kits = {
 			home = { pattern = "stripes", shirt = Color3.fromRGB(26, 150, 62), second = WHITE, shorts = WHITE, socks = WHITE },
+			-- Plain dark blue.
+			away = { pattern = "plain", shirt = NAVY, second = WHITE, trim = WHITE, shorts = NAVY, socks = NAVY },
 		},
 		-- The emblem: the bridge of the bairro, on a diamond (see shared/Emblem for how the shapes are written).
 		emblem = {
@@ -170,6 +179,8 @@ Config.Clubs = {
 		keeperColor = Color3.fromRGB(240, 200, 40), -- yellow
 		kits = {
 			home = { pattern = "sash", shirt = WHITE, second = Color3.fromRGB(206, 32, 46), shorts = Color3.fromRGB(206, 32, 46), socks = WHITE, sockTop = Color3.fromRGB(206, 32, 46) },
+			-- Plain red.
+			away = { pattern = "plain", shirt = Color3.fromRGB(206, 32, 46), second = WHITE, trim = WHITE, shorts = WHITE, socks = Color3.fromRGB(206, 32, 46) },
 		},
 		-- The emblem: a wide star, on a tall block (see shared/Emblem for how the shapes are written).
 		emblem = {
@@ -189,14 +200,115 @@ Config.Clubs = {
 Config.ClubOrder = { "aguias", "leoes", "verdes", "blancos" }
 
 --[[
-	THE DERBIES. One derby per match day; the two clubs take the two places of
-	the match (home and away). `city` is only a label for now: both derbies
-	are played on the same map.
+	THE MATCHES. Any club can play any other. The calendar is three rounds of
+	two matches (so the four clubs play in every round), and then the same
+	again with home and away swapped. The two matches of a round are played one
+	after the other; the two clubs take the two places of the match (home and
+	away). Both derbies are round 1.
+
+	Config.Derbies is the list in the order it is played (the name is from when
+	there were only the two derbies).
 ]]
-Config.Derbies = {
-	{ id = 1, name = "Derby 1", city = "the big city", home = "aguias", away = "leoes" },
-	{ id = 2, name = "Derby 2", city = "the southern city", home = "verdes", away = "blancos" },
+Config.Rounds = {
+	{ { "aguias", "leoes" }, { "verdes", "blancos" } },
+	{ { "aguias", "verdes" }, { "leoes", "blancos" } },
+	{ { "aguias", "blancos" }, { "leoes", "verdes" } },
 }
+
+Config.Derbies = {} :: { { id: number, name: string, home: string, away: string } }
+for leg = 1, 2 do
+	for _, round in Config.Rounds do
+		for _, pair in round do
+			local home, away = pair[leg], pair[3 - leg]
+			local id = #Config.Derbies + 1
+			Config.Derbies[id] = {
+				id = id,
+				name = Config.Clubs[home].short .. " v " .. Config.Clubs[away].short,
+				home = home,
+				away = away,
+			}
+		end
+	end
+end
+
+--[[
+	THE COLOUR CLASH RULE. Before each match the two main kits are compared. If
+	their shirts look alike, the HOME team keeps its main kit and the AWAY team
+	wears its alternate. (If that one clashed too, the home team would change
+	instead.) The goalkeepers get the first colour of Config.KeeperColours that
+	is on none of the shirts of the match. Nobody chooses anything.
+]]
+Config.KeeperColours = {
+	Color3.fromRGB(240, 200, 40), -- yellow
+	Color3.fromRGB(240, 130, 30), -- orange
+	Color3.fromRGB(128, 132, 140), -- grey
+	Color3.fromRGB(140, 70, 200), -- purple
+	Color3.fromRGB(60, 190, 220), -- light blue
+	Color3.fromRGB(240, 110, 170), -- pink
+}
+
+local function alike(a: Color3, b: Color3): boolean
+	return math.sqrt((a.R - b.R) ^ 2 + (a.G - b.G) ^ 2 + (a.B - b.B) ^ 2) < 0.3
+end
+
+-- The colours that fill a shirt: one on plain ones, two on hoops and stripes.
+local function shirtColours(kit: any): { Color3 }
+	local list = { kit.shirt }
+	if (kit.pattern == "hoops" or kit.pattern == "stripes") and not kit.thin and kit.second then
+		table.insert(list, kit.second)
+	end
+	return list
+end
+
+function Config.kitsClash(a: any, b: any): boolean
+	for _, x in shirtColours(a) do
+		for _, y in shirtColours(b) do
+			if alike(x, y) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Which kit each club wears in a match: ("home" | "away") for the home club and for the away club.
+function Config.pickKits(homeClub: any, awayClub: any): (string, string)
+	if not Config.kitsClash(homeClub.kits.home, awayClub.kits.home) then
+		return "home", "home"
+	elseif not Config.kitsClash(homeClub.kits.home, awayClub.kits.away) then
+		return "home", "away"
+	end
+	return "away", "home"
+end
+
+-- The two goalkeepers' colours, for the two kits of a match.
+function Config.pickKeepers(homeKit: any, awayKit: any): (Color3, Color3)
+	local taken: { Color3 } = {}
+	for _, kit in { homeKit, awayKit } do
+		table.insert(taken, kit.shirt)
+		if kit.second then
+			table.insert(taken, kit.second)
+		end
+	end
+	local picked: { Color3 } = {}
+	for _ = 1, 2 do
+		for _, colour in Config.KeeperColours do
+			local free = true
+			for _, other in taken do
+				if alike(colour, other) then
+					free = false
+					break
+				end
+			end
+			if free then
+				table.insert(picked, colour)
+				table.insert(taken, colour)
+				break
+			end
+		end
+	end
+	return picked[1] or Config.KeeperColours[1], picked[2] or Config.KeeperColours[2]
+end
 
 --[[
 	THE TWO PLACES OF THE MATCH. The whole game talks about "home" and "away":
@@ -242,6 +354,11 @@ function Config.applyDerby(n: number): boolean
 			team[key] = value
 		end
 	end
+	-- What each one wears in this match (the colour clash rule).
+	local home, away = Config.Teams.home, Config.Teams.away
+	home.kitName, away.kitName = Config.pickKits(home, away)
+	home.kit, away.kit = home.kits[home.kitName], away.kits[away.kitName]
+	home.keeperColor, away.keeperColor = Config.pickKeepers(home.kit, away.kit)
 	return true
 end
 Config.applyDerby(1)
@@ -800,11 +917,11 @@ Config.Text = {
 		kit = "WEAR KIT",
 		farda = "WEAR UNIFORM",
 		kitType = "KIT",
-		derby = "DERBY",
+		derby = "MATCH",
 		off = "OFF",
 		home = "MAIN",
 		alt = "ALTERNATE",
-		altSoon = "no alternate kits yet",
+		auto = "AUTO",
 	},
 }
 

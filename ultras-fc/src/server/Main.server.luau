@@ -282,15 +282,9 @@ end
 ]]
 local wish: { [Player]: { club: string, role: string } } = {}
 
-local function clubPlace(clubId: string): (number?, string?)
-	for n, derby in Config.Derbies do
-		if derby.home == clubId then
-			return n, "home"
-		elseif derby.away == clubId then
-			return n, "away"
-		end
-	end
-	return nil, nil
+local function clubPlace(clubId: string): string?
+	local match = Config.Derbies[Derby.current()]
+	return if match.home == clubId then "home" elseif match.away == clubId then "away" else nil
 end
 
 local function toWait(player: Player, clubId: string, role: string)
@@ -303,11 +297,12 @@ local function toWait(player: Player, clubId: string, role: string)
 end
 
 local function pickClub(player: Player, clubId: string, role: string)
-	local n, slot = clubPlace(clubId)
-	if not n or not slot or not canSwitch(player) then
+	if not (Config.Clubs :: any)[clubId] or not canSwitch(player) then
 		return
 	end
-	if n ~= Derby.current() then
+	local slot = clubPlace(clubId)
+	if not slot then
+		-- Not playing now: the choice is kept for the club's next match.
 		toWait(player, clubId, role)
 		return
 	end
@@ -348,12 +343,11 @@ end)
 
 -- The derby changed: who was waiting for this match goes in, who has just
 -- played waits for the next one.
-local function derbyTurn(n: number)
+local function derbyTurn()
 	for _, player in Players:GetPlayers() do
 		local w = wish[player]
 		if w then
-			local theirs = clubPlace(w.club)
-			if theirs == n then
+			if clubPlace(w.club) then
 				if player:GetAttribute("UpNext") then
 					switchedAt[player] = nil
 					task.spawn(pickClub, player, w.club, w.role)
@@ -938,7 +932,8 @@ end)
 	  team   <club>   I support this club (the derby changes if it is not today's)
 	  kit    <club>   wear this club's kit ("" takes it off)
 	  farda  <club>   wear this claque's farda ("" takes it off)
-	  derby  <n>      today's derby is this one
+	  kitName <home|away|"">  main or alternate kit ("" = what the match decided)
+	  derby  <n>      the match on now is this one
 ]]
 local function slotOf(clubId: string): (number?, string?)
 	for n, derby in Config.Derbies do
@@ -963,28 +958,34 @@ local function adminBar(player: Player, action: any, value: any)
 			Derby.set(n)
 			pickTeam(player, slot)
 		end
-	elseif action == "kit" then
+	elseif action == "kit" or action == "kitName" then
 		local character = player.Character
 		if not character then
 			return
 		end
-		character:SetAttribute("KitClub", if club then value else nil)
+		if action == "kit" then
+			character:SetAttribute("KitClub", if club then value else nil)
+		else
+			character:SetAttribute("KitName", if value == "home" or value == "away" then value else nil)
+		end
 		local f = Squad.byPlayer(player)
+		local worn = (Config.Clubs :: any)[character:GetAttribute("KitClub") or ""]
 		if f then
 			Squad.redress(f)
-		elseif club then
+		elseif worn then
 			for _, child in character:GetChildren() do
 				if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then
 					child:Destroy()
 				end
 			end
 			local number = player:GetAttribute("Number")
-			Uniform.wear(character, club.kits.home, {
+			local kitName = character:GetAttribute("KitName")
+			Uniform.wear(character, worn.kits[if type(kitName) == "string" then kitName else "home"] or worn.kits.home, {
 				number = if type(number) == "number" then number else 10,
 				name = player.DisplayName,
-				club = club,
+				club = worn,
 			})
-		else
+		elseif action == "kit" then
 			-- Back to my own clothes.
 			task.spawn(Kit.apply, player)
 		end
@@ -1190,7 +1191,7 @@ workspace:SetAttribute("Derby", Derby.current())
 Derby.onChanged(function(n)
 	local home, away = Derby.clubs()
 	print(string.format("[Ultras FC] %s: %s vs %s", Config.Derbies[n].name, home.name, away.name))
-	derbyTurn(n)
+	derbyTurn()
 	local estadio = workspace:FindFirstChild("Estadio")
 	if estadio then
 		for _, teamId in Config.TeamOrder do

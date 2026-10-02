@@ -331,7 +331,8 @@ local function dress(f: Footballer)
 	local clubId = model:GetAttribute("KitClub")
 	local club = if type(clubId) == "string" and (Config.Clubs :: any)[clubId] then (Config.Clubs :: any)[clubId] else team
 	local kitName = model:GetAttribute("KitName")
-	local kit = club.kits[if type(kitName) == "string" then kitName else "home"] or club.kits.home
+	-- The kit of the match (the colour clash rule decided it), unless the admin bar asked for another.
+	local kit = if type(kitName) == "string" and club.kits[kitName] then club.kits[kitName] elseif club == team then team.kit else club.kits.home
 	if f.keeper then
 		kit = Uniform.keeperKit(club.keeperColor)
 	end

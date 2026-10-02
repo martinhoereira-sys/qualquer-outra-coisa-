@@ -34,6 +34,7 @@ export type Kit = {
 	shorts: Color3,
 	socks: Color3,
 	sockTop: Color3?,
+	thin: boolean?, -- thin hoops
 }
 
 export type Extras = {
@@ -146,7 +147,7 @@ function Uniform.wear(model: Model, kit: Kit, extras: Extras?): Folder
 			-- Six bands down the chest, every other one in the second colour.
 			local each = h / 6
 			for i = 1, 6, 2 do
-				band("Argola", torso, h / 2 - (i + 0.5) * each, each, second, folder)
+				band("Argola", torso, h / 2 - (i + 0.5) * each, if kit.thin then each * 0.32 else each, second, folder)
 			end
 		elseif kit.pattern == "stripes" then
 			-- Six bars across the chest, every other one in the second colour.
@@ -182,8 +183,9 @@ function Uniform.wear(model: Model, kit: Kit, extras: Extras?): Folder
 			local h = arm.Size.Y
 			band("Manga", arm, 0, h + 0.02, kit.shirt, folder)
 			if kit.pattern == "hoops" then
-				band("Argola", arm, h * 0.2, h * 0.2, second, folder, PAD + 0.01)
-				band("Argola", arm, -h * 0.2, h * 0.2, second, folder, PAD + 0.01)
+				local tall = if kit.thin then h * 0.07 else h * 0.2
+				band("Argola", arm, h * 0.2, tall, second, folder, PAD + 0.01)
+				band("Argola", arm, -h * 0.2, tall, second, folder, PAD + 0.01)
 			end
 			if kit.trim then
 				band("Punho", arm, -h / 2 + 0.07, 0.14, kit.trim, folder, PAD + 0.03)
@@ -222,7 +224,7 @@ function Uniform.wear(model: Model, kit: Kit, extras: Extras?): Folder
 	]]
 	if torso and e.number then
 		local w, h, d = torso.Size.X, torso.Size.Y, torso.Size.Z
-		local patterned = kit.pattern == "hoops" or kit.pattern == "stripes"
+		local patterned = (kit.pattern == "hoops" or kit.pattern == "stripes") and not kit.thin
 		local ink = inkFor(kit.shirt)
 		local back = shell("Costas", torso, Vector3.new(w * 0.62, h * 0.78, 0.03), CFrame.new(0, -h * 0.02, d / 2 + 0.1), kit.shirt, folder)
 		back.Transparency = 1

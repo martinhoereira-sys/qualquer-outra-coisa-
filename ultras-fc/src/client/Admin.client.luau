@@ -74,8 +74,9 @@ panel.Visible = false
 panel.BackgroundColor3 = PANEL
 panel.BackgroundTransparency = 0.08
 panel.BorderSizePixel = 0
-panel.Size = UDim2.fromOffset(LABEL + CELL * 4 + 96, 34 + rows * ROW + 8)
-panel.Position = UDim2.new(0, 16, 1, -(52 + 34 + rows * ROW + 8))
+local EXTRA = 3 * 28 -- the match list is four lines tall
+panel.Size = UDim2.fromOffset(LABEL + CELL * 4 + 96, 34 + rows * ROW + 8 + EXTRA)
+panel.Position = UDim2.new(0, 16, 1, -(52 + 34 + rows * ROW + 8 + EXTRA))
 panel.Parent = gui
 corner(panel, 10)
 local edge = Instance.new("UIStroke")
@@ -142,27 +143,15 @@ clubRow(1, T.team, "team", false)
 clubRow(2, T.kit, "kit", true)
 clubRow(3, T.farda, "farda", true)
 
--- Main / alternate kit: nothing to switch to until the alternate kits exist.
+-- Main / alternate kit of the club I am wearing (AUTO: what the match decided).
 do
 	local y = rowLabel(4, T.kitType)
-	local main = button(panel, T.home, UDim2.fromOffset(80, ROW - 14), UDim2.fromOffset(LABEL, y + 4))
-	main.BackgroundColor3 = GOLD
-	main.TextColor3 = PANEL
-	main.AutoButtonColor = false
-	local alt = button(panel, T.alt, UDim2.fromOffset(96, ROW - 14), UDim2.fromOffset(LABEL + 86, y + 4))
-	alt.Active = false
-	alt.AutoButtonColor = false
-	alt.BackgroundTransparency = 0.6
-	alt.TextColor3 = DIM
-	local note = Instance.new("TextLabel")
-	note.BackgroundTransparency = 1
-	note.Size = UDim2.fromOffset(96, 10)
-	note.Position = UDim2.fromOffset(LABEL + 86, y + ROW - 10)
-	note.Font = Enum.Font.Gotham
-	note.TextSize = 8
-	note.TextColor3 = DIM
-	note.Text = T.altSoon
-	note.Parent = panel
+	for i, option in { { T.auto, "" }, { T.home, "home" }, { T.alt, "away" } } do
+		local b = button(panel, option[1], UDim2.fromOffset(86, ROW - 14), UDim2.fromOffset(LABEL + (i - 1) * 90, y + 4))
+		b.Activated:Connect(function()
+			Remotes.Admin:FireServer("kitName", option[2])
+		end)
+	end
 end
 
 -- The derby: the one on today is lit.
@@ -172,7 +161,10 @@ do
 	for n, derby in Config.Derbies do
 		local home = (Config.Clubs :: any)[derby.home]
 		local away = (Config.Clubs :: any)[derby.away]
-		local b = button(panel, string.format("%d  %s v %s", n, home.short, away.short), UDim2.fromOffset(122, ROW - 14), UDim2.fromOffset(LABEL + (n - 1) * 128, y + 4))
+		-- Three to a row: the two matches of a round, round after round.
+		local column, line = (n - 1) % 3, math.floor((n - 1) / 3)
+		local b = button(panel, home.short .. " v " .. away.short, UDim2.fromOffset(88, 24), UDim2.fromOffset(LABEL + column * 92, y + 4 + line * 28))
+		b.TextSize = 11
 		b.Activated:Connect(function()
 			Remotes.Admin:FireServer("derby", n)
 		end)

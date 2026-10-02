@@ -198,7 +198,7 @@ do
 		local roles = {
 			{ text = TXT.supporter, note = TXT.supporterNote, colour = club.color, level = levelOf("adepto"), pick = "adepto" },
 			{ text = TXT.playerRole, note = TXT.playerNote, colour = club.color:Lerp(INK, 0.35), level = levelOf("jogador"), pick = "jogador" },
-			{ text = TXT.goalkeeper, note = TXT.keeperNote, colour = club.keeperColor:Lerp(INK, 0.35), level = levelOf("jogador"), pick = "baliza" },
+			{ text = TXT.goalkeeper, note = TXT.keeperNote, colour = Color3.fromRGB(70, 76, 90), level = levelOf("jogador"), pick = "baliza" },
 		}
 		for i, role in roles do
 			local b = card(left + 256, 40 + (i - 1) * 86, 404, 78, role.colour)
@@ -225,16 +225,23 @@ do
 		title.Text = TXT.chooseYourClub
 		subtitle.Text = TXT.thenSupporterOrPlayer
 
-		for n, derby in Config.Derbies do
-			local today = n == Config.Derby
-			-- Derby 1 on the left of the referee, Derby 2 on the right.
+		-- The two clubs of the match on now, and the two that play next.
+		local match = Config.Derbies[Config.Derby]
+		local waiting = {}
+		for _, clubId in Config.ClubOrder do
+			if clubId ~= match.home and clubId ~= match.away then
+				table.insert(waiting, clubId)
+			end
+		end
+		for n, pair in { { match.home, match.away }, waiting } do
+			local today = n == 1
 			local x0 = if n == 1 then 0 else CLUB_W * 2 + REF_W + GAP * 3
 			local head = label(stage, if today then TXT.todaysDerby else TXT.nextMatchDay, 12, if today then BRASS else MUTED)
 			head.Font = Enum.Font.GothamBlack
 			head.Size = UDim2.fromOffset(CLUB_W * 2 + GAP, 20)
 			head.Position = UDim2.fromOffset(x0, 8)
 
-			for i, clubId in { derby.home, derby.away } do
+			for i, clubId in pair do
 				local club = (Config.Clubs :: any)[clubId]
 				local b = card(x0 + (i - 1) * (CLUB_W + GAP), 40, CLUB_W, HEIGHT, CARD, club.color)
 				crest(b, club, 120, UDim.new(0.5, 0), 18)
