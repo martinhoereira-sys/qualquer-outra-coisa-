@@ -38,6 +38,8 @@ local NAVY = Color3.fromRGB(20, 34, 84)
 Config.Clubs = {
 	luz = {
 		club = "luz",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = -697, z = 529, existing = true, block = "1_8" }, -- the sede made by hand, where it is
 		name = "Luz SC",
 		fullName = "Sport Clube da Luz",
 		nameUpper = "LUZ SC",
@@ -82,6 +84,8 @@ Config.Clubs = {
 	},
 	alvalade = {
 		club = "alvalade",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = 701, z = -590, existing = true, block = "9_2" }, -- the sede made by hand, where it is
 		name = "Alvalade SC",
 		fullName = "Sporting Clube de Alvalade",
 		nameUpper = "ALVALADE SC",
@@ -132,6 +136,8 @@ Config.Clubs = {
 	},
 	nervion = {
 		club = "nervion",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = -555, z = -525, block = "2_2" },
 		name = "Nervión CF",
 		fullName = "Nervión Club de Fútbol",
 		nameUpper = "NERVIÓN CF",
@@ -174,6 +180,8 @@ Config.Clubs = {
 	},
 	triana = {
 		club = "triana",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = 562, z = 374, block = "8_7" },
 		name = "Triana Balompié",
 		fullName = "Triana Balompié",
 		nameUpper = "TRIANA BALOMPIÉ",
@@ -225,6 +233,8 @@ Config.Clubs = {
 	},
 	testaccio = {
 		club = "testaccio",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = -712, z = -234, block = "1_4" },
 		name = "Testaccio",
 		fullName = "Testaccio Calcio",
 		nameUpper = "TESTACCIO",
@@ -273,6 +283,8 @@ Config.Clubs = {
 	},
 	flaminio = {
 		club = "flaminio",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = 706, z = -25, block = "9_5" },
 		name = "Flaminio",
 		fullName = "Flaminio Calcio",
 		nameUpper = "FLAMINIO",
@@ -317,6 +329,8 @@ Config.Clubs = {
 	},
 	athinaikos = {
 		club = "athinaikos",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = -264, z = -525, block = "4_2" },
 		name = "Athinaikos",
 		fullName = "Athinaikos",
 		nameUpper = "ATHINAIKOS",
@@ -355,6 +369,8 @@ Config.Clubs = {
 	},
 	pireus = {
 		club = "pireus",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = 413, z = 656, block = "7_9" },
 		name = "Pireus FC",
 		fullName = "Pireus FC",
 		nameUpper = "PIREUS FC",
@@ -398,6 +414,8 @@ Config.Clubs = {
 	},
 	galata = {
 		club = "galata",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = -264, z = -234, block = "4_4" },
 		name = "Galata SK",
 		fullName = "Galata SK",
 		nameUpper = "GALATA SK",
@@ -443,6 +461,8 @@ Config.Clubs = {
 	},
 	kadikoy = {
 		club = "kadikoy",
+		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
+		site = { x = 562, z = -682, block = "8_1" },
 		name = "Kadiköy SK",
 		fullName = "Kadiköy SK",
 		nameUpper = "KADIKÖY SK",
