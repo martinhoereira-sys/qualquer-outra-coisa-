@@ -219,7 +219,6 @@ local TEXTS = {
 	farda = TXT.theCapoCalledUniformOn,
 	agachar = TXT.theCapoCalledCrouchEverybody,
 	bracos = TXT.theCapoCalledSwayYour,
-	bandeirao = TXT.giantFlagLightYourFlare,
 }
 
 local function invite(leader: Player, teamId: string, order: string)
@@ -296,7 +295,7 @@ local function accept(player: Player, id: number)
 				end
 			end)
 		end
-	elseif order == "acender" or order == "bandeirao" then
+	elseif order == "acender" then
 		task.spawn(function()
 			local lit = Gear.lightNow(player)
 			if not lit then
@@ -466,19 +465,6 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 		invite(player, teamId, "farda")
 		Lider.dress(player)
 		tell(player, TXT.theUltrasPutTheUniform)
-	elseif order == "bandeirao" then
-		local hook = bandeiraoHook
-		if not hook then
-			tell(player, TXT.theGiantFlagIsNot)
-			return
-		end
-		local ok, why = hook(teamId)
-		if ok then
-			-- Por baixo do pano, a claque de tochas acesas: a luz passa pelo pano.
-			botOrder(teamId, "Acender", L.bandeirao.unroll + L.bandeirao.hold)
-			invite(player, teamId, "bandeirao")
-		end
-		tell(player, if ok then TXT.theGiantFlagIsComing else (why or TXT.notNow))
 	end
 end
 

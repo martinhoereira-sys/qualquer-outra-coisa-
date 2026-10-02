@@ -392,7 +392,6 @@ local ORDERS = {
 	{ id = "agachar", text = TXT.crouch, colour = Color3.fromRGB(200, 160, 40) },
 	{ id = "bracos", text = TXT.arms, colour = Color3.fromRGB(40, 150, 170) },
 	{ id = "acender", text = TXT.lightUp, colour = Color3.fromRGB(210, 50, 40) },
-	{ id = "bandeirao", text = TXT.giantFlag, colour = Color3.fromRGB(150, 60, 190) },
 	{ id = "musica", text = TXT.music, colour = Color3.fromRGB(120, 70, 200) },
 	{ id = "dar", text = TXT.giveGear, colour = Color3.fromRGB(210, 120, 40) },
 	{ id = "farda", text = TXT.uniform, colour = Color3.fromRGB(50, 50, 60) },

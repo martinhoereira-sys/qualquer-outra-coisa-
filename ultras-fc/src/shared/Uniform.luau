@@ -281,7 +281,7 @@ end
 	THE ULTRA'S OUTFIT: what everyone in a claque wears, never on the pitch.
 	The same cut for every club, read from the club (Config.Clubs).
 
-	It is BLACK from head to foot: top, trousers, everything. The club's colour
+	It is BLACK from head to foot: hood, long sleeves, gloves, trousers. The club's colour
 	shows in two places only: the scarf round the neck (the claque's material:
 	Gear / Material.wearScarf) and the mask over mouth and nose (`mask`). The
 	claque's name goes across the chest in white, and the club's symbol small
@@ -373,17 +373,24 @@ function Uniform.ultra(model: Model, club: any): Folder
 	end
 	if head then
 		local s = head.Size
-		shell("Capuz", head, Vector3.new(s.X + 0.12, s.Y * 0.36, s.Z + 0.12), CFrame.new(0, s.Y * 0.36, 0), ULTRA_BLACK, folder)
-		shell("Capuz", head, Vector3.new(s.X + 0.12, s.Y + 0.08, s.Z * 0.5), CFrame.new(0, 0, s.Z * 0.31), ULTRA_BLACK, folder)
+		-- The hood: the top down to just over the eyes, the back, and the two
+		-- sides coming forward past the cheeks, with a small peak over the brow.
+		shell("Capuz", head, Vector3.new(s.X + 0.18, s.Y * 0.36, s.Z + 0.18), CFrame.new(0, s.Y * 0.36, 0), ULTRA_BLACK, folder)
+		shell("Capuz", head, Vector3.new(s.X + 0.18, s.Y + 0.12, s.Z * 0.55), CFrame.new(0, 0, s.Z * 0.32), ULTRA_BLACK, folder)
 		for _, side in { -1, 1 } do
-			shell("Capuz", head, Vector3.new(0.14, s.Y + 0.08, s.Z * 0.62), CFrame.new(side * (s.X / 2 + 0.0), 0, s.Z * 0.2), ULTRA_BLACK, folder)
+			shell("Capuz", head, Vector3.new(0.2, s.Y + 0.12, s.Z * 0.92), CFrame.new(side * (s.X / 2 + 0.01), 0, s.Z * 0.1), ULTRA_BLACK, folder)
 		end
+		shell("Capuz", head, Vector3.new(s.X + 0.18, 0.1, 0.16), CFrame.new(0, s.Y * 0.2, -(s.Z / 2 + 0.1)), ULTRA_BLACK, folder)
+		-- The mask, in the club's colour: over the mouth and the nose, up to under
+		-- the eyes. With the hood, only the eyes are left out.
+		shell("Mascara", head, Vector3.new(s.X + 0.06, s.Y * 0.5, s.Z + 0.1), CFrame.new(0, -s.Y * 0.27, -0.02), club.mask or club.color, folder)
 	end
-	-- The mask: a narrow strip over the mouth and the nose, in the club's colour.
-	-- Eyes, forehead and hair stay out.
-	if head then
-		local s = head.Size
-		shell("Mascara", head, Vector3.new(s.X + 0.02, s.Y * 0.24, s.Z + 0.02), CFrame.new(0, -s.Y * 0.2, 0), club.mask or club.color, folder)
+	-- Black gloves: no skin showing but the eyes.
+	for _, name in { "LeftHand", "RightHand" } do
+		local hand = part(model, name)
+		if hand then
+			band("Luva", hand, 0, hand.Size.Y + 0.04, ULTRA_BLACK, folder, PAD + 0.01)
+		end
 	end
 
 	folder.Parent = model

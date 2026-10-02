@@ -50,7 +50,8 @@ export type Limits = {
 	particles: number, -- multiplica todas as taxas (1 = tudo)
 }
 
-local FULL: Limits = { maxLights = math.huge, maxSmokes = math.huge, particles = 1 }
+local Q = Config.Pyro
+local FULL: Limits = { maxLights = Q.maxLights, maxSmokes = Q.maxSmokes, particles = Q.particles }
 
 -- O limite que vale aqui: nenhum no jogo, o modo baixo so no Studio.
 function Pyro.limits(): Limits
@@ -104,6 +105,9 @@ function Pyro.light(at: Instance, colour: Color3, brightness: number, range: num
 	if count >= Pyro.limits().maxLights then
 		return nil
 	end
+	-- Kept low on purpose (Config.Pyro): faces, grass and shirts must still be seen.
+	brightness *= Q.light
+	range *= Q.range
 	local light = Instance.new("PointLight")
 	light.Name = "Luz"
 	light.Brightness = brightness
@@ -126,7 +130,7 @@ function Pyro.flare(at: Attachment, colour: Color3)
 	core.Color = ColorSequence.new(Color3.new(1, 1, 1), HOT)
 	core.LightEmission = 1
 	core.LightInfluence = 0
-	core.Brightness = 3
+	core.Brightness = 3 * Q.glow
 	core.Size = curve({ { 0, 0.8 }, { 1, 0.35 } })
 	core.Transparency = curve({ { 0, 0 }, { 1, 0.85 } })
 	core.Lifetime = NumberRange.new(0.06, 0.12)
@@ -141,7 +145,7 @@ function Pyro.flare(at: Attachment, colour: Color3)
 	})
 	flame.LightEmission = 1
 	flame.LightInfluence = 0
-	flame.Brightness = 2
+	flame.Brightness = 2 * Q.glow
 	flame.Size = curve({ { 0, 1.5 }, { 0.45, 1.1 }, { 1, 0.2 } })
 	flame.Transparency = curve({ { 0, 0 }, { 0.7, 0.25 }, { 1, 1 } })
 	flame.Lifetime = NumberRange.new(0.25, 0.5)
@@ -155,9 +159,9 @@ function Pyro.flare(at: Attachment, colour: Color3)
 	glow.Color = ColorSequence.new(colour:Lerp(HOT, 0.35))
 	glow.LightEmission = 1
 	glow.LightInfluence = 0
-	glow.Brightness = 2
-	glow.Size = curve({ { 0, 4.5 }, { 1, 6 } })
-	glow.Transparency = curve({ { 0, 0.55 }, { 1, 1 } })
+	glow.Brightness = 2 * Q.glow
+	glow.Size = curve({ { 0, 4.5 * Q.halo }, { 1, 6 * Q.halo } })
+	glow.Transparency = curve({ { 0, 0.72 }, { 1, 1 } })
 	glow.Lifetime = NumberRange.new(0.1, 0.22)
 	glow.Speed = NumberRange.new(0, 0)
 

@@ -755,6 +755,28 @@ Config.TeamOrder = { "home", "away" }
 	  bancada  -> em cada curva de claque, no estadio
 	  cortejo  -> atras de cada faixa, no corteo
 ]]
+--[[
+	PYRO, KEPT READABLE. Flares and smoke must not wash the picture out: with
+	them lit you still see faces, the grass and the colours of the shirts.
+	One place to tune it (1 = as strong as it was drawn):
+	  light      brightness of each flare's light
+	  range      how far that light reaches
+	  glow       how bright the flame itself is
+	  halo       size of the round glow at the tip
+	  particles  share of the particles (smoke, flame, sparks)
+	  maxLights  lights lit at the same time, at most (the rest burn without one)
+	  maxSmokes  smoke clouds at the same time, at most
+]]
+Config.Pyro = {
+	light = 0.3,
+	range = 0.6,
+	glow = 0.6,
+	halo = 0.6,
+	particles = 0.6,
+	maxLights = 8,
+	maxSmokes = 10,
+}
+
 Config.Bonecos = {
 	bancada = 40,
 	cortejo = 36,

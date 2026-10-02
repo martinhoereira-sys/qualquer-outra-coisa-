@@ -213,9 +213,7 @@ RunService.RenderStepped:Connect(function()
 			beats[name] = beat + rate * elapsed
 			-- Tifo no ar: seguram a cartolina, nao saltam.
 			heights[name] = crowd:GetAttribute("Hold_" .. name) == true and 0 or height
-			local banner = stadium:GetAttribute("Bandeirao_" .. name)
-			local B = Config.Lider.bandeirao
-			covered[name] = type(banner) == "number" and now >= banner and now - banner < B.unroll + B.hold + B.rollup
+			covered[name] = false
 			-- O lider mandou SALTAR: a bancada inteira salta muito mais alto.
 			local jumpUntil = stadium:GetAttribute("Saltar_" .. name)
 			if type(jumpUntil) == "number" and now < jumpUntil then

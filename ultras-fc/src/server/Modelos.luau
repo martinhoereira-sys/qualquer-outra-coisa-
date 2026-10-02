@@ -26,7 +26,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Material = require(Shared:WaitForChild("Material"))
 local Rigs = require(Shared:WaitForChild("Rigs"))
-local BandeiraoRig = require(Shared:WaitForChild("BandeiraoRig"))
 
 local Modelos = {}
 
@@ -126,12 +125,6 @@ function Modelos.build(): Folder
 		holder.Parent = faixa
 	end
 	place(faixa, 30)
-
-	-- O bandeirao: o rig inteiro, aberto, fora do estadio.
-	local bandeirao = Instance.new("Model")
-	bandeirao.Name = "Bandeirao"
-	BandeiraoRig.build(bandeirao, teamId)
-	place(bandeirao, 60)
 
 	folder.Parent = ServerStorage
 	return folder

@@ -16,7 +16,6 @@ local Teams = require(script.Parent:WaitForChild("Teams"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
 local Gear = require(script.Parent:WaitForChild("Gear"))
 local Lider = require(script.Parent:WaitForChild("Lider"))
-local Bandeirao = require(script.Parent:WaitForChild("Bandeirao"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
 local Uniform = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Uniform"))
 local Derby = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Derby"))
@@ -489,7 +488,6 @@ MatchLoop.onChange(function(snapshot)
 		Gear.refill()
 		Tifo.refill()
 		Lider.newMatch()
-		Bandeirao.newMatch()
 		Football.resetClock()
 		Squad.resetMatch()
 		for _, teamId in Config.TeamOrder do
@@ -1104,10 +1102,6 @@ Lider.start({
 -- A roupa muda com o papel: ultra, jogador ou arbitro.
 Kit.start()
 
--- O bandeirao: o lider manda, uma vez por parte, com o jogo a decorrer.
-Lider.setBandeirao(function(teamId: string): (boolean, string?)
-	return Bandeirao.trigger(teamId, MatchLoop.phase())
-end)
 Money.start()
 
 --[[

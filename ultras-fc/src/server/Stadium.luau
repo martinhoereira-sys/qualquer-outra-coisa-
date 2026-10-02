@@ -20,7 +20,6 @@ local Budget = require(script.Parent:WaitForChild("Budget"))
 local City = require(script.Parent:WaitForChild("City"))
 local StadiumBuilder = require(script.Parent:WaitForChild("StadiumBuilder"))
 local Faixas = require(script.Parent:WaitForChild("Faixas"))
-local Bandeirao = require(script.Parent:WaitForChild("Bandeirao"))
 local Plan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 local Stadium = {}
@@ -64,9 +63,9 @@ local function setAfternoon()
 
 	-- Um bloom discreto, so para o sol rasante ter peso.
 	local bloom = Lighting:FindFirstChildOfClass("BloomEffect") or Instance.new("BloomEffect")
-	bloom.Intensity = 0.5
-	bloom.Size = 24
-	bloom.Threshold = 1.25
+	bloom.Intensity = 0.2
+	bloom.Size = 18
+	bloom.Threshold = 1.8
 	bloom.Parent = Lighting
 
 	--[[
@@ -185,8 +184,12 @@ function Stadium.build()
 	local building = workspace:FindFirstChild("Estadio") or StadiumBuilder.build(workspace)
 	-- As faixas de pano na vedacao das claques (so faz as que faltam).
 	Faixas.build(building)
-	-- O rolo do bandeirao no cimo das curvas das claques.
-	Bandeirao.build(building)
+	-- The bandeirao was taken out of the game: its rolls saved in the map go too.
+	for _, child in building:GetChildren() do
+		if string.sub(child.Name, 1, 10) == "Bandeirao_" then
+			child:Destroy()
+		end
+	end
 	tunnelGate = building:FindFirstChild("TunnelGate", true) :: BasePart?
 
 	-- A pasta do que e do jogo e muda (adeptos, tifo, corteo, bola).
