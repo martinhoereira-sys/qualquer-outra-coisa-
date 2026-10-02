@@ -383,7 +383,7 @@ function Uniform.ultra(model: Model, club: any): Folder
 		shell("Capuz", head, Vector3.new(s.X + 0.18, 0.1, 0.16), CFrame.new(0, s.Y * 0.2, -(s.Z / 2 + 0.1)), ULTRA_BLACK, folder)
 		-- The mask, in the club's colour: over the mouth and the nose, up to under
 		-- the eyes. With the hood, only the eyes are left out.
-		shell("Mascara", head, Vector3.new(s.X + 0.06, s.Y * 0.5, s.Z + 0.1), CFrame.new(0, -s.Y * 0.27, -0.02), club.mask or club.color, folder)
+		shell("Mascara", head, Vector3.new(s.X + 0.06, s.Y * 0.3, s.Z + 0.1), CFrame.new(0, -s.Y * 0.35, -0.02), club.mask or club.color, folder)
 	end
 	-- Black gloves: no skin showing but the eyes.
 	for _, name in { "LeftHand", "RightHand" } do
