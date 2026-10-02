@@ -846,6 +846,25 @@ function Gear.sync(player: Player)
 	end
 end
 
+-- The clubs changed (new derby): everyone's material and scarf are made
+-- again in the new colours. Stock is kept.
+function Gear.rebuildAll()
+	for _, player in Players:GetPlayers() do
+		local mine = tools[player]
+		if mine then
+			for _, kind in ORDER do
+				drop(player, kind)
+			end
+		end
+		local character = player.Character
+		local scarf = character and character:FindFirstChild(NECK)
+		if scarf then
+			scarf:Destroy()
+		end
+		Gear.sync(player)
+	end
+end
+
 function Gear.start()
 	Teams.onChanged(Gear.sync)
 

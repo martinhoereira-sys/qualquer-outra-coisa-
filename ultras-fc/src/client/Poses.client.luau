@@ -219,7 +219,7 @@ local function scarfFor(player: Player, colour: Color3): Part
 		text.Font = Enum.Font.GothamBlack
 		text.TextScaled = true
 		text.TextColor3 = Color3.fromRGB(245, 245, 245)
-		text.Text = if team then string.upper(team.name) else ""
+		text.Text = if team then team.nameUpper else ""
 		text.Parent = sign
 	end
 

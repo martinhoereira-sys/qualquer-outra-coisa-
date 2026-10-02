@@ -189,7 +189,7 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance, front:
 	-- A porta. So o lider a abre, e so com gente suficiente atras dele.
 	local door = spot("Porta", Vector3.new(12, 6, 1.5), pivot * CFrame.new(0, 3, reach))
 	local start = prompt(door, "Sair em corteo", "So o lider", 14)
-	marker(door, "SEDE  ·  " .. string.upper(team.name), team.color, 22)
+	marker(door, "SEDE  ·  " .. team.nameUpper, team.color, 22)
 
 	start.Triggered:Connect(function(player)
 		if not Teams.isLeader(player) or Teams.get(player) ~= teamId then

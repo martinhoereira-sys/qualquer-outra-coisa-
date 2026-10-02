@@ -24,6 +24,11 @@ local GLYPHS: { [string]: { string } } = {
 	L = { "B...", "B...", "B...", "B...", "B...", "BBBB" },
 	N = { "B..B", "BB.B", "BBBB", "B.BB", "B..B", "B..B" },
 	S = { ".BBB", "B...", ".BB.", "...B", "...B", "BBB." },
+	B = { "BBB.", "B..B", "BBB.", "B..B", "B..B", "BBB." },
+	D = { "BBB.", "B..B", "B..B", "B..B", "B..B", "BBB." },
+	O = { ".BB.", "B..B", "B..B", "B..B", "B..B", ".BB." },
+	T = { "BBBB", ".B..", ".B..", ".B..", ".B..", ".B.." },
+	V = { "B..B", "B..B", "B..B", "B..B", ".BB.", ".B.." },
 }
 
 local function initials(short: string): { string }
@@ -78,7 +83,7 @@ local EMBLEMS: { [string]: { string } } = {
 		"EEEEEEEEEBBEEBBEEBBEEEEEEEEE",
 		"EEEEEEEEEEEEEEEEEEEEEEEEEEEE",
 	},
-	LES = {
+	LEO = {
 		"EEEEEEEEEBBBBBBBBBBEEEEEEEEE",
 		"EEEEEEEBBBBBBBBBBBBBBEEEEEEE",
 		"EEEEEEBBBBEEEEEEEEBBBBEEEEEE",

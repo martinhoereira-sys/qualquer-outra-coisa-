@@ -344,7 +344,7 @@ function Builder.build(parent: Instance, teamId: string): Folder
 		old:Destroy()
 	end
 	CENTRE = site.centre
-	TEAM_NAME = string.upper(team.name)
+	TEAM_NAME = team.nameUpper
 	TEAM_COLOUR = team.color
 
 	local root = Instance.new("Folder")

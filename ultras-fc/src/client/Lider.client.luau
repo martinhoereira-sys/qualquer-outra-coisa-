@@ -283,7 +283,8 @@ local function showMusic()
 	list.Parent = subPanel
 	for i, song in L.canticos do
 		-- Os canticos de uma claque so aparecem ao lider dela.
-		if (song :: any).team and (song :: any).team ~= me:GetAttribute("Team") then
+		local myTeam = Config.Teams[me:GetAttribute("Team") or ""]
+		if (song :: any).club and (not myTeam or (song :: any).club ~= myTeam.club) then
 			continue
 		end
 		local b = button(subPanel, "♪ " .. song.name, Color3.fromRGB(120, 70, 200))

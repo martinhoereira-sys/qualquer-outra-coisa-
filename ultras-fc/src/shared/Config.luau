@@ -10,37 +10,166 @@
 local Config = {}
 
 --[[
-	As duas equipas da Fase 1. Cada claque tem o seu topo, atras de uma baliza,
-	como num estadio a serio — as laterais sao do publico.
+	THE CLUBS. Four clubs, two derbies. Everything about a club lives here:
+	change a colour, a name or a motto in one line.
 
-	`side` e o topo, ao longo do eixo X: -1 o poente, 1 o nascente. Cada claque
-	fica do lado da sua sede, para os dois corteos chegarem sem se cruzarem.
+	Names, mottos and claque names stay in the club's own language (Portuguese
+	for Derby 1, Spanish for Derby 2), like real football. The game interface
+	is in English.
+
+	`color` is the club's identity colour: scoreboard, bars, smoke, flags.
+	`kits` describes what the players wear, built from parts (no textures):
+	  pattern  "plain" | "hoops" (horizontal) | "stripes" (vertical) | "sash" (one diagonal band)
+	  shirt    the base colour of the shirt
+	  second   the colour of the hoops / stripes / sash
+	  trim     collar and cuffs (optional)
+	  shorts, socks, sockTop (optional)
+	A second kit is just one more entry in `kits` (e.g. `away = { ... }`): no new code.
+
+	`emblem` is drawn from shapes and text (shared/Emblem):
+	  shape    "shield" | "circle" | "diamond" | "block"
+	  field    "band" (diagonal band) | "hoops" | "stripes" | "halves"
+]]
+local WHITE = Color3.fromRGB(245, 245, 245)
+local BLACK = Color3.fromRGB(24, 24, 28)
+
+Config.Clubs = {
+	aguias = {
+		club = "aguias",
+		name = "Águias do Norte",
+		nameUpper = "ÁGUIAS DO NORTE",
+		short = "AGN",
+		founded = 1911,
+		bairro = "Alto do Norte",
+		motto = "VOAR MAIS ALTO",
+		claque = "ULTRAS ÁGUIA",
+		faixas = { "CURVA NORTE", "ULTRAS ÁGUIA", "VOAR MAIS ALTO" }, -- on the fence, left to right
+		color = Color3.fromRGB(196, 58, 48),
+		second = WHITE,
+		keeperColor = Color3.fromRGB(240, 200, 40), -- yellow
+		kits = {
+			home = { pattern = "plain", shirt = Color3.fromRGB(196, 58, 48), second = WHITE, trim = WHITE, shorts = WHITE, socks = Color3.fromRGB(196, 58, 48) },
+		},
+		emblem = { shape = "shield", field = "band", main = Color3.fromRGB(196, 58, 48), second = WHITE, ink = WHITE, letters = "A", star = true },
+	},
+	leoes = {
+		club = "leoes",
+		name = "Leões",
+		nameUpper = "LEÕES",
+		short = "LEO",
+		founded = 1913,
+		bairro = "Vale Verde",
+		motto = "RUGIR ATÉ AO FIM",
+		claque = "BRIGADA DO LEÃO",
+		faixas = { "CURVA SUL", "BRIGADA DO LEÃO", "RUGIR ATÉ AO FIM" },
+		color = Color3.fromRGB(0, 133, 80),
+		second = WHITE,
+		accent = Color3.fromRGB(245, 205, 40), -- yellow details
+		hoops = true, -- the big flag has horizontal hoops
+		keeperColor = Color3.fromRGB(128, 132, 140), -- grey
+		kits = {
+			home = { pattern = "hoops", shirt = Color3.fromRGB(0, 133, 80), second = WHITE, trim = Color3.fromRGB(245, 205, 40), shorts = BLACK, socks = Color3.fromRGB(0, 133, 80), sockTop = Color3.fromRGB(245, 205, 40) },
+		},
+		emblem = { shape = "circle", field = "hoops", main = Color3.fromRGB(0, 133, 80), second = WHITE, ring = Color3.fromRGB(245, 205, 40), ink = BLACK, letters = "L" },
+	},
+	verdes = {
+		club = "verdes",
+		name = "Verdes de Triana",
+		nameUpper = "VERDES DE TRIANA",
+		short = "VDT",
+		founded = 1909,
+		bairro = "Triana",
+		motto = "TRIANA NO SE RINDE",
+		claque = "FRENTE TRIANA",
+		faixas = { "FONDO TRIANA", "FRENTE TRIANA", "TRIANA NO SE RINDE" },
+		color = Color3.fromRGB(26, 150, 62),
+		second = WHITE,
+		keeperColor = Color3.fromRGB(240, 130, 30), -- orange
+		kits = {
+			home = { pattern = "stripes", shirt = Color3.fromRGB(26, 150, 62), second = WHITE, shorts = WHITE, socks = WHITE },
+		},
+		emblem = { shape = "diamond", field = "stripes", main = Color3.fromRGB(26, 150, 62), second = WHITE, ink = BLACK, letters = "VT" },
+	},
+	blancos = {
+		club = "blancos",
+		name = "Blancos de Nervión",
+		nameUpper = "BLANCOS DE NERVIÓN",
+		short = "BDN",
+		founded = 1902,
+		bairro = "Nervión",
+		motto = "NERVIÓN ES NUESTRO",
+		claque = "FURIA BLANCA",
+		faixas = { "FONDO NERVIÓN", "FURIA BLANCA", "NERVIÓN ES NUESTRO" },
+		color = Color3.fromRGB(206, 32, 46), -- identity colour (bars, smoke): the red of the sash
+		second = WHITE,
+		keeperColor = Color3.fromRGB(240, 200, 40), -- yellow
+		kits = {
+			home = { pattern = "sash", shirt = WHITE, second = Color3.fromRGB(206, 32, 46), shorts = Color3.fromRGB(206, 32, 46), socks = WHITE, sockTop = Color3.fromRGB(206, 32, 46) },
+		},
+		emblem = { shape = "block", field = "halves", main = WHITE, second = Color3.fromRGB(206, 32, 46), ink = BLACK, letters = "BN" },
+	},
+}
+
+-- Display order (admin bar, lists).
+Config.ClubOrder = { "aguias", "leoes", "verdes", "blancos" }
+
+--[[
+	THE DERBIES. One derby per match day; the two clubs take the two places of
+	the match (home and away). `city` is only a label for now: both derbies
+	are played on the same map.
+]]
+Config.Derbies = {
+	{ id = 1, name = "Derby 1", city = "the big city", home = "aguias", away = "leoes" },
+	{ id = 2, name = "Derby 2", city = "the southern city", home = "verdes", away = "blancos" },
+}
+
+--[[
+	THE TWO PLACES OF THE MATCH. The whole game talks about "home" and "away":
+	which stand, which sede, which academy. These tables are filled with the
+	club that takes each place in today's derby (Config.applyDerby), so the rest
+	of the code keeps reading Config.Teams[...] and always sees today's clubs.
+
+	`side` is the stand along the X axis: -1 west, 1 east. Each claque is on
+	the side of its sede, so the two corteos arrive without crossing.
 ]]
 Config.Teams = {
 	home = {
 		id = "home",
-		name = "Aguias do Norte",
-		short = "AGN",
-		color = Color3.fromRGB(196, 58, 48),
-		side = -1, -- topo poente
-		keeperColor = Color3.fromRGB(46, 160, 82), -- a camisola do guarda-redes, diferente da equipa
-		sedeName = "sede vermelha", -- o nome da sede no mapa (ver City)
-		claque = "ULTRAS AGN", -- o nome da claque: faixa do corteo, bandeirao
-		faixas = { "CURVA NORTE", "ULTRAS AGN", "SEMPRE PRESENTES" }, -- na vedacao, da esquerda para a direita
+		side = -1, -- west end
+		sedeName = "sede vermelha", -- the name of the sede model in the map (see City)
 	},
 	away = {
 		id = "away",
-		name = "Leoes do Sul",
-		short = "LES",
-		color = Color3.fromRGB(0, 133, 80), -- verde (e branco): os leoes
-		hoops = true, -- riscas horizontais verdes e brancas na bandeira grande
-		side = 1, -- topo nascente
-		keeperColor = Color3.fromRGB(236, 176, 40),
+		side = 1, -- east end
 		sedeName = "sede azul",
-		claque = "BRIGADA LES",
-		faixas = { "CURVA SUL", "BRIGADA LES", "NUNCA SOZINHOS" },
 	},
-}
+} :: { [string]: any }
+
+Config.Derby = 1
+
+-- Fills the two places with the clubs of derby `n`. Returns false if there is no such derby.
+function Config.applyDerby(n: number): boolean
+	local derby = Config.Derbies[n]
+	if not derby then
+		return false
+	end
+	Config.Derby = n
+	for _, slot in { "home", "away" } do
+		local team = Config.Teams[slot]
+		local club = (Config.Clubs :: any)[(derby :: any)[slot]]
+		-- Clear the previous club's fields, keep the place's own.
+		for key in team do
+			if key ~= "id" and key ~= "side" and key ~= "sedeName" then
+				team[key] = nil
+			end
+		end
+		for key, value in club do
+			team[key] = value
+		end
+	end
+	return true
+end
+Config.applyDerby(1)
 
 -- Ordem fixa, para a UI nao andar a saltar.
 Config.TeamOrder = { "home", "away" }
@@ -426,8 +555,8 @@ Config.Lider = {
 		{ name = "Tambor sozinho", id = 140393706670152 },
 		{ name = "A bancada a cantar", id = 9112766203 },
 		{ name = "Festa com buzinas", id = 9112779173 },
-		-- `team`: so aparece a essa claque.
-		{ name = "Sporting o meu Lugar", id = 117260593732846, team = "away" },
+		-- `club`: only that club's leader sees it.
+		{ name = "Sporting o meu Lugar", id = 117260593732846, club = "leoes" },
 	},
 	farda = Color3.fromRGB(20, 20, 24), -- o casaco da farda (o cachecol e da cor da claque)
 	--[[

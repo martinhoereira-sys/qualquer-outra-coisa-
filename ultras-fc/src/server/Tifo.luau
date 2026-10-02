@@ -204,7 +204,7 @@ local function raise(a: Active)
 	local lines = a.lines
 	local designRows = #lines
 	local designCols = if designRows > 0 then #lines[1] else 0
-	local text = if a.message then string.gsub(a.message, "%%TEAM%%", string.upper(team.name)) else nil
+	local text = if a.message then string.gsub(a.message, "%%TEAM%%", team.nameUpper) else nil
 	local height = RAKE * T.rows + 0.6
 	local PW = 100 -- pixeis de cada tira na largura
 	local STRIPS = T.columns

@@ -17,6 +17,8 @@ local Gear = require(script.Parent:WaitForChild("Gear"))
 local Lider = require(script.Parent:WaitForChild("Lider"))
 local Bandeirao = require(script.Parent:WaitForChild("Bandeirao"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
+local Derby = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Derby"))
+local Faixas = require(script.Parent:WaitForChild("Faixas"))
 local Ancora = require(script.Parent:WaitForChild("Ancora"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
 local Football = require(script.Parent:WaitForChild("Football"))
@@ -128,6 +130,9 @@ end
 local function sound(name: string, at: Vector3?)
 	Remotes.Sound:FireAllClients(name, at)
 end
+
+-- How many match days this server has seen (each one is the other derby).
+local matchDays = 0
 
 local function isAdmin(player: Player): boolean
 	return table.find(Config.Admins, player.UserId) ~= nil
@@ -378,6 +383,11 @@ MatchLoop.onChange(function(snapshot)
 	-- volta a sua sede. Guardar as tochas do jogo anterior nao faria sentido:
 	-- sao para o momento, nao para acumular.
 	if entered and snapshot.phase == "clubhouse" then
+		-- A new match day is the other derby (one derby per match day).
+		if matchDays > 0 then
+			Derby.next()
+		end
+		matchDays += 1
 		-- Dia de jogo novo: quem joga volta a academia, a treinar.
 		Academy.setOpen(nil, true)
 		for _, f in Squad.humans() do
@@ -1003,6 +1013,47 @@ end
 Progress.onLookChanged(refreshLook)
 Progress.start()
 Bank.start()
+
+--[[
+	The derby. Everything built so far has the clubs of Derby 1: remember it,
+	so a derby change can repaint the world (Derby). Things with their own
+	design are rebuilt: the fence faixas, the kits, the claque material.
+]]
+Derby.track(workspace)
+workspace:SetAttribute("Derby", Derby.current())
+Derby.onChanged(function(n)
+	local home, away = Derby.clubs()
+	print(string.format("[Ultras FC] %s: %s vs %s", Config.Derbies[n].name, home.name, away.name))
+	local estadio = workspace:FindFirstChild("Estadio")
+	if estadio then
+		for _, teamId in Config.TeamOrder do
+			local old = estadio:FindFirstChild("Faixas_" .. teamId)
+			if old then
+				old:Destroy()
+			end
+		end
+		Faixas.build(estadio)
+	end
+	for _, f in Squad.active() do
+		Squad.redress(f)
+	end
+	Gear.rebuildAll()
+end)
+
+-- The map still carries names from before the clubs were renamed: write
+-- today's over them right away.
+Derby.refresh()
+
+-- Studio only: setting the workspace attribute "TestDerby" to 1 or 2 changes
+-- the derby (for tests run from Studio tools; the live game has no such hook).
+if game:GetService("RunService"):IsStudio() then
+	workspace:GetAttributeChangedSignal("TestDerby"):Connect(function()
+		local n = workspace:GetAttribute("TestDerby")
+		if type(n) == "number" then
+			Derby.set(n)
+		end
+	end)
+end
 -- De 5 em 5 s: a bracadeira passa de um para outro, o tambor muda de dono sem lider.
 task.spawn(function()
 	while true do

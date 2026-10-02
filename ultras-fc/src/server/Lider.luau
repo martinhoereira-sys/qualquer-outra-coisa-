@@ -392,7 +392,7 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 		local folder = stadium()
 		if folder then
 			local song = L.canticos[index] :: any
-			if index >= 1 and song and (song.team == nil or song.team == teamId) then
+			if index >= 1 and song and (song.club == nil or song.club == Config.Teams[teamId].club) then
 				folder:SetAttribute("Musica_" .. teamId, index .. ":" .. workspace:GetServerTimeNow())
 				notice(teamId, "O líder pôs a tocar: " .. L.canticos[index].name, nil)
 				tell(player, "A tocar: " .. L.canticos[index].name)
