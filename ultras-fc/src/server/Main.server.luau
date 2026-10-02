@@ -17,6 +17,7 @@ local Gear = require(script.Parent:WaitForChild("Gear"))
 local Lider = require(script.Parent:WaitForChild("Lider"))
 local Bandeirao = require(script.Parent:WaitForChild("Bandeirao"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
+local Uniform = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Uniform"))
 local Derby = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Derby"))
 local Faixas = require(script.Parent:WaitForChild("Faixas"))
 local Ancora = require(script.Parent:WaitForChild("Ancora"))
@@ -210,7 +211,7 @@ Players.PlayerRemoving:Connect(function(player)
 	switchedAt[player] = nil
 end)
 
-Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
+local function pickTeam(player: Player, teamId: any)
 	if type(teamId) ~= "string" or not canSwitch(player) then
 		return
 	end
@@ -268,7 +269,8 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, teamId)
 			sendToClaque(player, current)
 		end)
 	end
-end)
+end
+Remotes.PickTeam.OnServerEvent:Connect(pickTeam)
 
 Gear.onDrumHit(function(player)
 	Progress.markActive(player)
@@ -835,9 +837,79 @@ end)
 	ecra so aparece aos admins, mas um cliente consegue mandar o pedido na
 	mesma, e por isso nao e o botao que decide.
 ]]
+--[[
+	The admin bar (client/Admin): only for Config.Admins, and it is checked
+	here, on the server. Nothing in it is a shortcut for playing: it is for
+	looking at the four clubs without waiting for the right match day.
+	  team   <club>   I support this club (the derby changes if it is not today's)
+	  kit    <club>   wear this club's kit ("" takes it off)
+	  farda  <club>   wear this claque's farda ("" takes it off)
+	  derby  <n>      today's derby is this one
+]]
+local function slotOf(clubId: string): (number?, string?)
+	for n, derby in Config.Derbies do
+		if derby.home == clubId then
+			return n, "home"
+		elseif derby.away == clubId then
+			return n, "away"
+		end
+	end
+	return nil, nil
+end
+
+local function adminBar(player: Player, action: any, value: any)
+	local club = if type(value) == "string" then (Config.Clubs :: any)[value] else nil
+	if action == "derby" then
+		if type(value) == "number" and Config.Derbies[value] then
+			Derby.set(value)
+		end
+	elseif action == "team" and club then
+		local n, slot = slotOf(value)
+		if n and slot then
+			Derby.set(n)
+			pickTeam(player, slot)
+		end
+	elseif action == "kit" then
+		local character = player.Character
+		if not character then
+			return
+		end
+		character:SetAttribute("KitClub", if club then value else nil)
+		local f = Squad.byPlayer(player)
+		if f then
+			Squad.redress(f)
+		elseif club then
+			for _, child in character:GetChildren() do
+				if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then
+					child:Destroy()
+				end
+			end
+			local number = player:GetAttribute("Number")
+			Uniform.wear(character, club.kits.home, {
+				number = if type(number) == "number" then number else 10,
+				name = player.DisplayName,
+				club = club,
+			})
+		else
+			-- Back to my own clothes.
+			task.spawn(Kit.apply, player)
+		end
+	elseif action == "farda" then
+		Lider.undress(player)
+		if club then
+			Lider.dress(player, club)
+		end
+	end
+	print(string.format("[Ultras FC] admin %s: %s %s", player.Name, tostring(action), tostring(value)))
+end
+
 local lastSkip = 0
-Remotes.Admin.OnServerEvent:Connect(function(player, action)
-	if action ~= "skip" or not isAdmin(player) then
+Remotes.Admin.OnServerEvent:Connect(function(player, action, value)
+	if not isAdmin(player) then
+		return
+	end
+	if action ~= "skip" then
+		adminBar(player, action, value)
 		return
 	end
 	-- Um salto de cada vez: dois cliques seguidos nao saltam duas fases.

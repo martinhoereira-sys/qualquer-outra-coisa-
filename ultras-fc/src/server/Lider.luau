@@ -171,10 +171,12 @@ local function shell(name: string, body: BasePart, size: Vector3, offset: CFrame
 	p.Parent = parent
 end
 
-function Lider.dress(player: Player)
+-- `club`: another claque's farda (the admin bar); by default the player's own.
+function Lider.dress(player: Player, club: any?)
 	local character = player.Character
 	local teamId = Teams.get(player)
-	if not character or not teamId or character:FindFirstChild("Farda") then
+	local claque = club or (if teamId then Config.Teams[teamId] else nil)
+	if not character or not claque or character:FindFirstChild("Farda") then
 		return
 	end
 	local folder = Instance.new("Folder")
@@ -189,7 +191,7 @@ function Lider.dress(player: Player)
 	if head and head:IsA("BasePart") then
 		local s = head.Size
 		local band = Vector3.new(s.X * 1.08, s.Y * 0.32, s.Z * 1.08)
-		shell("Cachecol", head, band, CFrame.new(0, -s.Y * 0.2, 0), Config.Teams[teamId].color, folder)
+		shell("Cachecol", head, band, CFrame.new(0, -s.Y * 0.2, 0), claque.color, folder)
 		shell("Risca", head, band * Vector3.new(1.01, 0.25, 1.01), CFrame.new(0, -s.Y * 0.2, 0), Color3.fromRGB(240, 240, 240), folder)
 	end
 	folder.Parent = character

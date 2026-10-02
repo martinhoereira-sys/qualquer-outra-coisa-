@@ -146,6 +146,10 @@ local function look(inst: Instance)
 		return
 	end
 	seen[inst] = true
+	-- An emblem is always one club's own (whoever draws it redraws it); the admin bar names all four clubs.
+	if inst.Name == "Emblema" or inst:FindFirstAncestor("Emblema") or inst:FindFirstAncestor("UltrasAdmin") then
+		return
+	end
 	if inst:IsA("BasePart") then
 		local slot = slotOfColour(inst.Color)
 		if slot then

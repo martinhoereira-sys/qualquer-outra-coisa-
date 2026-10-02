@@ -267,6 +267,27 @@ Config.Admins = {
 }
 
 --[[
+	The words on the screen. The interface is in English; proper names (clubs,
+	mottos, claques, bairros) stay in each club's own language and live in
+	Config.Clubs. To change a word on the screen, change it here.
+]]
+Config.Text = {
+	admin = {
+		open = "ADMIN",
+		title = "ADMIN BAR",
+		team = "MY TEAM",
+		kit = "WEAR KIT",
+		farda = "WEAR FARDA",
+		kitType = "KIT",
+		derby = "DERBY",
+		off = "OFF",
+		home = "MAIN",
+		alt = "ALTERNATE",
+		altSoon = "no alternate kits yet",
+	},
+}
+
+--[[
 	Os sons. O codigo chama-os pelo nome, nunca pelo numero: para trocar um som,
 	muda-se o numero aqui e mais nada.
 
