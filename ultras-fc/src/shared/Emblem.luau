@@ -87,7 +87,7 @@ local function field(canvas: Instance, e: any)
 		frame(canvas, e.second, UDim2.fromScale(0.5, 1), UDim2.fromScale(0.5, 0))
 	elseif e.field == "band" then
 		-- A diagonal band from top left to bottom right.
-		local band = frame(canvas, e.second, UDim2.fromScale(1.6, 0.26), UDim2.fromScale(0.5, 0.5))
+		local band = frame(canvas, e.second, UDim2.fromScale(1.3, 0.26), UDim2.fromScale(0.5, 0.5))
 		band.AnchorPoint = Vector2.new(0.5, 0.5)
 		band.Rotation = 40
 	end
