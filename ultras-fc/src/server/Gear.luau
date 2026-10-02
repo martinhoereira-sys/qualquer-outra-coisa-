@@ -802,7 +802,7 @@ function Gear.sync(player: Player)
 			scarf:Destroy()
 		end
 		if teamId and not character:FindFirstChild(NECK) then
-			wearScarf(character, Config.Teams[teamId].color)
+			wearScarf(character, Config.Teams[teamId].color, Config.Teams[teamId])
 			local worn = character:FindFirstChild(NECK)
 			if worn then
 				worn:SetAttribute("Team", teamId)

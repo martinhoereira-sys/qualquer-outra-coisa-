@@ -17,6 +17,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Emblem = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Emblem"))
+local Derby = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Derby"))
 local Config = require(Shared:WaitForChild("Config"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local TifoDesigns = require(Shared:WaitForChild("TifoDesigns"))
@@ -217,9 +219,30 @@ end
 
 local scoreLabel = label(phaseBox, "", 18, TEXT)
 scoreLabel.Font = Enum.Font.GothamBlack
-scoreLabel.Size = UDim2.fromOffset(188, 30)
-scoreLabel.Position = UDim2.fromOffset(14, 5)
+scoreLabel.Size = UDim2.fromOffset(136, 30)
+scoreLabel.Position = UDim2.fromOffset(40, 5)
 scoreLabel.ZIndex = 6
+
+-- The two club emblems, either side of the score; redrawn when the derby changes.
+local crests: { [string]: Frame } = {}
+for index, teamId in Config.TeamOrder do
+	local crest = Instance.new("Frame")
+	crest.Name = "Crest"
+	crest.BackgroundTransparency = 1
+	crest.Size = UDim2.fromOffset(28, 28)
+	crest.Position = if index == 1 then UDim2.fromOffset(12, 6) else UDim2.fromOffset(176, 6)
+	crest.ZIndex = 7
+	crest.Parent = phaseBox
+	crests[teamId] = crest
+end
+local function drawCrests()
+	for teamId, crest in crests do
+		crest:ClearAllChildren()
+		Emblem.draw(crest, Config.Teams[teamId], { year = false })
+	end
+end
+drawCrests()
+Derby.onChanged(drawCrests)
 
 local phaseClock = label(phaseBox, "", 22, TEXT)
 phaseClock.Font = Enum.Font.GothamBlack

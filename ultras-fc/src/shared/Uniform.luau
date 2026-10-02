@@ -22,6 +22,8 @@
 	red sash. The patterns are big on purpose.
 ]]
 
+local Emblem = require(script.Parent:WaitForChild("Emblem"))
+
 local Uniform = {}
 
 export type Kit = {
@@ -35,6 +37,7 @@ export type Kit = {
 }
 
 export type Extras = {
+	club: any?, -- the club: its emblem goes on the chest
 	number: number?,
 	name: string?,
 	skin: Color3?, -- arms and legs (default: the colour of the head)
@@ -235,6 +238,24 @@ function Uniform.wear(model: Model, kit: Kit, extras: Extras?): Folder
 		local front = shell("Peito", torso, Vector3.new(w * 0.26, h * 0.26, 0.03), CFrame.new(w * 0.24, h * 0.2, -(d / 2 + 0.085)), kit.shirt, folder)
 		front.Transparency = if patterned then 0 else 1
 		label(front, Enum.NormalId.Front, tostring(e.number), ink, UDim2.fromScale(0.9, 0.9), UDim2.fromScale(0.05, 0.05))
+	end
+
+	-- The club emblem on the chest (the wearer's left, over the heart).
+	if torso and e.club and e.club.emblem then
+		local w, h, d = torso.Size.X, torso.Size.Y, torso.Size.Z
+		local plate = shell("Emblema", torso, Vector3.new(w * 0.3, w * 0.3, 0.03), CFrame.new(-w * 0.24, h * 0.2, -(d / 2 + 0.1)), kit.shirt, folder)
+		plate.Transparency = 1
+		local gui = Instance.new("SurfaceGui")
+		gui.Name = "Emblema"
+		gui.Face = Enum.NormalId.Front
+		gui.CanvasSize = Vector2.new(120, 120)
+		gui.LightInfluence = 0.7
+		gui.Parent = plate
+		local holder = Instance.new("Frame")
+		holder.BackgroundTransparency = 1
+		holder.Size = UDim2.fromScale(1, 1)
+		holder.Parent = gui
+		Emblem.draw(holder, e.club, { year = false })
 	end
 
 	folder.Parent = model

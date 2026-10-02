@@ -11,6 +11,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
+local Emblem = require(script.Parent:WaitForChild("Emblem"))
+
 local Material = {}
 
 local WHITE = Color3.fromRGB(240, 240, 240)
@@ -121,7 +123,7 @@ end
 -- O cachecol ao pescoco: a volta e as duas pontas a cair a frente.
 local NECK = "CachecolPescoco"
 
-local function wearScarf(character: Model, colour: Color3)
+local function wearScarf(character: Model, colour: Color3, club: any?)
 	if character:FindFirstChild(NECK) then
 		return
 	end
@@ -142,6 +144,21 @@ local function wearScarf(character: Model, colour: Color3)
 		strip.CFrame = torso.CFrame * CFrame.new(x, top - 0.75, -torso.Size.Z / 2 - 0.05)
 		local fringe = loosePart("Franja", Vector3.new(0.37, 0.18, 0.09), WHITE, model)
 		weldTo(strip, fringe, CFrame.new(0, -0.6, 0))
+		-- The club emblem on one end.
+		if club and club.emblem and x < 0 then
+			local gui = Instance.new("SurfaceGui")
+			gui.Name = "Emblema"
+			gui.Face = Enum.NormalId.Front
+			gui.CanvasSize = Vector2.new(60, 200)
+			gui.LightInfluence = 0.7
+			gui.Parent = strip
+			local holder = Instance.new("Frame")
+			holder.BackgroundTransparency = 1
+			holder.Size = UDim2.fromOffset(56, 56)
+			holder.Position = UDim2.fromOffset(2, 96)
+			holder.Parent = gui
+			Emblem.draw(holder, club, { simple = true, year = false })
+		end
 	end
 	for _, part in model:GetChildren() do
 		if part:IsA("BasePart") then

@@ -28,6 +28,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Emblem = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Emblem"))
 
 local Pano = {}
 
@@ -38,6 +39,7 @@ export type Design = {
 	colour: Color3,
 	text: string?,
 	short: string?,
+	club: any?, -- the club (for its emblem on the claque's faixa)
 }
 
 export type Cloth = {
@@ -99,7 +101,25 @@ function Pano.draw(canvas: GuiObject, design: Design)
 		frame(canvas, band, UDim2.fromScale(1, 0.13), UDim2.fromScale(0, 0.87))
 		frame(canvas, WHITE, UDim2.fromScale(1, 0.025), UDim2.fromScale(0, 0.14))
 		frame(canvas, WHITE, UDim2.fromScale(1, 0.025), UDim2.fromScale(0, 0.835))
-		label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.94, 0.62), UDim2.fromScale(0.03, 0.19))
+		local club = design.club
+		if club and club.emblem and design.text == club.claque then
+			-- The claque's own faixa carries the club emblem at both ends.
+			for _, x in { 0.012, 0.988 } do
+				local holder = Instance.new("Frame")
+				holder.BackgroundTransparency = 1
+				holder.AnchorPoint = Vector2.new(if x < 0.5 then 0 else 1, 0.5)
+				holder.Position = UDim2.fromScale(x, 0.5)
+				holder.Size = UDim2.fromScale(0.3, 0.64)
+				local square = Instance.new("UIAspectRatioConstraint")
+				square.AspectRatio = 1
+				square.Parent = holder
+				holder.Parent = canvas
+				Emblem.draw(holder, club, { simple = true, year = false })
+			end
+			label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.7, 0.62), UDim2.fromScale(0.15, 0.19))
+		else
+			label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.94, 0.62), UDim2.fromScale(0.03, 0.19))
+		end
 	elseif kind == "mastro" then
 		-- A bandeira grande do mastro: cor da claque com uma moldura branca, o
 		-- emblema redondo enorme ao meio e o nome da claque em baixo.
@@ -152,6 +172,7 @@ function Pano.designFor(kind: string, teamId: string, text: string?): Design
 		colour = if team then team.color else WHITE,
 		text = text or (if team then team.claque else ""),
 		short = if team then team.short else nil,
+		club = team,
 	}
 end
 

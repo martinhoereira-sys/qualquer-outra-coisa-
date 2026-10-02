@@ -335,7 +335,7 @@ local function dress(f: Footballer)
 	if f.keeper then
 		kit = Uniform.keeperKit(club.keeperColor)
 	end
-	Uniform.wear(model, kit, { number = number, name = look.name })
+	Uniform.wear(model, kit, { number = number, name = look.name, club = club })
 
 	-- As botas: os pes na cor escolhida.
 	for _, footName in { "LeftFoot", "RightFoot" } do
