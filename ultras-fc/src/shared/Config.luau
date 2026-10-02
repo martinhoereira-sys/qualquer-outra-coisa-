@@ -756,6 +756,17 @@ Config.TeamOrder = { "home", "away" }
 	  cortejo  -> atras de cada faixa, no corteo
 ]]
 --[[
+	THE LEAGUE. Points for a win and a draw; the season is a week (Monday to
+	Sunday) and the table starts again each Monday (server/League).
+]]
+Config.League = {
+	win = 3,
+	draw = 1,
+	store = "UltrasFC_Liga_v1", -- the DataStore of the table and the titles
+	refreshSeconds = 60, -- how often a server reads the table the other servers wrote
+}
+
+--[[
 	PYRO, KEPT READABLE. Flares and smoke must not wash the picture out: with
 	them lit you still see faces, the grass and the colours of the shirts.
 	One place to tune it (1 = as strong as it was drawn):
@@ -864,6 +875,19 @@ Config.Admins = {
 	Config.Clubs. To change a word on the screen, change it here.
 ]]
 Config.Text = {
+	league = {
+		open = "TABLE",
+		title = "LEAGUE TABLE",
+		daysLeft = "%d DAYS LEFT",
+		lastDay = "LAST DAY",
+		over = "SEASON OVER",
+		played = "P",
+		won = "W",
+		drawn = "D",
+		lost = "L",
+		goals = "GOALS",
+		points = "PTS",
+	},
 	clubhouse = {
 		join = "Join",
 		ultrasOf = "Ultras of ",
@@ -1062,6 +1086,16 @@ Config.Text = {
 	},
 	hud = {
 		chooseYourClub = "Choose your club",
+		follow = "FOLLOW THIS CLUB",
+		unfollow = "STOP FOLLOWING",
+		followNote = "your second club: its matches, no ultras, no curva, no gear",
+		substitute = "PLAY AS A SUBSTITUTE",
+		substituteNote = "in its shirt, for this match only",
+		change = "CHANGE TO THIS CLUB",
+		changeNote = "you leave your club for good",
+		confirmChange = "Do you really want to leave %s and join %s?",
+		yesChange = "YES, CHANGE",
+		noStay = "NO, STAY",
 		thenSupporterOrPlayer = "then your role: supporter or player  ·  or referee the match",
 		todaysDerby = "NOW PLAYING",
 		nextMatchDay = "UP NEXT",

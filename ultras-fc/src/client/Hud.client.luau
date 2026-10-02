@@ -215,11 +215,30 @@ do
 		flag(info, club, 10, 10, 30)
 		title.AutoLocalize = false
 
-		local roles = {
-			{ text = TXT.supporter, note = TXT.supporterNote, colour = club.color, level = levelOf("adepto"), pick = "adepto" },
-			{ text = TXT.playerRole, note = TXT.playerNote, colour = club.color:Lerp(INK, 0.35), level = levelOf("jogador"), pick = "jogador" },
-			{ text = TXT.goalkeeper, note = TXT.keeperNote, colour = Color3.fromRGB(70, 76, 90), level = levelOf("jogador"), pick = "baliza" },
-		}
+		--[[
+			What this club lets me do:
+			- no club yet, or it is MY club: supporter, player or goalkeeper;
+			- another club: follow it as my second club (and then play for it as
+			  a substitute), or change to it for good, after being asked.
+		]]
+		local mine = player:GetAttribute("Clube")
+		local second = player:GetAttribute("Clube2")
+		local roles: { any } = {}
+		if mine == nil or mine == club.club then
+			roles = {
+				{ text = TXT.supporter, note = TXT.supporterNote, colour = club.color, level = levelOf("adepto"), send = "clube:" .. club.club .. ":adepto" },
+				{ text = TXT.playerRole, note = TXT.playerNote, colour = club.color:Lerp(INK, 0.35), level = levelOf("jogador"), send = "clube:" .. club.club .. ":jogador" },
+				{ text = TXT.goalkeeper, note = TXT.keeperNote, colour = Color3.fromRGB(70, 76, 90), level = levelOf("jogador"), send = "clube:" .. club.club .. ":baliza" },
+			}
+		else
+			if second == club.club then
+				table.insert(roles, { text = TXT.substitute, note = TXT.substituteNote, colour = club.color:Lerp(INK, 0.35), level = levelOf("jogador"), send = "clube:" .. club.club .. ":jogador" })
+				table.insert(roles, { text = TXT.unfollow, note = TXT.followNote, colour = Color3.fromRGB(70, 76, 90), send = "seguir:", stay = true })
+			else
+				table.insert(roles, { text = TXT.follow, note = TXT.followNote, colour = club.color:Lerp(INK, 0.35), send = "seguir:" .. club.club, stay = true })
+			end
+			table.insert(roles, { text = TXT.change, note = TXT.changeNote, colour = Color3.fromRGB(120, 44, 40), confirm = true })
+		end
 		for i, role in roles do
 			local b = card(left + 256, 40 + (i - 1) * 86, 404, 78, role.colour)
 			local name = line(b, role.text, 20, TEXT, 14, Enum.Font.GothamBlack)
@@ -229,12 +248,35 @@ do
 			note.TextXAlignment = Enum.TextXAlignment.Left
 			note.TextTransparency = 0.3
 			note.Position = UDim2.fromOffset(20, 44)
-			local level = line(b, string.format(TXT.level, role.level), 13, TEXT, 30, Enum.Font.GothamBlack)
-			level.TextXAlignment = Enum.TextXAlignment.Right
-			level.Size = UDim2.new(1, -40, 0, 20)
-			level.Position = UDim2.fromOffset(20, 30)
+			if role.level then
+				local level = line(b, string.format(TXT.level, role.level), 13, TEXT, 30, Enum.Font.GothamBlack)
+				level.TextXAlignment = Enum.TextXAlignment.Right
+				level.Size = UDim2.new(1, -40, 0, 20)
+				level.Position = UDim2.fromOffset(20, 30)
+			end
 			b.Activated:Connect(function()
-				pick("clube:" .. club.club .. ":" .. role.pick)
+				if role.confirm then
+					-- Changing club is deliberate: ask first.
+					stage:ClearAllChildren()
+					local old = (Config.Clubs :: any)[mine]
+					title.Text = club.name
+					subtitle.Text = string.format(TXT.confirmChange, if old then old.name else "", club.name)
+					local yes = card(WIDTH / 2 - 210, 60, 200, 64, Color3.fromRGB(150, 44, 40))
+					line(yes, TXT.yesChange, 16, TEXT, 22, Enum.Font.GothamBlack)
+					yes.Activated:Connect(function()
+						pick("mudar:" .. club.club)
+					end)
+					local no = card(WIDTH / 2 + 10, 60, 200, 64, Color3.fromRGB(58, 62, 72))
+					line(no, TXT.noStay, 16, TEXT, 22, Enum.Font.GothamBlack)
+					no.Activated:Connect(function()
+						showClubs()
+					end)
+				elseif role.stay then
+					Remotes.PickTeam:FireServer(role.send)
+					task.delay(0.4, showClubs)
+				else
+					pick(role.send)
+				end
 			end)
 		end
 	end
@@ -366,6 +408,17 @@ end
 player:GetAttributeChangedSignal("Team"):Connect(refreshRole)
 player:GetAttributeChangedSignal("Leader"):Connect(refreshRole)
 player:GetAttributeChangedSignal("UpNext"):Connect(refreshRole)
+-- Coming back with a club: the server puts me in, and the menu gets out of the way.
+player:GetAttributeChangedSignal("Team"):Connect(function()
+	if player:GetAttribute("Team") ~= nil then
+		menu.Visible = false
+	end
+end)
+player:GetAttributeChangedSignal("UpNext"):Connect(function()
+	if player:GetAttribute("UpNext") ~= nil then
+		menu.Visible = false
+	end
+end)
 refreshRole()
 
 --------------------------------------------------------------------------------

@@ -145,17 +145,17 @@ local function wearScarf(character: Model, colour: Color3, club: any?)
 		local fringe = loosePart("Franja", Vector3.new(0.31, 0.09, 0.09), WHITE, model)
 		weldTo(strip, fringe, CFrame.new(0, -0.25, 0))
 		-- The club emblem on one end.
-		if false and club and club.emblem and x < 0 then -- the end is too narrow for an emblem now
+		if club and club.emblem and x < 0 then
 			local gui = Instance.new("SurfaceGui")
 			gui.Name = "Emblema"
 			gui.Face = Enum.NormalId.Front
-			gui.CanvasSize = Vector2.new(60, 200)
+			gui.CanvasSize = Vector2.new(60, 100)
 			gui.LightInfluence = 0.7
 			gui.Parent = strip
 			local holder = Instance.new("Frame")
 			holder.BackgroundTransparency = 1
-			holder.Size = UDim2.fromOffset(56, 56)
-			holder.Position = UDim2.fromOffset(2, 96)
+			holder.Size = UDim2.fromOffset(52, 52)
+			holder.Position = UDim2.fromOffset(4, 40)
 			holder.Parent = gui
 			Emblem.draw(holder, club, { simple = true, year = false })
 		end

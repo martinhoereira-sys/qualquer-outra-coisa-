@@ -37,6 +37,7 @@ local Budget = require(script.Parent:WaitForChild("Budget"))
 local Entrance = require(script.Parent:WaitForChild("Entrance"))
 local DayNight = require(script.Parent:WaitForChild("DayNight"))
 local Money = require(script.Parent:WaitForChild("Money"))
+local League = require(script.Parent:WaitForChild("League"))
 local Bikes = require(script.Parent:WaitForChild("Bikes"))
 local Shops = require(script.Parent:WaitForChild("Shops"))
 local Academy = require(script.Parent:WaitForChild("Academy"))
@@ -295,9 +296,28 @@ local function toWait(player: Player, clubId: string, role: string)
 	player:SetAttribute("UpNext", clubId)
 end
 
+--[[
+	MY CLUB AND THE SECOND CLUB (kept in the profile: Money).
+	- One club is mine: chosen the first time, kept between sessions. Everything
+	  of the claque comes from it. Changing it is deliberate ("mudar:<club>",
+	  after the screen asked "do you really want to leave X?").
+	- A second club can be followed ("seguir:<club>"): no claque, no curva, no
+	  gear. It can be played for, as a substitute, when it is short of players.
+]]
 local function pickClub(player: Player, clubId: string, role: string)
 	if not (Config.Clubs :: any)[clubId] or not canSwitch(player) then
 		return
+	end
+	local mine, second = Money.clubOf(player)
+	if not mine then
+		Money.setClub(player, clubId)
+		mine = clubId
+	end
+	if clubId ~= mine then
+		-- Not my club: only on the pitch, and only for the club I follow.
+		if clubId ~= second or (role ~= "jogador" and role ~= "baliza") then
+			return
+		end
 	end
 	local slot = clubPlace(clubId)
 	if not slot then
@@ -314,6 +334,18 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 	if type(what) ~= "string" then
 		return
 	end
+	-- Change club (the screen asked first), or follow a second one ("seguir:" alone stops following).
+	local newClub = string.match(what, "^mudar:(%w+)$")
+	if newClub and (Config.Clubs :: any)[newClub] then
+		Money.setClub(player, newClub)
+		pickClub(player, newClub, "adepto")
+		return
+	end
+	local followed = string.match(what, "^seguir:(%w*)$")
+	if followed then
+		Money.setSecond(player, if followed == "" then nil else followed)
+		return
+	end
 	-- From the menu: "clube:<club>:<adepto|jogador|baliza>".
 	local clubId, role = string.match(what, "^clube:(%w+):(%w+)$")
 	if clubId and role then
@@ -327,11 +359,33 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 	pickTeam(player, what)
 end)
 
+-- Coming back: straight in with my club, as a supporter (no menu to go through).
+local greeted: { [Player]: boolean } = {}
+local function welcomeBack(player: Player)
+	local mine = Money.clubOf(player)
+	if mine and not greeted[player] and not Teams.get(player) and not Squad.byPlayer(player) and Referee.current() ~= player and not player:GetAttribute("UpNext") then
+		greeted[player] = true
+		pickClub(player, mine, "adepto")
+	end
+end
+Players.PlayerAdded:Connect(function(player)
+	player:GetAttributeChangedSignal("Clube"):Connect(function()
+		welcomeBack(player)
+	end)
+end)
+Players.PlayerRemoving:Connect(function(player)
+	greeted[player] = nil
+end)
+
 -- Joining at the clubhouse desk also counts as choosing that club.
 Teams.onChanged(function(player)
 	local slot = Teams.get(player)
 	if slot then
 		local clubId = Config.Teams[slot].club
+		if not Money.clubOf(player) then
+			Money.setClub(player, clubId)
+		end
+		greeted[player] = true
 		local w = wish[player]
 		if not w or w.club ~= clubId then
 			wish[player] = { club = clubId, role = "adepto" }
@@ -590,6 +644,14 @@ MatchLoop.onChange(function(snapshot)
 	]]
 	if entered and snapshot.phase == "fulltime" then
 		Referee.endMatch()
+		-- The result goes to the league table, if real people were in this match.
+		local people = #Squad.humans()
+		for _, teamId in Config.TeamOrder do
+			people += Teams.count(teamId)
+		end
+		if people > 0 then
+			League.record(Config.Teams.home.club, Config.Teams.away.club, snapshot.score.home, snapshot.score.away)
+		end
 		local winner = MatchLoop.winner()
 		for _, teamId in Config.TeamOrder do
 			Crowd.setMood(teamId, if winner == nil then nil elseif teamId == winner then "festa" else "calada")
@@ -1103,6 +1165,7 @@ Lider.start({
 Kit.start()
 
 Money.start()
+League.start()
 
 --[[
 	Os niveis (Progress): o que cada sistema lhes diz, e o que eles dao. Tudo

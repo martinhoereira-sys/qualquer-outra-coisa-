@@ -34,6 +34,8 @@ export type Profile = {
 	xp: { adepto: number, jogador: number, arbitro: number },
 	prefs: { number: number?, position: string?, boots: number? },
 	daily: { day: number, streak: number },
+	club: string?, -- MY club: one only, kept between sessions
+	second: string?, -- a second club I follow (no claque rights)
 	version: number,
 }
 
@@ -76,6 +78,8 @@ local function publish(player: Player)
 	local p = profiles[player]
 	player:SetAttribute("Moedas", if p then p.escudos else 0)
 	player:SetAttribute("MoedasInfinitas", if unlimited(player) then true else nil)
+	player:SetAttribute("Clube", if p then p.club else nil)
+	player:SetAttribute("Clube2", if p then p.second else nil)
 	if onChanged then
 		onChanged(player)
 	end
@@ -116,6 +120,12 @@ local function fromSaved(value: any): Profile?
 		p.prefs.number = if type(value.prefs.number) == "number" then value.prefs.number else nil
 		p.prefs.position = if type(value.prefs.position) == "string" then value.prefs.position else nil
 		p.prefs.boots = if type(value.prefs.boots) == "number" then value.prefs.boots else nil
+	end
+	if type(value.club) == "string" and (Config.Clubs :: any)[value.club] then
+		p.club = value.club
+	end
+	if type(value.second) == "string" and (Config.Clubs :: any)[value.second] and value.second ~= p.club then
+		p.second = value.second
 	end
 	if type(value.daily) == "table" and type(value.daily.day) == "number" and type(value.daily.streak) == "number" then
 		p.daily = { day = value.daily.day, streak = value.daily.streak }
@@ -313,6 +323,35 @@ function Money.setDaily(player: Player, day: number, streak: number)
 	end
 	p.daily = { day = day, streak = streak }
 	dirty[player] = true
+end
+
+-- My club (one only) and the second club I follow. `nil` clears the second.
+function Money.setClub(player: Player, clubId: string)
+	local p = profiles[player]
+	if not p or not (Config.Clubs :: any)[clubId] then
+		return
+	end
+	p.club = clubId
+	if p.second == clubId then
+		p.second = nil
+	end
+	dirty[player] = true
+	publish(player)
+end
+
+function Money.setSecond(player: Player, clubId: string?)
+	local p = profiles[player]
+	if not p or (clubId ~= nil and (not (Config.Clubs :: any)[clubId] or clubId == p.club)) then
+		return
+	end
+	p.second = clubId
+	dirty[player] = true
+	publish(player)
+end
+
+function Money.clubOf(player: Player): (string?, string?)
+	local p = profiles[player]
+	return if p then p.club else nil, if p then p.second else nil
 end
 
 function Money.onChanged(fn: (Player) -> ())
