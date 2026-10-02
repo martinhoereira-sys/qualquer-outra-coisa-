@@ -25,6 +25,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Clubhouse = require(script.Parent:WaitForChild("Clubhouse"))
 local CityMap = require(script.Parent:WaitForChild("CityMap"))
+local StadiumPlan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
 
 local City = {}
 
@@ -109,6 +110,145 @@ local function staffDesks(teamId: string, door: Vector3, parent: Instance): bool
 	return true
 end
 
+--[[
+	WHERE EACH PLACE OF THE MATCH LIVES TODAY. The two places (home, away) are
+	taken by the two clubs of the match, and each club has its ground in the
+	city (Config.Clubs[...].site). City.place puts the place's things (the
+	door of the corteo, the desk, the drum, the bikes, where one appears) at
+	the ground of the club that has it now, and works out the way from there to
+	the stadium. It runs at the start and again whenever the match changes.
+]]
+local placeHand: ((string, string?) -> ())? = nil
+local handRoutes: { [string]: { Vector3 } } = {}
+local placed: { [string]: { Instance } } = {}
+
+-- The streets, read from the blocks of the map: the lines half-way between two blocks.
+local function streets(): ({ number }, { number })
+	local xs: { { number } }, zs: { { number } } = {}, {}
+	local city = workspace:FindFirstChild("Cidade")
+	local blocks = city and city:FindFirstChild("Quarteiroes")
+	if blocks then
+		for _, block in blocks:GetChildren() do
+			local floor = block:FindFirstChild("Passeio")
+			if floor and floor:IsA("BasePart") then
+				table.insert(xs, { floor.Position.X - floor.Size.X / 2, floor.Position.X + floor.Size.X / 2 })
+				table.insert(zs, { floor.Position.Z - floor.Size.Z / 2, floor.Position.Z + floor.Size.Z / 2 })
+			end
+		end
+	end
+	local function gaps(spans: { { number } }): { number }
+		table.sort(spans, function(a, b)
+			return a[1] < b[1]
+		end)
+		local lines: { number } = {}
+		local reach = -math.huge
+		for _, span in spans do
+			if reach > -math.huge and span[1] > reach + 4 then
+				table.insert(lines, (reach + span[1]) / 2)
+			end
+			reach = math.max(reach, span[2])
+		end
+		return lines
+	end
+	return gaps(xs), gaps(zs)
+end
+
+local function nearest(lines: { number }, value: number): number
+	local best, distance = value, math.huge
+	for _, line in lines do
+		if math.abs(line - value) < distance then
+			best, distance = line, math.abs(line - value)
+		end
+	end
+	return best
+end
+
+--[[
+	The way from a door to the gate of this place's stand, along the streets:
+	out to the nearest street, along it to a cross street, along that one to
+	the street beside the stadium on the gate's side, and down it to the gate.
+	(The gate itself is added by March.)
+]]
+local function autoRoute(door: Vector3, teamId: string): { Vector3 }
+	local xs, zs = streets()
+	if #xs == 0 or #zs == 0 then
+		return {}
+	end
+	local gate = StadiumPlan.claqueGate(teamId)
+	local side = Config.Teams[teamId].side
+	-- The street beside the stadium, on the side of the gate.
+	local ring = nearest(xs, gate.X + side * 60)
+	local out = nearest(xs, door.X)
+	-- The cross street that makes the walk shortest (they all pass outside the stadium).
+	local cross, shortest = zs[1], math.huge
+	for _, line in zs do
+		local length = math.abs(door.Z - line) + math.abs(line - gate.Z)
+		if length < shortest then
+			cross, shortest = line, length
+		end
+	end
+	local list: { Vector3 } = {}
+	local function add(x: number, z: number)
+		local last = list[#list]
+		if not last or (Vector3.new(x, 3, z) - last).Magnitude > 2 then
+			table.insert(list, Vector3.new(x, 3, z))
+		end
+	end
+	add(out, door.Z)
+	add(out, cross)
+	add(ring, cross)
+	add(ring, gate.Z)
+	return list
+end
+
+function City.place(teamId: string)
+	for _, inst in placed[teamId] or {} do
+		inst:Destroy()
+	end
+	placed[teamId] = {}
+	local club = Config.Teams[teamId]
+	local site = club.site
+	if site and not site.existing then
+		-- A ground built from Config (SedeBuilder): the door is beside the sede, on the street side.
+		local base = CFrame.new(site.x, site.y or 0.7, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0)
+		local doorAt = (base * CFrame.new(36, 0, -22)).Position
+		local forward = base.RightVector
+		local frame = CFrame.lookAt(doorAt, doorAt - forward)
+		local holder = Instance.new("Folder")
+		holder.Name = "Sede_" .. teamId .. "_recheio"
+		holder.Parent = workspace
+		table.insert(placed[teamId], holder)
+		spawnPoints[teamId] = doorAt + forward * 4 + Vector3.new(0, 3.5, 0)
+		Clubhouse.equip(teamId, frame, holder, 0)
+		Clubhouse.bikeRack(teamId, frame * CFrame.new(10, 0, 4), holder)
+		routes[teamId] = autoRoute(doorAt, teamId)
+		return
+	end
+	-- A sede made by hand: its things are remembered, to take them away when the place moves.
+	local markerName = site and site.marker
+	local marker = if markerName then workspace:FindFirstChild(markerName, true) else nil
+	local before: { [Instance]: boolean } = {}
+	if marker then
+		for _, child in marker:GetChildren() do
+			before[child] = true
+		end
+	end
+	if placeHand then
+		placeHand(teamId, markerName)
+	end
+	if marker then
+		for _, child in marker:GetChildren() do
+			if not before[child] then
+				table.insert(placed[teamId], child)
+			end
+		end
+	end
+	-- The hand-made route goes to one stand: it serves only when the club is in that place.
+	local hand = if site and site.rota == teamId then handRoutes[teamId] else nil
+	local door = spawnPoints[teamId]
+	routes[teamId] = if hand and #hand > 0 then hand elseif door then autoRoute(door, teamId) else {}
+end
+
 function City.build(_parent: Instance)
 	local city = workspace:FindFirstChild("Cidade")
 	if not city then
@@ -130,14 +270,15 @@ function City.build(_parent: Instance)
 		para o jogo nao parar enquanto se constroi uma nova.
 	]]
 	local sedes = city:FindFirstChild("Sedes")
-	for _, teamId in Config.TeamOrder do
+	-- A sede made by hand in the map (found by a marker or by its name).
+	placeHand = function(teamId: string, markerName: string?)
 		local sede = sedes and sedes:FindFirstChild("Sede_" .. teamId)
 		-- Uma peca chamada Spawn_<equipa>, em qualquer sitio da cidade: manda
 		-- ela. E onde se aparece e de onde sai o corteo; a frente dela (Front)
 		-- aponta para a rua. Serve para sedes feitas a mao, com outros nomes.
 		-- Tambem serve o nome da sede no mapa (Config.Teams[..].sedeName, ex.
 		-- "sede vermelha"), em qualquer sitio do Workspace.
-		local named = Config.Teams[teamId].sedeName
+		local named = markerName
 		local marker: Instance? = city:FindFirstChild("Spawn_" .. teamId, true)
 			or (named and workspace:FindFirstChild(named, true))
 		-- Um modelo (uma placa, por ex.) conta pelo seu pivo e pela sua caixa.
@@ -154,7 +295,7 @@ function City.build(_parent: Instance)
 			Clubhouse.equip(teamId, signFrame, marker, 0, staffed)
 			-- As bicicletas ao lado da porta.
 			Clubhouse.bikeRack(teamId, signFrame * CFrame.new(10, 0, 4), marker)
-			continue
+			return
 		end
 		local frame: CFrame
 		local front = 17
@@ -171,7 +312,7 @@ function City.build(_parent: Instance)
 			spawnPoints[teamId] = ground + Vector3.new(0, 3.5, 0)
 			Clubhouse.equip(teamId, frame, parent, front)
 			Clubhouse.bikeRack(teamId, frame * CFrame.new(10, 0, 4), parent)
-			continue
+			return
 		elseif sede and sede:IsA("Model") then
 			local pivot = sede:GetPivot()
 			local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
@@ -230,10 +371,11 @@ function City.build(_parent: Instance)
 		table.sort(points, function(a, b)
 			return a.index < b.index
 		end)
-		routes[teamId] = {}
+		handRoutes[teamId] = {}
 		for _, point in points do
-			table.insert(routes[teamId], point.at)
+			table.insert(handRoutes[teamId], point.at)
 		end
+		City.place(teamId)
 	end
 	--[[
 		Os dealers, a vender pirotecnia na rua. Onde houver pecas chamadas

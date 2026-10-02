@@ -39,7 +39,7 @@ Config.Clubs = {
 	luz = {
 		club = "luz",
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = -697, z = 529, existing = true, block = "1_8" }, -- the sede made by hand, where it is
+		site = { x = -697, z = 529, existing = true, block = "1_8", marker = "sede vermelha", rota = "home" }, -- the sede made by hand, where it is
 		name = "Luz SC",
 		fullName = "Sport Clube da Luz",
 		nameUpper = "LUZ SC",
@@ -85,7 +85,7 @@ Config.Clubs = {
 	alvalade = {
 		club = "alvalade",
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = 701, z = -590, existing = true, block = "9_2" }, -- the sede made by hand, where it is
+		site = { x = 701, z = -590, existing = true, block = "9_2", marker = "sede azul", rota = "away" }, -- the sede made by hand, where it is
 		name = "Alvalade SC",
 		fullName = "Sporting Clube de Alvalade",
 		nameUpper = "ALVALADE SC",
@@ -857,13 +857,15 @@ Config.Atmosphere = {
 	sempre a baliza a frente da sua claque.
 ]]
 Config.Match = {
-	clubhouseLength = 180, -- na sede: material, lider, e esperar pelos outros
-	corteoLength = 210, -- a caminhada ate ao estadio: ~1200 studs a 7 studs/s, mais a espera e a formatura
-	waitLength = 60, -- no maximo, a espera de que as bancadas estejam nos seus lugares
+	-- One official match at a time, in a cycle: about 15 minutes of match (from the
+	-- wait for the stands to full time) and 5 of break (clubhouse and corteo).
+	clubhouseLength = 120, -- na sede: material, lider, e esperar pelos outros
+	corteoLength = 180, -- a caminhada ate ao estadio: ~1200 studs a 7 studs/s, mais a espera e a formatura
+	waitLength = 30, -- no maximo, a espera de que as bancadas estejam nos seus lugares
 	entranceLength = 40, -- do tunel ao apito: saida, fila e cada um ao seu lugar
-	halfLength = 450, -- cada parte: 7 min e meio
+	halfLength = 390, -- each half: six and a half minutes
 	halfTimeLength = 30,
-	fullTimeLength = 120, -- no relvado ou na bancada, antes de voltar a sede
+	fullTimeLength = 50, -- no relvado ou na bancada, antes de voltar a sede
 	celebrationLength = 15, -- do golo ao pontape de saida
 	switchCooldown = 60, -- depois de escolher um papel, segundos ate poder trocar outra vez
 }

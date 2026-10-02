@@ -536,7 +536,31 @@ MatchLoop.onChange(function(snapshot)
 	if entered and snapshot.phase == "clubhouse" then
 		-- A new match day is the other derby (one derby per match day).
 		if matchDays > 0 then
-			Derby.next()
+			--[[
+				The next official match: the next one in the calendar in which at
+				least one of the two clubs has real people (their club, or the one
+				they follow). Matches nobody is waiting for are skipped; with nobody
+				at all, the calendar just goes on.
+			]]
+			local total = #Config.Derbies
+			local chosen = Derby.current() % total + 1
+			for step = 1, total do
+				local n = (Derby.current() - 1 + step) % total + 1
+				local match = Config.Derbies[n]
+				local people = false
+				for _, player in Players:GetPlayers() do
+					local mine, second = Money.clubOf(player)
+					if mine == match.home or mine == match.away or second == match.home or second == match.away then
+						people = true
+						break
+					end
+				end
+				if people then
+					chosen = n
+					break
+				end
+			end
+			Derby.set(chosen)
 		end
 		matchDays += 1
 		-- Dia de jogo novo: quem joga volta a academia, a treinar.
@@ -1285,6 +1309,10 @@ Derby.onChanged(function(n)
 		Squad.redress(f)
 	end
 	Gear.rebuildAll()
+	-- Each place moves to the ground of the club that has it now.
+	for _, teamId in Config.TeamOrder do
+		City.place(teamId)
+	end
 end)
 
 -- The map still carries names from before the clubs were renamed: write
