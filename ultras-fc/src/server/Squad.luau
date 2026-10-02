@@ -20,6 +20,7 @@ local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Uniform = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Uniform"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
 local Stadium = require(script.Parent:WaitForChild("Stadium"))
 
@@ -306,8 +307,6 @@ local function dress(f: Footballer)
 	local hook = lookHook
 	local look: Look = (if hook and f.player then hook(f) else nil) or {}
 	local team = Config.Teams[f.teamId]
-	-- O guarda-redes veste outra cor, para se ver quem pode agarrar a bola.
-	local shirt = if f.keeper then team.keeperColor else team.color
 
 	for _, child in model:GetChildren() do
 		if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then
@@ -320,49 +319,23 @@ local function dress(f: Footballer)
 		end
 	end
 
-	local colours = model:FindFirstChildOfClass("BodyColors")
-	if not colours then
-		colours = Instance.new("BodyColors")
-		colours.Parent = model
-	end
-	local bc = colours :: BodyColors
-	bc.TorsoColor3 = shirt
-	bc.LeftArmColor3 = shirt
-	bc.RightArmColor3 = shirt
-	bc.LeftLegColor3 = SHORTS
-	bc.RightLegColor3 = SHORTS
-
+	--[[
+		The kit, built from parts (Uniform): the club's kit of the day, or the
+		goalkeeper's plain one in a colour neither club wears. `KitClub` and
+		`KitName` on the model let the admin bar dress someone in another kit.
+	]]
 	local number = look.number or f.number
 	if f.player then
 		f.player:SetAttribute("Number", number)
 	end
-	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
-	if torso and torso:IsA("BasePart") then
-		numberOn(torso, number, Enum.NormalId.Back)
-		numberOn(torso, number, Enum.NormalId.Front)
-		-- O nome nas costas, por cima do numero.
-		local old = torso:FindFirstChild("NomeCostas")
-		if old then
-			old:Destroy()
-		end
-		if look.name then
-			local gui = Instance.new("SurfaceGui")
-			gui.Name = "NomeCostas"
-			gui.Face = Enum.NormalId.Back
-			gui.CanvasSize = Vector2.new(200, 200)
-			gui.LightInfluence = 0.6
-			gui.Parent = torso
-			local t = Instance.new("TextLabel")
-			t.Size = UDim2.fromScale(0.9, 0.18)
-			t.Position = UDim2.fromScale(0.05, 0.0)
-			t.BackgroundTransparency = 1
-			t.Font = Enum.Font.GothamBlack
-			t.TextScaled = true
-			t.TextColor3 = Color3.fromRGB(248, 248, 248)
-			t.Text = string.upper(look.name)
-			t.Parent = gui
-		end
+	local clubId = model:GetAttribute("KitClub")
+	local club = if type(clubId) == "string" and (Config.Clubs :: any)[clubId] then (Config.Clubs :: any)[clubId] else team
+	local kitName = model:GetAttribute("KitName")
+	local kit = club.kits[if type(kitName) == "string" then kitName else "home"] or club.kits.home
+	if f.keeper then
+		kit = Uniform.keeperKit(club.keeperColor)
 	end
+	Uniform.wear(model, kit, { number = number, name = look.name })
 
 	-- As botas: os pes na cor escolhida.
 	for _, footName in { "LeftFoot", "RightFoot" } do
@@ -380,7 +353,7 @@ local function dress(f: Footballer)
 	elseif look.captain and not band and arm and arm:IsA("BasePart") then
 		local p = Instance.new("Part")
 		p.Name = "Bracadeira"
-		p.Size = Vector3.new(arm.Size.X + 0.1, 0.35, arm.Size.Z + 0.1)
+		p.Size = Vector3.new(arm.Size.X + 0.24, 0.3, arm.Size.Z + 0.24) -- outside the sleeve
 		p.Color = Color3.fromRGB(255, 210, 40)
 		p.Material = Enum.Material.Fabric
 		p.CanCollide = false
@@ -409,6 +382,10 @@ end
 
 -- Volta a vestir (mudou o numero, as botas ou o capitao).
 function Squad.redress(f: Footballer)
+	-- A bot is named after its club: a new derby renames it too.
+	if not f.player and f.model then
+		f.model.Name = Config.Teams[f.teamId].short .. " " .. f.number
+	end
 	dress(f)
 end
 

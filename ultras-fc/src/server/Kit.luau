@@ -17,6 +17,7 @@
 local Players = game:GetService("Players")
 local Lider = require(script.Parent:WaitForChild("Lider"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
+local Uniform = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Uniform"))
 
 local Kit = {}
 
@@ -84,6 +85,9 @@ end
 -- Tira o que e de outros papeis (sem mexer no avatar).
 local function clear(player: Player)
 	Lider.undress(player)
+	if player.Character then
+		Uniform.strip(player.Character)
+	end
 	local character = player.Character
 	if not character then
 		return
