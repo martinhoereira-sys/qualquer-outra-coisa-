@@ -88,10 +88,10 @@ menu.Parent = gui
 
 --[[
 	Two steps. First the club: the four clubs with their emblem and name, in
-	their two derbies, and the referee in the middle. Today's derby is lit; the
-	other one is for the next match day (an admin can click it to change the
-	derby). Then the role in that club: supporter, player or goalkeeper, each
-	with the level you have in it.
+	their two derbies (the one on now and the one up next, the same day), and
+	the referee in the middle. Then the role in that club: supporter, player or
+	goalkeeper, each with the level you have in it. A club of the match up next
+	can be chosen already: the server keeps the choice until that match starts.
 ]]
 local showClubs: () -> ()
 do
@@ -168,11 +168,11 @@ do
 		menu.Visible = false
 	end
 
-	-- Step 2: the role in the club (`slot` is its place in today's match).
-	local function showRoles(club: any, slot: string)
+	-- Step 2: the role in the club.
+	local function showRoles(club: any, today: boolean)
 		stage:ClearAllChildren()
 		title.Text = club.name
-		subtitle.Text = TXT.chooseYourRole
+		subtitle.Text = if today then TXT.chooseYourRole else TXT.upNextNote
 
 		local back = card(0, 0, 96, 32, Color3.fromRGB(58, 62, 72))
 		line(back, TXT.back, 13, TEXT, 6)
@@ -196,9 +196,9 @@ do
 		line(info, club.bairro .. "  ·  " .. tostring(club.founded), 12, MUTED, 214, Enum.Font.Gotham)
 
 		local roles = {
-			{ text = TXT.supporter, note = TXT.supporterNote, colour = club.color, level = levelOf("adepto"), pick = slot },
-			{ text = TXT.playerRole, note = TXT.playerNote, colour = club.color:Lerp(INK, 0.35), level = levelOf("jogador"), pick = "jogador:" .. slot },
-			{ text = TXT.goalkeeper, note = TXT.keeperNote, colour = club.keeperColor:Lerp(INK, 0.35), level = levelOf("jogador"), pick = "baliza:" .. slot },
+			{ text = TXT.supporter, note = TXT.supporterNote, colour = club.color, level = levelOf("adepto"), pick = "adepto" },
+			{ text = TXT.playerRole, note = TXT.playerNote, colour = club.color:Lerp(INK, 0.35), level = levelOf("jogador"), pick = "jogador" },
+			{ text = TXT.goalkeeper, note = TXT.keeperNote, colour = club.keeperColor:Lerp(INK, 0.35), level = levelOf("jogador"), pick = "baliza" },
 		}
 		for i, role in roles do
 			local b = card(left + 256, 40 + (i - 1) * 86, 404, 78, role.colour)
@@ -214,7 +214,7 @@ do
 			level.Size = UDim2.new(1, -40, 0, 20)
 			level.Position = UDim2.fromOffset(20, 30)
 			b.Activated:Connect(function()
-				pick(role.pick)
+				pick("clube:" .. club.club .. ":" .. role.pick)
 			end)
 		end
 	end
@@ -224,7 +224,6 @@ do
 		stage:ClearAllChildren()
 		title.Text = TXT.chooseYourClub
 		subtitle.Text = TXT.thenSupporterOrPlayer
-		local admin = table.find(Config.Admins, player.UserId) ~= nil
 
 		for n, derby in Config.Derbies do
 			local today = n == Config.Derby
@@ -237,36 +236,14 @@ do
 
 			for i, clubId in { derby.home, derby.away } do
 				local club = (Config.Clubs :: any)[clubId]
-				local slot = if i == 1 then "home" else "away"
 				local b = card(x0 + (i - 1) * (CLUB_W + GAP), 40, CLUB_W, HEIGHT, CARD, club.color)
 				crest(b, club, 120, UDim.new(0.5, 0), 18)
 				line(b, club.name, 16, TEXT, 150, Enum.Font.GothamBlack)
 				line(b, club.claque, 12, club.color:Lerp(TEXT, 0.45), 176)
 				line(b, club.bairro .. "  ·  " .. tostring(club.founded), 11, MUTED, 200, Enum.Font.Gotham)
-				if today then
-					b.Activated:Connect(function()
-						showRoles(club, slot)
-					end)
-				else
-					-- Not playing today: shown, but faded. An admin may bring its derby forward.
-					local veil = Instance.new("Frame")
-					veil.BackgroundColor3 = INK
-					veil.BackgroundTransparency = 0.45
-					veil.BorderSizePixel = 0
-					veil.Size = UDim2.fromScale(1, 1)
-					veil.ZIndex = 20
-					veil.Parent = b
-					local corner = Instance.new("UICorner")
-					corner.CornerRadius = UDim.new(0, 12)
-					corner.Parent = veil
-					b.AutoButtonColor = admin
-					b.Active = admin
-					if admin then
-						b.Activated:Connect(function()
-							Remotes.Admin:FireServer("derby", n)
-						end)
-					end
-				end
+				b.Activated:Connect(function()
+					showRoles(club, today)
+				end)
 			end
 		end
 
@@ -327,6 +304,11 @@ local function refreshRole()
 		local suffix = player:GetAttribute("Leader") and TXT.capo or ""
 		roleLabel.Text = TXT.ultrasOf .. Config.Teams[role].name .. suffix
 		roleLabel.TextColor3 = Config.Teams[role].color
+	elseif (Config.Clubs :: any)[player:GetAttribute("UpNext") or ""] then
+		myTeam = nil
+		local club = (Config.Clubs :: any)[player:GetAttribute("UpNext")]
+		roleLabel.Text = string.format(TXT.signedUp, club.name)
+		roleLabel.TextColor3 = club.color
 	else
 		myTeam = nil
 		roleLabel.Text = TXT.followOneOfTheLight
@@ -336,6 +318,7 @@ end
 
 player:GetAttributeChangedSignal("Team"):Connect(refreshRole)
 player:GetAttributeChangedSignal("Leader"):Connect(refreshRole)
+player:GetAttributeChangedSignal("UpNext"):Connect(refreshRole)
 refreshRole()
 
 --------------------------------------------------------------------------------

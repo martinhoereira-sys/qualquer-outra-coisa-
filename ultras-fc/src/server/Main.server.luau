@@ -271,7 +271,99 @@ local function pickTeam(player: Player, teamId: any)
 		end)
 	end
 end
-Remotes.PickTeam.OnServerEvent:Connect(pickTeam)
+
+--[[
+	The two derbies are played on the same day, one after the other. A club
+	can be chosen at any time: if its match is the one on now, the player goes
+	in right away; if it is the following one, the choice is kept (attribute
+	"UpNext") and the player goes in when that match starts. When the derby
+	changes, those whose club has just played wait for its next match instead
+	of being handed the other club.
+]]
+local wish: { [Player]: { club: string, role: string } } = {}
+
+local function clubPlace(clubId: string): (number?, string?)
+	for n, derby in Config.Derbies do
+		if derby.home == clubId then
+			return n, "home"
+		elseif derby.away == clubId then
+			return n, "away"
+		end
+	end
+	return nil, nil
+end
+
+local function toWait(player: Player, clubId: string, role: string)
+	wish[player] = { club = clubId, role = role }
+	Squad.leave(player)
+	Referee.release(player)
+	Teams.forget(player)
+	player:SetAttribute("Team", nil)
+	player:SetAttribute("UpNext", clubId)
+end
+
+local function pickClub(player: Player, clubId: string, role: string)
+	local n, slot = clubPlace(clubId)
+	if not n or not slot or not canSwitch(player) then
+		return
+	end
+	if n ~= Derby.current() then
+		toWait(player, clubId, role)
+		return
+	end
+	wish[player] = { club = clubId, role = role }
+	player:SetAttribute("UpNext", nil)
+	pickTeam(player, if role == "jogador" then "jogador:" .. slot elseif role == "baliza" then "baliza:" .. slot else slot)
+end
+
+Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
+	if type(what) ~= "string" then
+		return
+	end
+	-- From the menu: "clube:<club>:<adepto|jogador|baliza>".
+	local clubId, role = string.match(what, "^clube:(%w+):(%w+)$")
+	if clubId and role then
+		pickClub(player, clubId, role)
+		return
+	end
+	if what == "arbitro" then
+		wish[player] = nil
+		player:SetAttribute("UpNext", nil)
+	end
+	pickTeam(player, what)
+end)
+
+-- Joining at the clubhouse desk also counts as choosing that club.
+Teams.onChanged(function(player)
+	local slot = Teams.get(player)
+	if slot then
+		local clubId = Config.Teams[slot].club
+		local w = wish[player]
+		if not w or w.club ~= clubId then
+			wish[player] = { club = clubId, role = "adepto" }
+		end
+		player:SetAttribute("UpNext", nil)
+	end
+end)
+
+-- The derby changed: who was waiting for this match goes in, who has just
+-- played waits for the next one.
+local function derbyTurn(n: number)
+	for _, player in Players:GetPlayers() do
+		local w = wish[player]
+		if w then
+			local theirs = clubPlace(w.club)
+			if theirs == n then
+				if player:GetAttribute("UpNext") then
+					switchedAt[player] = nil
+					task.spawn(pickClub, player, w.club, w.role)
+				end
+			elseif Teams.get(player) or Squad.byPlayer(player) then
+				toWait(player, w.club, w.role)
+			end
+		end
+	end
+end
 
 Gear.onDrumHit(function(player)
 	Progress.markActive(player)
@@ -295,6 +387,7 @@ Gear.onDrumHit(function(player)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
+	wish[player] = nil
 	Teams.forget(player)
 	Gear.forget(player)
 	March.forget(player)
@@ -1097,6 +1190,7 @@ workspace:SetAttribute("Derby", Derby.current())
 Derby.onChanged(function(n)
 	local home, away = Derby.clubs()
 	print(string.format("[Ultras FC] %s: %s vs %s", Config.Derbies[n].name, home.name, away.name))
+	derbyTurn(n)
 	local estadio = workspace:FindFirstChild("Estadio")
 	if estadio then
 		for _, teamId in Config.TeamOrder do
