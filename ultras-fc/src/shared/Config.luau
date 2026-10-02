@@ -784,6 +784,21 @@ Config.Rota = {
 	arrivedWithin = 230, -- studs from the centre of the pitch: closer than this, one has arrived
 }
 
+--[[
+	THE FRIENDLIES on the training pitches (server/Friendly).
+]]
+Config.Friendly = {
+	minutes = 5,
+	xp = 15, -- player XP for playing one (less than an official match)
+	kick = 34, -- how hard the ball goes when one walks into it
+	kickRun = 1.1, -- and how much more for each stud per second one is running at
+	kickLift = 9, -- how much it rises
+	kickCooldown = 0.35,
+}
+
+-- Changing club is done at the new club's clubhouse: within this many studs of it.
+Config.SedeReach = 70
+
 Config.League = {
 	win = 3,
 	draw = 1,
@@ -902,6 +917,24 @@ Config.Admins = {
 	Config.Clubs. To change a word on the screen, change it here.
 ]]
 Config.Text = {
+	friendly = {
+		training = "TRAINING",
+		friendly = "Friendly",
+		start = "Start a friendly",
+		started = "Friendly started",
+		startedLine = "%d minutes. One team per half. Run into the ball to kick it.",
+		goal = "GOAL",
+		over = "Friendly over: %d - %d",
+		won = "You won.",
+		drew = "A draw.",
+		lost = "You lost.",
+		xp = "+%d player XP",
+		bigMatch = "The big match is about to start.",
+	},
+	sede = {
+		join = "Join this club",
+		tooFar = "To change club you must go to its clubhouse, in person.",
+	},
 	rota = {
 		arrowsOn = "ARROWS: ON",
 		arrowsOff = "ARROWS: OFF",
@@ -1133,7 +1166,7 @@ Config.Text = {
 		substitute = "PLAY AS A SUBSTITUTE",
 		substituteNote = "in its shirt, for this match only",
 		change = "CHANGE TO THIS CLUB",
-		changeNote = "you leave your club for good",
+		changeNote = "go to its clubhouse, in person, to change",
 		confirmChange = "Do you really want to leave %s and join %s?",
 		yesChange = "YES, CHANGE",
 		noStay = "NO, STAY",

@@ -38,6 +38,7 @@ local Entrance = require(script.Parent:WaitForChild("Entrance"))
 local DayNight = require(script.Parent:WaitForChild("DayNight"))
 local Money = require(script.Parent:WaitForChild("Money"))
 local League = require(script.Parent:WaitForChild("League"))
+local Friendly = require(script.Parent:WaitForChild("Friendly"))
 local Bikes = require(script.Parent:WaitForChild("Bikes"))
 local Shops = require(script.Parent:WaitForChild("Shops"))
 local Academy = require(script.Parent:WaitForChild("Academy"))
@@ -345,6 +346,13 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 	-- Change club (the screen asked first), or follow a second one ("seguir:" alone stops following).
 	local newClub = string.match(what, "^mudar:(%w+)$")
 	if newClub and (Config.Clubs :: any)[newClub] then
+		-- Only at that club's clubhouse, in person.
+		local site = (Config.Clubs :: any)[newClub].site
+		local root = rootOf(player)
+		if not site or not root or (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(site.x, 0, site.z)).Magnitude > Config.SedeReach then
+			Remotes.Npc:FireClient(player, { title = (Config.Clubs :: any)[newClub].name, lines = { Config.Text.sede.tooFar } })
+			return
+		end
 		Money.setClub(player, newClub)
 		pickClub(player, newClub, "adepto")
 		return
@@ -365,6 +373,53 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 		player:SetAttribute("UpNext", nil)
 	end
 	pickTeam(player, what)
+end)
+
+-- At every clubhouse: the place where one joins that club (the screen asks first).
+task.defer(function()
+	local folder = Instance.new("Folder")
+	folder.Name = "SedesInscricao"
+	folder.Parent = workspace
+	for _, clubId in Config.ClubOrder do
+		local club = (Config.Clubs :: any)[clubId]
+		local site = club.site
+		if site then
+			local spot = Instance.new("Part")
+			spot.Name = "Inscricao_" .. clubId
+			spot.Anchored = true
+			spot.CanCollide = false
+			spot.CanQuery = false
+			spot.Transparency = 1
+			spot.Size = Vector3.new(2, 2, 2)
+			local at = Vector3.new(site.x, 4, site.z)
+			if site.marker then
+				local marker = workspace:FindFirstChild(site.marker, true)
+				if marker and marker:IsA("Model") then
+					local p = marker:GetPivot().Position
+					at = Vector3.new(p.X, 4, p.Z)
+				end
+			else
+				local ground = workspace:FindFirstChild("Recintos") and workspace.Recintos:FindFirstChild("Recinto_" .. clubId)
+				local total = (ground and ground:GetAttribute("Total")) or 86
+				at = Vector3.new(site.x, 4, site.z - total / 2 + 45)
+			end
+			spot.Position = at
+			spot.Parent = folder
+			local prompt = Instance.new("ProximityPrompt")
+			prompt.ActionText = Config.Text.sede.join
+			prompt.ObjectText = club.name
+			prompt.AutoLocalize = true
+			prompt.MaxActivationDistance = 14
+			prompt.HoldDuration = 0.5
+			prompt.RequiresLineOfSight = false
+			prompt.Parent = spot
+			prompt.Triggered:Connect(function(player)
+				if Money.clubOf(player) ~= clubId then
+					Remotes.PickTeam:FireClient(player, "confirmar", clubId)
+				end
+			end)
+		end
+	end
 end)
 
 -- Coming back: straight in with my club, as a supporter (no menu to go through).
@@ -626,6 +681,12 @@ MatchLoop.onChange(function(snapshot)
 	-- Acabou a caminhada: espera-se que as bancadas estejam nos seus lugares.
 	if entered and snapshot.phase == "espera" then
 		March.stop()
+	end
+	-- Friendlies are for the breaks: the big match ends them all.
+	if entered then
+		Friendly.setAllowed(snapshot.phase == "clubhouse" or snapshot.phase == "corteo")
+		-- The clubs' buses are only in the city around the match.
+		Transit.showTeamBuses(snapshot.phase == "corteo" or snapshot.phase == "espera" or snapshot.phase == "entrada")
 	end
 
 	--[[
@@ -1214,6 +1275,10 @@ Kit.start()
 
 Money.start()
 League.start()
+Friendly.onXP(function(player, amount)
+	Money.addXP(player, "jogador", amount)
+end)
+Friendly.start()
 
 --[[
 	Os niveis (Progress): o que cada sistema lhes diz, e o que eles dao. Tudo

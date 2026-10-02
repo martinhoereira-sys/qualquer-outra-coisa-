@@ -94,6 +94,7 @@ menu.Parent = gui
 	can be chosen already: the server keeps the choice until that match starts.
 ]]
 local showClubs: () -> ()
+local askChange: (any) -> ()
 do
 	local title = label(menu, "", 34, TEXT)
 	title.Size = UDim2.new(1, -40, 0, 44)
@@ -237,7 +238,8 @@ do
 			else
 				table.insert(roles, { text = TXT.follow, note = TXT.followNote, colour = club.color:Lerp(INK, 0.35), send = "seguir:" .. club.club, stay = true })
 			end
-			table.insert(roles, { text = TXT.change, note = TXT.changeNote, colour = Color3.fromRGB(120, 44, 40), confirm = true })
+			-- Changing club is done at its clubhouse, in person: here it is only said.
+			table.insert(roles, { text = TXT.change, note = TXT.changeNote, colour = Color3.fromRGB(70, 76, 90), stay = true, send = "" })
 		end
 		for i, role in roles do
 			local b = card(left + 256, 40 + (i - 1) * 86, 404, 78, role.colour)
@@ -293,13 +295,35 @@ do
 						pick(role.send)
 					end)
 				elseif role.stay then
-					Remotes.PickTeam:FireServer(role.send)
-					task.delay(0.4, showClubs)
+					if role.send ~= "" then
+						Remotes.PickTeam:FireServer(role.send)
+						task.delay(0.4, showClubs)
+					end
 				else
 					pick(role.send)
 				end
 			end)
 		end
+	end
+
+	-- At a clubhouse: "do you really want to leave X and join Y?"
+	function askChange(club: any)
+		menu.Visible = true
+		stage:ClearAllChildren()
+		local old = (Config.Clubs :: any)[player:GetAttribute("Clube")]
+		title.AutoLocalize = false
+		title.Text = club.name
+		subtitle.Text = string.format(TXT.confirmChange, if old then old.name else "", club.name)
+		local yes = card(WIDTH / 2 - 210, 60, 200, 64, Color3.fromRGB(150, 44, 40))
+		line(yes, TXT.yesChange, 16, TEXT, 22, Enum.Font.GothamBlack)
+		yes.Activated:Connect(function()
+			pick("mudar:" .. club.club)
+		end)
+		local no = card(WIDTH / 2 + 10, 60, 200, 64, Color3.fromRGB(58, 62, 72))
+		line(no, TXT.noStay, 16, TEXT, 22, Enum.Font.GothamBlack)
+		no.Activated:Connect(function()
+			menu.Visible = false
+		end)
 	end
 
 	-- Step 1: the four clubs, and the referee between the two derbies.
@@ -434,6 +458,17 @@ end
 player:GetAttributeChangedSignal("Team"):Connect(refreshRole)
 player:GetAttributeChangedSignal("Leader"):Connect(refreshRole)
 player:GetAttributeChangedSignal("UpNext"):Connect(refreshRole)
+-- The clubhouse asked: join this club?
+Remotes.PickTeam.OnClientEvent:Connect(function(what, clubId)
+	local club = (Config.Clubs :: any)[clubId]
+	if what == "confirmar" and club then
+		if player:GetAttribute("Clube") == nil then
+			Remotes.PickTeam:FireServer("clube:" .. clubId .. ":adepto")
+		else
+			askChange(club)
+		end
+	end
+end)
 -- Coming back with a club: the server puts me in, and the menu gets out of the way.
 player:GetAttributeChangedSignal("Team"):Connect(function()
 	if player:GetAttribute("Team") ~= nil then

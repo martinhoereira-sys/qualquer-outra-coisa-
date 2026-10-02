@@ -444,6 +444,46 @@ end
 
 --------------------------------------------------------------------------------
 
+--[[
+	The clubs' buses are only in the city around the match: the rest of the
+	time they are put away (not seen, not touched), so the map is not full of
+	parked buses. The city lines are always there.
+]]
+local hidden: { [BasePart]: { transparency: number, collide: boolean } } = {}
+local shown = true
+function Transit.showTeamBuses(on: boolean)
+	if on == shown then
+		return
+	end
+	shown = on
+	for _, bus in teamBuses do
+		for _, d in bus.model:GetDescendants() do
+			if d:IsA("BasePart") then
+				if on then
+					local was = hidden[d]
+					if was then
+						d.Transparency = was.transparency
+						d.CanCollide = was.collide
+						hidden[d] = nil
+					end
+				elseif not hidden[d] then
+					hidden[d] = { transparency = d.Transparency, collide = d.CanCollide }
+					d.Transparency = 1
+					d.CanCollide = false
+				end
+			elseif d:IsA("SurfaceGui") or d:IsA("BillboardGui") then
+				d.Enabled = on
+			elseif d:IsA("Decal") or d:IsA("Texture") then
+				d.Transparency = if on then 0 else 1
+			elseif d:IsA("ProximityPrompt") then
+				d.Enabled = on
+			elseif d:IsA("Light") then
+				d.Enabled = on
+			end
+		end
+	end
+end
+
 -- O autocarro da equipa: abre as portas na academia e, passado `wait`, arranca.
 function Transit.boardTeamBus(teamId: string, wait: number)
 	local bus = teamBuses[teamId]
