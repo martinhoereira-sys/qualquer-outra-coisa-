@@ -225,8 +225,34 @@ end
 function SedeBuilder.build(clubId: string): number
 	local club = (Config.Clubs :: any)[clubId]
 	local site = club and club.site
-	if not site or site.existing then
+	if not site then
 		return 0
+	end
+	if site.existing then
+		-- The sede was made by hand and stays as it is: only its training pitch
+		-- is built, where `site.pitch` says (the nearest block with room).
+		local p = site.pitch
+		if not p then
+			return 0
+		end
+		local holder = workspace:FindFirstChild("Recintos")
+		if not holder then
+			holder = Instance.new("Folder")
+			holder.Name = "Recintos"
+			holder.Parent = workspace
+		end
+		local before = holder:FindFirstChild("Recinto_" .. clubId)
+		if before then
+			before:Destroy()
+		end
+		local only = Instance.new("Model")
+		only.Name = "Recinto_" .. clubId
+		local size = Vector3.new(p.length, PITCH_MAX.Y, p.width)
+		local at = CFrame.new(p.x, site.y or 0.7, p.z) * CFrame.Angles(0, math.rad(p.turn or 0), 0)
+		local taken = clear(at, Vector3.new(size.X + 12, 0, size.Z + 12))
+		pitch(club, at, only, size)
+		only.Parent = holder
+		return taken
 	end
 	local index = table.find(Config.ClubOrder, clubId) or 1
 	local root = workspace:FindFirstChild("Recintos")

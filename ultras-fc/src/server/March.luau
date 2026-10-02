@@ -371,9 +371,90 @@ function March.form(teamId: string): boolean
 	return true
 end
 
+--[[
+	STEWARDS AT THE CROSSINGS. At each corner of the route two stewards in
+	yellow vests stand with a barrier across the side street while the corteo
+	goes by, and leave once it has passed. (It is for the look of it: the
+	barrier does not stop anything.)
+]]
+local crossings: { [string]: { { at: Vector3, model: Model } } } = {}
+
+local function steward(at: CFrame, parent: Instance)
+	local function piece(size: Vector3, offset: CFrame, colour: Color3, material: Enum.Material?)
+		local p = Instance.new("Part")
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Size = size
+		p.Color = colour
+		p.Material = material or Enum.Material.SmoothPlastic
+		p.CFrame = at * offset
+		p.Parent = parent
+	end
+	piece(Vector3.new(1.9, 2.2, 1), CFrame.new(0, 1.1, 0), Color3.fromRGB(28, 30, 36), Enum.Material.Fabric)
+	piece(Vector3.new(2, 2.4, 1.1), CFrame.new(0, 3.4, 0), Color3.fromRGB(236, 220, 40), Enum.Material.Fabric)
+	piece(Vector3.new(2.04, 0.3, 1.14), CFrame.new(0, 3.4, 0), Color3.fromRGB(200, 200, 200))
+	piece(Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 5.2, 0), Color3.fromRGB(224, 180, 140))
+	piece(Vector3.new(0.5, 2, 0.5), CFrame.new(-1.25, 3.5, 0), Color3.fromRGB(236, 220, 40), Enum.Material.Fabric)
+	piece(Vector3.new(0.5, 2, 0.5), CFrame.new(1.25, 3.5, 0), Color3.fromRGB(236, 220, 40), Enum.Material.Fabric)
+end
+
+local function closeCrossings(banner: Banner)
+	local list = {}
+	local points = banner.waypoints
+	for i = 2, #points - 1 do
+		local before = Vector3.new(points[i].X - points[i - 1].X, 0, points[i].Z - points[i - 1].Z)
+		local after = Vector3.new(points[i + 1].X - points[i].X, 0, points[i + 1].Z - points[i].Z)
+		-- (Only real corners: a long stretch before and after, and a turn.)
+		if before.Magnitude > 30 and after.Magnitude > 30 and before.Unit:Dot(after.Unit) < 0.8 then
+			local model = Instance.new("Model")
+			model.Name = "Cruzamento"
+			-- Across the street the corteo does NOT take: straight on, past the corner.
+			local on = before.Unit
+			local centre = Vector3.new(points[i].X, 0.6, points[i].Z) + on * 16
+			local frame = CFrame.lookAt(centre, centre - on)
+			for _, side in { -1, 1 } do
+				steward(frame * CFrame.new(side * 7, 0, 0), model)
+			end
+			for k = -2, 2 do
+				local bar = Instance.new("Part")
+				bar.Anchored = true
+				bar.CanCollide = false
+				bar.CanQuery = false
+				bar.Size = Vector3.new(4.6, 0.7, 0.3)
+				bar.Color = if k % 2 == 0 then Color3.fromRGB(214, 40, 40) else Color3.fromRGB(240, 240, 240)
+				bar.CFrame = frame * CFrame.new(k * 4.6, 2.6, 2)
+				bar.Parent = model
+			end
+			model.Parent = root
+			table.insert(list, { at = points[i], model = model })
+		end
+	end
+	crossings[banner.teamId] = list
+end
+
+-- The corteo has gone by: that crossing is open again.
+local function reopenCrossings(banner: Banner)
+	local list = crossings[banner.teamId]
+	if not list then
+		return
+	end
+	local here = banner.model.Position
+	local ahead = banner.model.CFrame.LookVector
+	for i = #list, 1, -1 do
+		local to = list[i].at - here
+		if Vector3.new(to.X, 0, to.Z):Dot(ahead) < -70 and Vector3.new(to.X, 0, to.Z).Magnitude > 70 then
+			list[i].model:Destroy()
+			table.remove(list, i)
+		end
+	end
+end
+
 -- O corteo arranca: a faixa anda, e quem for atras dela ganha credito.
 local function start(banner: Banner)
 	local teamId = banner.teamId
+	closeCrossings(banner)
 	banner.moving = true
 	banner.launchPending = false
 	setStage(banner, "marcha")
@@ -548,6 +629,8 @@ function March.step(dt: number)
 				banner.model.CFrame = CFrame.lookAt(here + step, here + step + delta.Unit)
 			end
 		end
+
+		reopenCrossings(banner)
 
 		-- Quem vai junto a faixa ganha credito, proporcional ao tempo que a
 		-- acompanha. Andar ao lado dela o caminho todo vale o credito todo.

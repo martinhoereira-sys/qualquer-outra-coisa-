@@ -137,6 +137,8 @@ end
 -- How many match days this server has seen (each one is the other derby).
 local matchDays = 0
 
+local offerInvasion: (string) -> ()
+
 local function isAdmin(player: Player): boolean
 	return table.find(Config.Admins, player.UserId) ~= nil
 end
@@ -753,6 +755,14 @@ MatchLoop.onChange(function(snapshot)
 		if people > 0 then
 			League.record(Config.Teams.home.club, Config.Teams.away.club, snapshot.score.home, snapshot.score.away)
 		end
+		-- Champions: on the last day of the season, the claque of the club on top of the table may invade.
+		if League.lastDay() then
+			for _, teamId in Config.TeamOrder do
+				if League.leader() == Config.Teams[teamId].club then
+					offerInvasion(teamId)
+				end
+			end
+		end
 		local winner = MatchLoop.winner()
 		for _, teamId in Config.TeamOrder do
 			Crowd.setMood(teamId, if winner == nil then nil elseif teamId == winner then "festa" else "calada")
@@ -864,6 +874,178 @@ Remotes.Tifo.OnServerEvent:Connect(function(player, action, designId)
 end)
 
 --[[
+	THE PITCH IS FOR THE MATCH. Nobody from the stands gets onto the grass: a
+	supporter found there is put back in their stand. One exception, rare on
+	purpose: the PITCH INVASION.
+	  It can only happen (a) after a winning goal in the last minutes, for the
+	  club that scored, or (b) when the club wins the championship (it is top
+	  of the table at full time on the last day of the season).
+	  Then, and only then, the CAPO of that claque gets a button. If the capo
+	  presses it, that claque may run on (each one decides: a button), for
+	  about thirty seconds, with stewards running after them; then everyone is
+	  back in the stand. If the capo does not press it, there is no invasion.
+	  The other claque never can.
+]]
+local invasionOffer: { [string]: number } = {} -- claque -> until when its capo may call it
+local invasionOpen: { [string]: number } = {} -- claque -> until when it is on
+local stewards: Folder? = nil
+
+local function onGrass(position: Vector3): boolean
+	return math.abs(position.X) < Config.Stadium.pitchLength / 2 + 2
+		and math.abs(position.Z) < Config.Stadium.pitchWidth / 2 + 2
+		and position.Y < 9
+end
+
+offerInvasion = function(teamId: string)
+	local leader = Teams.leader(teamId)
+	if not leader or invasionOpen[teamId] then
+		return
+	end
+	local untilAt = workspace:GetServerTimeNow() + Config.Invasion.offerSeconds
+	invasionOffer[teamId] = untilAt
+	leader:SetAttribute("InvasaoOferta", untilAt)
+end
+
+local function endInvasion(teamId: string)
+	invasionOpen[teamId] = nil
+	workspace:SetAttribute("Invasao_" .. teamId, nil)
+	if stewards then
+		stewards:Destroy()
+		stewards = nil
+	end
+	for _, player in Players:GetPlayers() do
+		local root = rootOf(player)
+		if Teams.get(player) == teamId and root and onGrass(root.Position) then
+			task.spawn(sendToClaque, player, teamId)
+		end
+	end
+end
+
+-- A steward: a simple figure in a yellow vest, that runs after whoever is on the grass.
+local function makeSteward(at: Vector3, parent: Instance): Part
+	local body = Instance.new("Part")
+	body.Name = "Seguranca"
+	body.Anchored = true
+	body.CanCollide = false
+	body.Size = Vector3.new(2, 2.4, 1.1)
+	body.Color = Color3.fromRGB(236, 220, 40)
+	body.Material = Enum.Material.Fabric
+	body.CFrame = CFrame.new(at)
+	local function piece(size: Vector3, offset: CFrame, colour: Color3)
+		local p = Instance.new("Part")
+		p.Anchored = false
+		p.CanCollide = false
+		p.Massless = true
+		p.Size = size
+		p.Color = colour
+		p.CFrame = body.CFrame * offset
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = body
+		weld.Part1 = p
+		weld.Parent = p
+		p.Parent = body
+	end
+	piece(Vector3.new(1.2, 1.2, 1.2), CFrame.new(0, 1.8, 0), Color3.fromRGB(224, 180, 140))
+	piece(Vector3.new(1.9, 2.2, 1), CFrame.new(0, -2.3, 0), Color3.fromRGB(28, 30, 36))
+	piece(Vector3.new(2.04, 0.3, 1.14), CFrame.new(0, 0.2, 0), Color3.fromRGB(200, 200, 200))
+	body.Parent = parent
+	return body
+end
+
+local function startInvasion(teamId: string)
+	invasionOffer[teamId] = nil
+	local untilAt = workspace:GetServerTimeNow() + Config.Invasion.seconds
+	invasionOpen[teamId] = untilAt
+	workspace:SetAttribute("Invasao_" .. teamId, untilAt)
+	local folder = Instance.new("Folder")
+	folder.Name = "Segurancas"
+	folder.Parent = workspace
+	stewards = folder
+	local side = Config.Teams[teamId].side
+	for i = 1, Config.Invasion.stewards do
+		makeSteward(Vector3.new(-side * 30, 4.2, (i - (Config.Invasion.stewards + 1) / 2) * 16), folder)
+	end
+	task.delay(Config.Invasion.seconds, function()
+		if invasionOpen[teamId] == untilAt then
+			endInvasion(teamId)
+		end
+	end)
+end
+
+-- "invasao": the capo calls it. "entrar": a supporter of that claque runs on.
+local function invasionRequest(player: Player, what: string)
+	local teamId = Teams.get(player)
+	if not teamId then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	if what == "invasao" then
+		local offer = invasionOffer[teamId]
+		if offer and now <= offer and Teams.leader(teamId) == player then
+			player:SetAttribute("InvasaoOferta", nil)
+			startInvasion(teamId)
+		end
+	elseif what == "entrar" then
+		local open = invasionOpen[teamId]
+		local spot = Stadium.spawnPoint(teamId)
+		if open and now < open and spot then
+			-- Onto the grass in front of their own stand.
+			local to = Vector3.new(spot.X * 0.5, 4, spot.Z * 0.4)
+			placeAt(player, to, Vector3.new(0, 4, 0))
+		end
+	end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		local now = workspace:GetServerTimeNow()
+		for teamId, untilAt in invasionOffer do
+			if now > untilAt then
+				invasionOffer[teamId] = nil
+				local leader = Teams.leader(teamId)
+				if leader then
+					leader:SetAttribute("InvasaoOferta", nil)
+				end
+			end
+		end
+		-- Supporters off the grass, unless their claque's invasion is on.
+		local invaders: { Vector3 } = {}
+		for _, player in Players:GetPlayers() do
+			local teamId = Teams.get(player)
+			local root = rootOf(player)
+			if teamId and root and onGrass(root.Position) and insideGround(root.Position) then
+				if invasionOpen[teamId] then
+					table.insert(invaders, root.Position)
+				else
+					task.spawn(sendToClaque, player, teamId)
+				end
+			end
+		end
+		-- The stewards run after whoever is nearest.
+		local folder = stewards
+		if folder then
+			for _, steward in folder:GetChildren() do
+				if steward:IsA("BasePart") then
+					local best, distance = nil :: Vector3?, math.huge
+					for _, at in invaders do
+						local d = (at - steward.Position).Magnitude
+						if d < distance then
+							best, distance = at, d
+						end
+					end
+					if best and distance > 4 then
+						local flat = Vector3.new(best.X, steward.Position.Y, best.Z)
+						local step = (flat - steward.Position).Unit * math.min(distance - 3, Config.Invasion.stewardSpeed * 0.5)
+						game:GetService("TweenService"):Create(steward, TweenInfo.new(0.5, Enum.EasingStyle.Linear), { CFrame = CFrame.lookAt(steward.Position + step, flat) }):Play()
+					end
+				end
+			end
+		end
+	end
+end)
+
+--[[
 	Um golo. Entra no marcador; o fora de jogo, quando houver, e o arbitro que
 	o ve.
 ]]
@@ -909,6 +1091,15 @@ Football.onGoal(function(teamId, scorer)
 	-- Uma entrada ainda em aberto ja nao se apita: o golo conta.
 	Whistle.cancel()
 	MatchLoop.scoreGoal(teamId)
+	-- A winning goal in the last minutes: the capo of that claque may call a pitch invasion.
+	do
+		local now = MatchLoop.snapshot()
+		local mine = now.score[teamId]
+		local theirs = if teamId == "home" then now.score.away else now.score.home
+		if now.phase == "second" and now.clock <= Config.Invasion.lastSeconds and mine == theirs + 1 then
+			offerInvasion(teamId)
+		end
+	end
 
 	-- Cada golo da equipa vale umas moedas a sua claque.
 	for _, player in Players:GetPlayers() do
@@ -1247,6 +1438,10 @@ Remotes.Home.OnServerEvent:Connect(function(player, where)
 	if (lastHome[player] or 0) + 3 > now then
 		return
 	end
+	if where == "invasao" or where == "entrar" then
+		invasionRequest(player, where)
+		return
+	end
 	lastHome[player] = now
 	-- "estadio": straight to my stand, when the match has already started
 	-- (nobody is stuck in a corteo that left late).
@@ -1400,6 +1595,12 @@ if game:GetService("RunService"):IsStudio() then
 		if type(n) == "number" then
 			Derby.set(n)
 		end
+	end)
+end
+-- Studio only: the workspace attribute "TestInvasion" offers the home capo a pitch invasion (for tests).
+if game:GetService("RunService"):IsStudio() then
+	workspace:GetAttributeChangedSignal("TestInvasion"):Connect(function()
+		offerInvasion("home")
 	end)
 end
 -- Studio only: the workspace attribute "TestLeader" makes the first player in a claque its capo (for tests).

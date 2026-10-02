@@ -54,6 +54,20 @@ local straight = button(T.straight, UDim2.fromOffset(300, 44), UDim2.new(0.5, -1
 straight.TextSize = 15
 straight.Font = Enum.Font.GothamBlack
 
+-- The pitch invasion: the capo's button to call it, and everyone's button to run on.
+local invade = button(T.invasion, UDim2.fromOffset(300, 52), UDim2.new(0.5, -150, 0.5, 60), Color3.fromRGB(190, 40, 40))
+invade.TextSize = 18
+invade.Font = Enum.Font.GothamBlack
+local runOn = button(T.runOn, UDim2.fromOffset(300, 52), UDim2.new(0.5, -150, 0.5, 60), Color3.fromRGB(40, 150, 90))
+runOn.TextSize = 18
+runOn.Font = Enum.Font.GothamBlack
+invade.Activated:Connect(function()
+	Remotes.Home:FireServer("invasao")
+end)
+runOn.Activated:Connect(function()
+	Remotes.Home:FireServer("entrar")
+end)
+
 local wanted = true
 local folder: Folder? = nil
 local drawnFor: string? = nil
@@ -177,5 +191,10 @@ task.spawn(function()
 		local supporter = type(teamId) == "string" and Config.Teams[teamId] ~= nil
 		local matchOn = phase == "espera" or phase == "entrada" or phase == "first" or phase == "halftime" or phase == "second"
 		straight.Visible = supporter and matchOn and far
+		local serverNow = workspace:GetServerTimeNow()
+		local offer = player:GetAttribute("InvasaoOferta")
+		invade.Visible = type(offer) == "number" and serverNow < offer
+		local open = if supporter then workspace:GetAttribute("Invasao_" .. (teamId :: string)) else nil
+		runOn.Visible = type(open) == "number" and serverNow < open and not invade.Visible
 	end
 end)

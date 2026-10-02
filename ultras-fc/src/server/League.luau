@@ -211,6 +211,11 @@ local function refresh()
 	publish()
 end
 
+-- Is today the last day of the season (Sunday)?
+function League.lastDay(): boolean
+	return seasonEnd(season) - os.time() <= 24 * 3600
+end
+
 -- The club at the top right now (for the end of the season).
 function League.leader(): string
 	return League.standing()[1]
