@@ -27,8 +27,8 @@ local Config = {}
 	A second kit is just one more entry in `kits` (e.g. `away = { ... }`): no new code.
 
 	`emblem` is drawn from shapes and text (shared/Emblem):
-	  shape    "shield" | "circle" | "diamond" | "block"
-	  field    "band" (diagonal band) | "hoops" | "stripes" | "halves"
+	  colours  the colours used, by a short key
+	  shapes   the drawing: { centreX, centreY, width, height, rotation, round, colour key }
 ]]
 local WHITE = Color3.fromRGB(245, 245, 245)
 local BLACK = Color3.fromRGB(24, 24, 28)
@@ -50,7 +50,25 @@ Config.Clubs = {
 		kits = {
 			home = { pattern = "plain", shirt = Color3.fromRGB(196, 58, 48), second = WHITE, trim = WHITE, shorts = WHITE, socks = Color3.fromRGB(196, 58, 48) },
 		},
-		emblem = { shape = "shield", field = "band", main = Color3.fromRGB(196, 58, 48), second = WHITE, ink = WHITE, letters = "A", star = true },
+		-- The emblem: an eagle, wings open, on a shield (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = Color3.fromRGB(196, 58, 48), w = WHITE, y = Color3.fromRGB(240, 200, 50), k = BLACK },
+			shapes = {
+				{ 0.5, 0.33, 0.7, 0.5, 0, 0, "m" },
+				{ 0.5, 0.58, 0.7, 0.7, 0, 0.5, "m" },
+				{ 0.323, 0.393, 0.41, 0.11, 25, 0.5, "w" },
+				{ 0.677, 0.393, 0.41, 0.11, -25, 0.5, "w" },
+				{ 0.352, 0.534, 0.32, 0.09, 10, 0.5, "w" },
+				{ 0.648, 0.534, 0.32, 0.09, -10, 0.5, "w" },
+				{ 0.396, 0.655, 0.23, 0.08, -8, 0.5, "w" },
+				{ 0.604, 0.655, 0.23, 0.08, 8, 0.5, "w" },
+				{ 0.5, 0.555, 0.14, 0.39, 0, 0.5, "w" },
+				{ 0.5, 0.79, 0.13, 0.13, 45, 0, "w" },
+				{ 0.5, 0.33, 0.15, 0.15, 0, 0.5, "w" },
+				{ 0.58, 0.34, 0.06, 0.06, 45, 0, "y" },
+				{ 0.52, 0.315, 0.025, 0.025, 0, 0.5, "k" },
+			},
+		},
 	},
 	leoes = {
 		club = "leoes",
@@ -70,7 +88,29 @@ Config.Clubs = {
 		kits = {
 			home = { pattern = "hoops", shirt = Color3.fromRGB(0, 133, 80), second = WHITE, trim = Color3.fromRGB(245, 205, 40), shorts = BLACK, socks = Color3.fromRGB(0, 133, 80), sockTop = Color3.fromRGB(245, 205, 40) },
 		},
-		emblem = { shape = "circle", field = "hoops", main = Color3.fromRGB(0, 133, 80), second = WHITE, ring = Color3.fromRGB(245, 205, 40), ink = BLACK, letters = "L" },
+		-- The emblem: a lion on its hind legs, on a disc with a yellow ring (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = Color3.fromRGB(0, 133, 80), w = WHITE, y = Color3.fromRGB(245, 205, 40) },
+			shapes = {
+				{ 0.5, 0.5, 0.94, 0.94, 0, 0.5, "y" },
+				{ 0.5, 0.5, 0.85, 0.85, 0, 0.5, "m" },
+				{ 0.349, 0.533, 0.046, 0.198, -35, 0.5, "w" },
+				{ 0.302, 0.401, 0.046, 0.106, 30, 0.5, "w" },
+				{ 0.337, 0.335, 0.091, 0.091, 0, 0.5, "y" },
+				{ 0.352, 0.683, 0.068, 0.182, 30, 0.5, "w" },
+				{ 0.306, 0.768, 0.106, 0.046, 0, 0.5, "w" },
+				{ 0.474, 0.691, 0.068, 0.182, -10, 0.5, "w" },
+				{ 0.511, 0.776, 0.106, 0.046, 0, 0.5, "w" },
+				{ 0.479, 0.513, 0.167, 0.327, 25, 0.5, "w" },
+				{ 0.64, 0.385, 0.175, 0.057, -30, 0.467, "w" },
+				{ 0.638, 0.506, 0.167, 0.057, 10, 0.467, "w" },
+				{ 0.557, 0.343, 0.228, 0.228, 0, 0, "y" },
+				{ 0.557, 0.343, 0.228, 0.228, 45, 0, "y" },
+				{ 0.587, 0.328, 0.114, 0.114, 0, 0.5, "w" },
+				{ 0.648, 0.343, 0.061, 0.046, 0, 0.417, "w" },
+				{ 0.549, 0.274, 0.038, 0.038, 0, 0.5, "w" },
+			},
+		},
 	},
 	verdes = {
 		club = "verdes",
@@ -88,7 +128,32 @@ Config.Clubs = {
 		kits = {
 			home = { pattern = "stripes", shirt = Color3.fromRGB(26, 150, 62), second = WHITE, shorts = WHITE, socks = WHITE },
 		},
-		emblem = { shape = "diamond", field = "stripes", main = Color3.fromRGB(26, 150, 62), second = WHITE, ink = BLACK, letters = "VT" },
+		-- The emblem: the bridge of the bairro, on a diamond (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = Color3.fromRGB(26, 150, 62), w = WHITE, k = BLACK },
+			shapes = {
+				{ 0.5, 0.5, 0.7, 0.7, 45, 0.05, "k" },
+				{ 0.5, 0.5, 0.66, 0.66, 45, 0.045, "m" },
+				{ 0.36, 0.58, 0.23, 0.23, 0, 0.5, "w" },
+				{ 0.36, 0.58, 0.15, 0.15, 0, 0.5, "m" },
+				{ 0.64, 0.58, 0.23, 0.23, 0, 0.5, "w" },
+				{ 0.64, 0.58, 0.15, 0.15, 0, 0.5, "m" },
+				{ 0.36, 0.645, 0.23, 0.11, 0, 0, "m" },
+				{ 0.64, 0.645, 0.23, 0.11, 0, 0, "m" },
+				{ 0.5, 0.43, 0.62, 0.06, 0, 0, "w" },
+				{ 0.242, 0.53, 0.045, 0.14, 0, 0, "w" },
+				{ 0.5, 0.53, 0.05, 0.14, 0, 0, "w" },
+				{ 0.757, 0.53, 0.045, 0.14, 0, 0, "w" },
+				{ 0.5, 0.34, 0.09, 0.09, 0, 0.5, "w" },
+				{ 0.5, 0.34, 0.05, 0.05, 0, 0.5, "m" },
+				{ 0.38, 0.35, 0.07, 0.07, 0, 0.5, "w" },
+				{ 0.38, 0.35, 0.03, 0.03, 0, 0.5, "m" },
+				{ 0.62, 0.35, 0.07, 0.07, 0, 0.5, "w" },
+				{ 0.62, 0.35, 0.03, 0.03, 0, 0.5, "m" },
+				{ 0.5, 0.645, 0.44, 0.03, 0, 0.5, "w" },
+				{ 0.5, 0.715, 0.28, 0.03, 0, 0.5, "w" },
+			},
+		},
 	},
 	blancos = {
 		club = "blancos",
@@ -106,7 +171,17 @@ Config.Clubs = {
 		kits = {
 			home = { pattern = "sash", shirt = WHITE, second = Color3.fromRGB(206, 32, 46), shorts = Color3.fromRGB(206, 32, 46), socks = WHITE, sockTop = Color3.fromRGB(206, 32, 46) },
 		},
-		emblem = { shape = "block", field = "halves", main = WHITE, second = Color3.fromRGB(206, 32, 46), ink = BLACK, letters = "BN" },
+		-- The emblem: a wide star, on a tall block (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = WHITE, r = Color3.fromRGB(206, 32, 46) },
+			shapes = {
+				{ 0.5, 0.5, 0.67, 0.93, 0, 0.187, "r" },
+				{ 0.5, 0.5, 0.61, 0.87, 0, 0.156, "m" },
+				{ 0.5, 0.5, 0.44, 0.44, 0, 0, "r" },
+				{ 0.5, 0.5, 0.44, 0.44, 45, 0, "r" },
+				{ 0.5, 0.5, 0.16, 0.16, 0, 0.5, "m" },
+			},
+		},
 	},
 }
 
@@ -455,7 +530,7 @@ Config.Text = {
 		bike = "Bike",
 	},
 	kit = {
-		refereeRole = "REFEREE",
+		referee = "REFEREE",
 	},
 	gear = {
 		flare = "Flare",
@@ -581,7 +656,7 @@ Config.Text = {
 		goalsAndAssists = "Goals and assists",
 		winningTheBall = "Winning the ball",
 		savesGoalkeeper = "Saves (goalkeeper)",
-		refereeRole = "REFEREE",
+		referee = "REFEREE",
 		refereeTheWholeMatch = "Referee the whole match",
 		makeTheFairCall = "Make the fair call",
 		donTGetCaughtBeing = "Don't get caught being bent",

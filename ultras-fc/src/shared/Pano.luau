@@ -86,6 +86,24 @@ local function label(parent: Instance, text: string, colour: Color3, size: UDim2
 	t.Parent = parent
 end
 
+-- The club's emblem, `height` of the canvas tall, centred at (x, y).
+local function emblemAt(canvas: GuiObject, club: any, x: number, y: number, height: number, anchorX: number?)
+	if not club or not club.emblem then
+		return
+	end
+	local holder = Instance.new("Frame")
+	holder.BackgroundTransparency = 1
+	holder.AnchorPoint = Vector2.new(anchorX or 0.5, 0.5)
+	holder.Position = UDim2.fromScale(x, y)
+	holder.Size = UDim2.fromScale(1, height)
+	local square = Instance.new("UIAspectRatioConstraint")
+	square.AspectRatio = 1
+	square.DominantAxis = Enum.DominantAxis.Height
+	square.Parent = holder
+	holder.Parent = canvas
+	Emblem.draw(holder, club, { year = false })
+end
+
 -- Desenha `design` a ocupar `canvas` todo (o pano inteiro).
 function Pano.draw(canvas: GuiObject, design: Design)
 	local c = design.colour
@@ -104,18 +122,8 @@ function Pano.draw(canvas: GuiObject, design: Design)
 		local club = design.club
 		if club and club.emblem and design.text == club.claque then
 			-- The claque's own faixa carries the club emblem at both ends.
-			for _, x in { 0.012, 0.988 } do
-				local holder = Instance.new("Frame")
-				holder.BackgroundTransparency = 1
-				holder.AnchorPoint = Vector2.new(if x < 0.5 then 0 else 1, 0.5)
-				holder.Position = UDim2.fromScale(x, 0.5)
-				holder.Size = UDim2.fromScale(0.3, 0.64)
-				local square = Instance.new("UIAspectRatioConstraint")
-				square.AspectRatio = 1
-				square.Parent = holder
-				holder.Parent = canvas
-				Emblem.draw(holder, club, { simple = true, year = false })
-			end
+			emblemAt(canvas, club, 0.008, 0.5, 0.94, 0)
+			emblemAt(canvas, club, 0.992, 0.5, 0.94, 1)
 			label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.7, 0.62), UDim2.fromScale(0.15, 0.19))
 		else
 			label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.94, 0.62), UDim2.fromScale(0.03, 0.19))
@@ -130,37 +138,19 @@ function Pano.draw(canvas: GuiObject, design: Design)
 		line.Color = WHITE
 		line.Thickness = 8
 		line.Parent = border
-		local badge = frame(canvas, WHITE, UDim2.fromScale(0.42, 0.6), UDim2.fromScale(0.29, 0.1))
-		local round = Instance.new("UICorner")
-		round.CornerRadius = UDim.new(0.5, 0)
-		round.Parent = badge
-		local ring = Instance.new("UIStroke")
-		ring.Color = DARK
-		ring.Thickness = 10
-		ring.Parent = badge
-		label(badge, design.short or "", c, UDim2.fromScale(0.8, 0.5), UDim2.fromScale(0.1, 0.25))
+		emblemAt(canvas, design.club, 0.5, 0.4, 0.62)
 		label(canvas, string.upper(design.text or ""), WHITE, UDim2.fromScale(0.86, 0.17), UDim2.fromScale(0.07, 0.74))
 	elseif kind == "bandeira" then
 		-- Tres bandas ao alto e o emblema redondo ao meio.
 		canvas.BackgroundColor3 = WHITE
 		frame(canvas, c, UDim2.fromScale(0.34, 1), UDim2.fromScale(0, 0))
 		frame(canvas, c, UDim2.fromScale(0.34, 1), UDim2.fromScale(0.66, 0))
-		local badge = frame(canvas, DARK, UDim2.fromScale(0.36, 0.62), UDim2.fromScale(0.32, 0.19))
-		local round = Instance.new("UICorner")
-		round.CornerRadius = UDim.new(0.5, 0)
-		round.Parent = badge
-		local ring = Instance.new("UIStroke")
-		ring.Color = c
-		ring.Thickness = 5
-		ring.Parent = badge
-		label(badge, design.short or "", WHITE, UDim2.fromScale(0.8, 0.5), UDim2.fromScale(0.1, 0.25))
+		emblemAt(canvas, design.club, 0.5, 0.5, 0.7)
 	else
 		-- A bandeirinha: bandas deitadas, cor-branco-cor.
 		canvas.BackgroundColor3 = c
 		frame(canvas, WHITE, UDim2.fromScale(1, 0.34), UDim2.fromScale(0, 0.33))
-		if design.short then
-			label(canvas, design.short, c, UDim2.fromScale(0.8, 0.28), UDim2.fromScale(0.1, 0.36))
-		end
+		emblemAt(canvas, design.club, 0.5, 0.5, 0.6)
 	end
 end
 

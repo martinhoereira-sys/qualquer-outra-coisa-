@@ -15,7 +15,8 @@
 local AssetService = game:GetService("AssetService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local TifoDesigns = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("TifoDesigns"))
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Emblem = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Emblem"))
 
 local PanoMesh = {}
 
@@ -87,6 +88,29 @@ local function word(img: EditableImage, text: string, cx: number, cy: number, ce
 	end
 end
 
+-- Paints the club's emblem (Emblem.colourAt), `size` pixels across, centred at (cx, cy).
+local function stamp(img: EditableImage, teamId: string?, cx: number, cy: number, size: number)
+	local club = if teamId then Config.Teams[teamId] else nil
+	if not club or not club.emblem then
+		return
+	end
+	local step = 2
+	local x0, y0 = cx - size / 2, cy - size / 2
+	for py = 0, size - step, step do
+		-- One rectangle per run of the same colour along the row.
+		local runStart, runColour = 0, nil :: Color3?
+		for px = 0, size, step do
+			local colour = if px < size then Emblem.colourAt(club, (px + step / 2) / size, (py + step / 2) / size) else nil
+			if colour ~= runColour then
+				if runColour then
+					rect(img, x0 + runStart, y0 + py, px - runStart, step, runColour)
+				end
+				runStart, runColour = px, colour
+			end
+		end
+	end
+end
+
 -- O desenho da bandeira, pintado numa imagem 3:2.
 local function paint(design: Design): EditableImage
 	-- A bandeira grande e quadrada (2 x 2 m); a bandeirinha 3:2.
@@ -109,32 +133,12 @@ local function paint(design: Design): EditableImage
 			rect(img, 9, 9, t, H - 18, WHITE)
 			rect(img, W - 9 - t, 9, t, H - 18, WHITE)
 		end
-		-- O emblema redondo ao meio: o animal da claque (o nosso desenho,
-		-- nao o de nenhum clube real), branco sobre a cor.
-		img:DrawCircle(Vector2.new(W / 2, H / 2), 64, DARK, 0, Enum.ImageCombineType.Overwrite)
-		img:DrawCircle(Vector2.new(W / 2, H / 2), 58, WHITE, 0, Enum.ImageCombineType.Overwrite)
-		img:DrawCircle(Vector2.new(W / 2, H / 2), 54, c, 0, Enum.ImageCombineType.Overwrite)
-		local lines = if design.teamId then TifoDesigns.rows({ emblem = true }, design.teamId) else nil
-		if lines and #lines > 0 then
-			local cols, rowsN = #lines[1], #lines
-			local cell = 3.4
-			local x0 = W / 2 - cols * cell / 2
-			local y0 = H / 2 - rowsN * cell / 2
-			for j, line in lines do
-				for i = 1, cols do
-					local ch = string.sub(line, i, i)
-					if ch == "B" or ch == "P" then
-						rect(img, x0 + (i - 1) * cell, y0 + (j - 1) * cell, cell + 0.6, cell + 0.6, if ch == "B" then WHITE else DARK)
-					end
-				end
-			end
-		else
-			word(img, design.short or "", W / 2, H / 2, 5, WHITE)
-		end
+		-- The club's emblem, big, in the middle.
+		stamp(img, design.teamId, W / 2, H / 2, 150)
 	else
 		-- A bandeirinha: cor, branco, cor; a sigla na faixa branca.
 		rect(img, 0, H / 3, W, H / 3, WHITE)
-		word(img, design.short or "", W / 2, H / 2, 6, c)
+		stamp(img, design.teamId, W / 2, H / 2, 96)
 	end
 	return img
 end
