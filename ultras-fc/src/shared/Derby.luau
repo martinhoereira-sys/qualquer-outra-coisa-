@@ -66,6 +66,17 @@ local texts: { TextEntry } = {}
 local seen: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local listeners: { (number) -> () } = {}
 
+-- Today's names too: what is built from now on is written with them. (This
+-- runs while the first match is applied, like everything that is tracked.)
+for _, slot in SLOTS do
+	local team = Config.Teams[slot]
+	local texts = (BUILT :: any)[slot].texts
+	table.insert(texts, 1, { team.claque, "claque" })
+	table.insert(texts, 1, { team.name, "name" })
+	table.insert(texts, 1, { team.nameUpper, "upper" })
+	table.insert(texts, { team.short, "short" })
+end
+
 local function near(a: Color3, b: Color3): boolean
 	return math.abs(a.R - b.R) + math.abs(a.G - b.G) + math.abs(a.B - b.B) < 0.02
 end

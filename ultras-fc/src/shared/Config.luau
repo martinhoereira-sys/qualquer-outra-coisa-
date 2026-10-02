@@ -13,13 +13,12 @@ local Config = {}
 	THE CLUBS. Four clubs, two derbies. Everything about a club lives here:
 	change a colour, a name or a motto in one line.
 
-	Names, mottos and claque names stay in the club's own language (Portuguese
-	for Derby 1, Spanish for Derby 2), like real football. The game interface
-	is in English.
+	Names, mottos and claque names stay in the club's own language (Portuguese),
+	while the game interface is in English.
 
 	`color` is the club's identity colour: scoreboard, bars, smoke, flags.
 	`kits` describes what the players wear, built from parts (no textures):
-	  pattern  "plain" | "hoops" (horizontal) | "stripes" (vertical) | "sash" (one diagonal band)
+	  pattern  "plain" | "hoops" (horizontal) | "stripes" (vertical) | "sash" (one diagonal band) | "halves" (two vertical halves)
 	  shirt    the base colour of the shirt
 	  second   the colour of the hoops / stripes / sash
 	  trim     collar and cuffs (optional)
@@ -37,65 +36,77 @@ local BLACK = Color3.fromRGB(24, 24, 28)
 local NAVY = Color3.fromRGB(20, 34, 84)
 
 Config.Clubs = {
-	aguias = {
-		club = "aguias",
-		name = "Águias do Norte",
-		nameUpper = "ÁGUIAS DO NORTE",
-		short = "AGN",
-		founded = 1911,
-		bairro = "Alto do Norte",
-		motto = "VOAR MAIS ALTO",
-		claque = "ULTRAS ÁGUIA",
-		faixas = { "CURVA NORTE", "ULTRAS ÁGUIA", "VOAR MAIS ALTO" }, -- on the fence, left to right
+	luz = {
+		club = "luz",
+		name = "Luz SC",
+		fullName = "Sport Clube da Luz",
+		nameUpper = "LUZ SC",
+		short = "LUZ",
+		founded = 1904,
+		foundedOn = "28 February 1904",
+		bairro = "Luz",
+		city = "Lisboa",
+		country = "pt",
+		motto = "SEMPRE MAIS ALTO",
+		claque = "SEM NOME",
+		faixas = { "TOPO SUL", "SEM NOME", "SEMPRE MAIS ALTO" }, -- on the fence, left to right
 		color = Color3.fromRGB(196, 58, 48),
 		second = WHITE,
-		keeperColor = Color3.fromRGB(240, 200, 40), -- yellow
+		mask = Color3.fromRGB(196, 58, 48), -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
 		kits = {
+			-- Main: plain red, white collar; white shorts, red socks.
 			home = { pattern = "plain", shirt = Color3.fromRGB(196, 58, 48), second = WHITE, trim = WHITE, shorts = WHITE, socks = Color3.fromRGB(196, 58, 48) },
-			-- Black with red details.
+			-- Alternate: plain black, red collar; black shorts, black socks.
 			away = { pattern = "plain", shirt = BLACK, second = Color3.fromRGB(196, 58, 48), trim = Color3.fromRGB(196, 58, 48), shorts = BLACK, socks = BLACK, sockTop = Color3.fromRGB(196, 58, 48) },
 		},
-		-- The emblem: an eagle, wings open, on a shield (see shared/Emblem for how the shapes are written).
+		-- The emblem: an eagle perched on top of a shield (see shared/Emblem for how the shapes are written).
 		emblem = {
-			colours = { m = Color3.fromRGB(196, 58, 48), w = WHITE, y = Color3.fromRGB(240, 200, 50), k = BLACK },
+			colours = { m = Color3.fromRGB(196, 58, 48), w = WHITE, y = Color3.fromRGB(245, 205, 40), k = BLACK },
 			shapes = {
-				{ 0.5, 0.33, 0.7, 0.5, 0, 0, "m" },
-				{ 0.5, 0.58, 0.7, 0.7, 0, 0.5, "m" },
-				{ 0.323, 0.393, 0.41, 0.11, 25, 0.5, "w" },
-				{ 0.677, 0.393, 0.41, 0.11, -25, 0.5, "w" },
-				{ 0.352, 0.534, 0.32, 0.09, 10, 0.5, "w" },
-				{ 0.648, 0.534, 0.32, 0.09, -10, 0.5, "w" },
-				{ 0.396, 0.655, 0.23, 0.08, -8, 0.5, "w" },
-				{ 0.604, 0.655, 0.23, 0.08, 8, 0.5, "w" },
-				{ 0.5, 0.555, 0.14, 0.39, 0, 0.5, "w" },
-				{ 0.5, 0.79, 0.13, 0.13, 45, 0, "w" },
-				{ 0.5, 0.33, 0.15, 0.15, 0, 0.5, "w" },
-				{ 0.58, 0.34, 0.06, 0.06, 45, 0, "y" },
-				{ 0.52, 0.315, 0.025, 0.025, 0, 0.5, "k" },
+				{ 0.5, 0.545, 0.6, 0.31, 0, 0, "m" },
+				{ 0.5, 0.68, 0.6, 0.6, 0, 0.5, "m" },
+				{ 0.5, 0.56, 0.6, 0.08, 0, 0, "w" },
+				{ 0.332, 0.259, 0.26, 0.085, -22, 0.471, "y" },
+				{ 0.378, 0.345, 0.21, 0.075, -34, 0.467, "y" },
+				{ 0.668, 0.259, 0.26, 0.085, 22, 0.471, "y" },
+				{ 0.622, 0.345, 0.21, 0.075, 34, 0.467, "y" },
+				{ 0.5, 0.275, 0.16, 0.27, 0, 0.5, "y" },
+				{ 0.5, 0.11, 0.13, 0.13, 0, 0.5, "y" },
+				{ 0.57, 0.119, 0.055, 0.055, 45, 0, "w" },
+				{ 0.52, 0.095, 0.025, 0.025, 0, 0.5, "k" },
+				{ 0.46, 0.415, 0.04, 0.05, 0, 0.25, "y" },
+				{ 0.54, 0.415, 0.04, 0.05, 0, 0.25, "y" },
 			},
 		},
 	},
-	leoes = {
-		club = "leoes",
-		name = "Leões",
-		nameUpper = "LEÕES",
-		short = "LEO",
-		founded = 1913,
-		bairro = "Vale Verde",
+	alvalade = {
+		club = "alvalade",
+		name = "Alvalade SC",
+		fullName = "Sporting Clube de Alvalade",
+		nameUpper = "ALVALADE SC",
+		short = "ALV",
+		founded = 1906,
+		foundedOn = "1 July 1906",
+		bairro = "Alvalade",
+		city = "Lisboa",
+		country = "pt",
 		motto = "RUGIR ATÉ AO FIM",
-		claque = "BRIGADA DO LEÃO",
-		faixas = { "CURVA SUL", "BRIGADA DO LEÃO", "RUGIR ATÉ AO FIM" },
+		claque = "JUVENTUDE",
+		faixas = { "CURVA SUL", "JUVENTUDE", "RUGIR ATÉ AO FIM" }, -- on the fence, left to right
 		color = Color3.fromRGB(0, 133, 80),
 		second = WHITE,
-		accent = Color3.fromRGB(245, 205, 40), -- yellow details
+		accent = Color3.fromRGB(245, 205, 40), -- the second colour of the details
 		hoops = true, -- the big flag has horizontal hoops
-		keeperColor = Color3.fromRGB(128, 132, 140), -- grey
+		mask = Color3.fromRGB(0, 133, 80), -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
 		kits = {
-			home = { pattern = "hoops", shirt = Color3.fromRGB(0, 133, 80), second = WHITE, trim = Color3.fromRGB(245, 205, 40), shorts = BLACK, socks = Color3.fromRGB(0, 133, 80), sockTop = Color3.fromRGB(245, 205, 40) },
-			-- Black with thin yellow hoops.
-			away = { pattern = "hoops", thin = true, shirt = BLACK, second = Color3.fromRGB(245, 205, 40), trim = Color3.fromRGB(245, 205, 40), shorts = BLACK, socks = BLACK, sockTop = Color3.fromRGB(245, 205, 40) },
+			-- Main: green and white hoops; black shorts, green socks.
+			home = { pattern = "hoops", shirt = Color3.fromRGB(0, 133, 80), second = WHITE, trim = Color3.fromRGB(0, 133, 80), shorts = BLACK, socks = Color3.fromRGB(0, 133, 80), sockTop = WHITE },
+			-- Alternate: navy with thin green hoops; navy shorts, navy socks.
+			away = { pattern = "hoops", thin = true, shirt = Color3.fromRGB(22, 40, 90), second = Color3.fromRGB(0, 133, 80), trim = Color3.fromRGB(0, 133, 80), shorts = Color3.fromRGB(22, 40, 90), socks = Color3.fromRGB(22, 40, 90), sockTop = Color3.fromRGB(0, 133, 80) },
 		},
-		-- The emblem: a lion on its hind legs, on a disc with a yellow ring (see shared/Emblem for how the shapes are written).
+		-- The emblem: a lion standing on its hind legs, on a disc with a yellow ring (see shared/Emblem for how the shapes are written).
 		emblem = {
 			colours = { m = Color3.fromRGB(0, 133, 80), w = WHITE, y = Color3.fromRGB(245, 205, 40) },
 			shapes = {
@@ -119,25 +130,73 @@ Config.Clubs = {
 			},
 		},
 	},
-	verdes = {
-		club = "verdes",
-		name = "Verdes de Triana",
-		nameUpper = "VERDES DE TRIANA",
-		short = "VDT",
-		founded = 1909,
+	nervion = {
+		club = "nervion",
+		name = "Nervión CF",
+		fullName = "Nervión Club de Fútbol",
+		nameUpper = "NERVIÓN CF",
+		short = "NER",
+		founded = 1890,
+		foundedOn = "25 January 1890",
+		bairro = "Nervión",
+		city = "Sevilla",
+		country = "es",
+		motto = "NERVIÓN ES NUESTRO",
+		claque = "FONDO NORTE",
+		faixas = { "FONDO NORTE", "FONDO NORTE", "NERVIÓN ES NUESTRO" }, -- on the fence, left to right
+		color = Color3.fromRGB(206, 32, 46),
+		second = WHITE,
+		accent = WHITE, -- the second colour of the details
+		mask = WHITE, -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
+		kits = {
+			-- Main: white with a red diagonal sash; white shorts, white socks.
+			home = { pattern = "sash", shirt = WHITE, second = Color3.fromRGB(206, 32, 46), trim = Color3.fromRGB(206, 32, 46), shorts = WHITE, socks = WHITE, sockTop = Color3.fromRGB(206, 32, 46) },
+			-- Alternate: black with a red diagonal sash; black shorts, black socks.
+			away = { pattern = "sash", shirt = BLACK, second = Color3.fromRGB(206, 32, 46), trim = Color3.fromRGB(206, 32, 46), shorts = BLACK, socks = BLACK, sockTop = Color3.fromRGB(206, 32, 46) },
+		},
+		-- The emblem: a ball with three figures round it, on a tall block (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = WHITE, r = Color3.fromRGB(206, 32, 46) },
+			shapes = {
+				{ 0.5, 0.5, 0.67, 0.93, 0, 0.187, "r" },
+				{ 0.5, 0.5, 0.61, 0.87, 0, 0.156, "m" },
+				{ 0.5, 0.53, 0.27, 0.27, 0, 0.5, "r" },
+				{ 0.5, 0.53, 0.11, 0.11, 0, 0.5, "m" },
+				{ 0.5, 0.19, 0.1, 0.1, 0, 0.5, "r" },
+				{ 0.5, 0.31, 0.09, 0.13, 0, 0.444, "r" },
+				{ 0.27, 0.61, 0.1, 0.1, 0, 0.5, "r" },
+				{ 0.27, 0.73, 0.09, 0.13, 0, 0.444, "r" },
+				{ 0.73, 0.61, 0.1, 0.1, 0, 0.5, "r" },
+				{ 0.73, 0.73, 0.09, 0.13, 0, 0.444, "r" },
+			},
+		},
+	},
+	triana = {
+		club = "triana",
+		name = "Triana Balompié",
+		fullName = "Triana Balompié",
+		nameUpper = "TRIANA BALOMPIÉ",
+		short = "TRI",
+		founded = 1907,
+		foundedOn = "12 September 1907",
 		bairro = "Triana",
+		city = "Sevilla",
+		country = "es",
 		motto = "TRIANA NO SE RINDE",
-		claque = "FRENTE TRIANA",
-		faixas = { "FONDO TRIANA", "FRENTE TRIANA", "TRIANA NO SE RINDE" },
+		claque = "GOL SUR",
+		faixas = { "GOL SUR", "GOL SUR", "TRIANA NO SE RINDE" }, -- on the fence, left to right
 		color = Color3.fromRGB(26, 150, 62),
 		second = WHITE,
-		keeperColor = Color3.fromRGB(240, 130, 30), -- orange
+		mask = Color3.fromRGB(26, 150, 62), -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
 		kits = {
-			home = { pattern = "stripes", shirt = Color3.fromRGB(26, 150, 62), second = WHITE, shorts = WHITE, socks = WHITE },
-			-- Plain dark blue.
-			away = { pattern = "plain", shirt = NAVY, second = WHITE, trim = WHITE, shorts = NAVY, socks = NAVY },
+			-- Main: green and white vertical stripes; white shorts, green socks.
+			home = { pattern = "stripes", shirt = Color3.fromRGB(26, 150, 62), second = WHITE, trim = Color3.fromRGB(26, 150, 62), shorts = WHITE, socks = Color3.fromRGB(26, 150, 62) },
+			-- Alternate: plain dark blue, green details; dark blue shorts and socks.
+			away = { pattern = "plain", shirt = Color3.fromRGB(20, 34, 84), second = Color3.fromRGB(26, 150, 62), trim = Color3.fromRGB(26, 150, 62), shorts = Color3.fromRGB(20, 34, 84), socks = Color3.fromRGB(20, 34, 84), sockTop = Color3.fromRGB(26, 150, 62) },
 		},
-		-- The emblem: the bridge of the bairro, on a diamond (see shared/Emblem for how the shapes are written).
+		-- The emblem: the bridge of Triana, on a diamond (see shared/Emblem for how the shapes are written).
 		emblem = {
 			colours = { m = Color3.fromRGB(26, 150, 62), w = WHITE, k = BLACK },
 			shapes = {
@@ -164,69 +223,381 @@ Config.Clubs = {
 			},
 		},
 	},
-	blancos = {
-		club = "blancos",
-		name = "Blancos de Nervión",
-		nameUpper = "BLANCOS DE NERVIÓN",
-		short = "BDN",
-		founded = 1902,
-		bairro = "Nervión",
-		motto = "NERVIÓN ES NUESTRO",
-		claque = "FURIA BLANCA",
-		faixas = { "FONDO NERVIÓN", "FURIA BLANCA", "NERVIÓN ES NUESTRO" },
-		color = Color3.fromRGB(206, 32, 46), -- identity colour (bars, smoke): the red of the sash
-		second = WHITE,
-		keeperColor = Color3.fromRGB(240, 200, 40), -- yellow
+	testaccio = {
+		club = "testaccio",
+		name = "Testaccio",
+		fullName = "Testaccio Calcio",
+		nameUpper = "TESTACCIO",
+		short = "TES",
+		founded = 1927,
+		foundedOn = "7 June 1927",
+		bairro = "Testaccio",
+		city = "Roma",
+		country = "it",
+		motto = "QUI NON SI MOLLA MAI",
+		claque = "CURVA SUD",
+		faixas = { "CURVA SUD", "CURVA SUD", "QUI NON SI MOLLA MAI" }, -- on the fence, left to right
+		color = Color3.fromRGB(134, 30, 48),
+		second = Color3.fromRGB(240, 172, 40),
+		accent = Color3.fromRGB(240, 172, 40), -- the second colour of the details
+		mask = Color3.fromRGB(134, 30, 48), -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
 		kits = {
-			home = { pattern = "sash", shirt = WHITE, second = Color3.fromRGB(206, 32, 46), shorts = Color3.fromRGB(206, 32, 46), socks = WHITE, sockTop = Color3.fromRGB(206, 32, 46) },
-			-- Plain red.
-			away = { pattern = "plain", shirt = Color3.fromRGB(206, 32, 46), second = WHITE, trim = WHITE, shorts = WHITE, socks = Color3.fromRGB(206, 32, 46) },
+			-- Main: bordeaux with gold sleeves; bordeaux shorts and socks.
+			home = { pattern = "plain", shirt = Color3.fromRGB(134, 30, 48), second = Color3.fromRGB(240, 172, 40), sleeves = Color3.fromRGB(240, 172, 40), trim = Color3.fromRGB(240, 172, 40), shorts = Color3.fromRGB(134, 30, 48), socks = Color3.fromRGB(134, 30, 48), sockTop = Color3.fromRGB(240, 172, 40) },
+			-- Alternate: plain dark grey, gold details; dark grey shorts and socks.
+			away = { pattern = "plain", shirt = Color3.fromRGB(62, 64, 70), second = Color3.fromRGB(240, 172, 40), trim = Color3.fromRGB(240, 172, 40), shorts = Color3.fromRGB(62, 64, 70), socks = Color3.fromRGB(62, 64, 70), sockTop = Color3.fromRGB(240, 172, 40) },
 		},
-		-- The emblem: a wide star, on a tall block (see shared/Emblem for how the shapes are written).
+		-- The emblem: a she-wolf with two children, on a shield (see shared/Emblem for how the shapes are written).
 		emblem = {
-			colours = { m = WHITE, r = Color3.fromRGB(206, 32, 46) },
+			colours = { m = Color3.fromRGB(134, 30, 48), y = Color3.fromRGB(240, 172, 40) },
 			shapes = {
-				{ 0.5, 0.5, 0.67, 0.93, 0, 0.187, "r" },
-				{ 0.5, 0.5, 0.61, 0.87, 0, 0.156, "m" },
-				{ 0.5, 0.5, 0.44, 0.44, 0, 0, "r" },
-				{ 0.5, 0.5, 0.44, 0.44, 45, 0, "r" },
-				{ 0.5, 0.5, 0.16, 0.16, 0, 0.5, "m" },
+				{ 0.5, 0.33, 0.7, 0.5, 0, 0, "m" },
+				{ 0.5, 0.58, 0.7, 0.7, 0, 0.5, "m" },
+				{ 0.782, 0.408, 0.18, 0.05, 28, 0.5, "y" },
+				{ 0.315, 0.56, 0.05, 0.18, 0, 0.4, "y" },
+				{ 0.405, 0.545, 0.05, 0.15, 0, 0.4, "y" },
+				{ 0.625, 0.545, 0.05, 0.15, 0, 0.4, "y" },
+				{ 0.715, 0.56, 0.05, 0.18, 0, 0.4, "y" },
+				{ 0.5, 0.42, 0.5, 0.16, 0, 0.469, "y" },
+				{ 0.29, 0.31, 0.17, 0.17, 0, 0.5, "y" },
+				{ 0.22, 0.328, 0.16, 0.075, 0, 0.4, "y" },
+				{ 0.289, 0.22, 0.075, 0.075, 45, 0, "y" },
+				{ 0.25, 0.29, 0.03, 0.03, 0, 0.5, "m" },
+				{ 0.45, 0.66, 0.09, 0.09, 0, 0.5, "y" },
+				{ 0.45, 0.755, 0.07, 0.1, 0, 0.429, "y" },
+				{ 0.57, 0.66, 0.09, 0.09, 0, 0.5, "y" },
+				{ 0.57, 0.755, 0.07, 0.1, 0, 0.429, "y" },
+			},
+		},
+	},
+	flaminio = {
+		club = "flaminio",
+		name = "Flaminio",
+		fullName = "Flaminio Calcio",
+		nameUpper = "FLAMINIO",
+		short = "FLA",
+		founded = 1900,
+		foundedOn = "9 January 1900",
+		bairro = "Flaminio",
+		city = "Roma",
+		country = "it",
+		motto = "UN'AQUILA SOPRA TUTTI",
+		claque = "CURVA NORD",
+		faixas = { "CURVA NORD", "CURVA NORD", "UN'AQUILA SOPRA TUTTI" }, -- on the fence, left to right
+		color = Color3.fromRGB(130, 195, 235),
+		second = WHITE,
+		mask = Color3.fromRGB(130, 195, 235), -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
+		kits = {
+			-- Main: plain light blue, white collar; white shorts, white socks.
+			home = { pattern = "plain", shirt = Color3.fromRGB(130, 195, 235), second = WHITE, trim = WHITE, shorts = WHITE, socks = WHITE, sockTop = Color3.fromRGB(130, 195, 235) },
+			-- Alternate: plain navy, light blue details; navy shorts and socks.
+			away = { pattern = "plain", shirt = Color3.fromRGB(22, 40, 90), second = Color3.fromRGB(130, 195, 235), trim = Color3.fromRGB(130, 195, 235), shorts = Color3.fromRGB(22, 40, 90), socks = Color3.fromRGB(22, 40, 90), sockTop = Color3.fromRGB(130, 195, 235) },
+		},
+		-- The emblem: an eagle with open wings, on a shield (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = Color3.fromRGB(130, 195, 235), n = Color3.fromRGB(20, 34, 84), y = Color3.fromRGB(240, 172, 40), w = WHITE },
+			shapes = {
+				{ 0.5, 0.33, 0.7, 0.5, 0, 0, "m" },
+				{ 0.5, 0.58, 0.7, 0.7, 0, 0.5, "m" },
+				{ 0.323, 0.393, 0.41, 0.11, 25, 0.5, "n" },
+				{ 0.677, 0.393, 0.41, 0.11, -25, 0.5, "n" },
+				{ 0.352, 0.534, 0.32, 0.09, 10, 0.5, "n" },
+				{ 0.648, 0.534, 0.32, 0.09, -10, 0.5, "n" },
+				{ 0.396, 0.655, 0.23, 0.08, -8, 0.5, "n" },
+				{ 0.604, 0.655, 0.23, 0.08, 8, 0.5, "n" },
+				{ 0.5, 0.555, 0.14, 0.39, 0, 0.5, "n" },
+				{ 0.5, 0.79, 0.13, 0.13, 45, 0, "n" },
+				{ 0.5, 0.33, 0.15, 0.15, 0, 0.5, "n" },
+				{ 0.58, 0.34, 0.06, 0.06, 45, 0, "y" },
+				{ 0.52, 0.315, 0.025, 0.025, 0, 0.5, "w" },
+			},
+		},
+	},
+	athinaikos = {
+		club = "athinaikos",
+		name = "Athinaikos",
+		fullName = "Athinaikos",
+		nameUpper = "ATHINAIKOS",
+		short = "ATH",
+		founded = 1908,
+		foundedOn = "3 February 1908",
+		bairro = "Ampelokipi",
+		city = "Athina",
+		country = "gr",
+		motto = "PANTA PROTOI",
+		claque = "PORTA 13",
+		faixas = { "PORTA 13", "PORTA 13", "PANTA PROTOI" }, -- on the fence, left to right
+		color = Color3.fromRGB(0, 120, 62),
+		second = WHITE,
+		mask = Color3.fromRGB(0, 120, 62), -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
+		kits = {
+			-- Main: plain green with white; white shorts, green socks.
+			home = { pattern = "plain", shirt = Color3.fromRGB(0, 120, 62), second = WHITE, trim = WHITE, shorts = WHITE, socks = Color3.fromRGB(0, 120, 62), sockTop = WHITE },
+			-- Alternate: plain white, green details; green shorts, white socks.
+			away = { pattern = "plain", shirt = WHITE, second = Color3.fromRGB(0, 120, 62), trim = Color3.fromRGB(0, 120, 62), shorts = Color3.fromRGB(0, 120, 62), socks = WHITE, sockTop = Color3.fromRGB(0, 120, 62) },
+		},
+		-- The emblem: a clover of three leaves, on a disc (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = Color3.fromRGB(0, 120, 62), w = WHITE },
+			shapes = {
+				{ 0.5, 0.5, 0.94, 0.94, 0, 0.5, "m" },
+				{ 0.5, 0.5, 0.85, 0.85, 0, 0.5, "w" },
+				{ 0.473, 0.687, 0.05, 0.3, 12, 0.4, "m" },
+				{ 0.5, 0.33, 0.27, 0.27, 0, 0.5, "m" },
+				{ 0.35, 0.55, 0.27, 0.27, 0, 0.5, "m" },
+				{ 0.65, 0.55, 0.27, 0.27, 0, 0.5, "m" },
+				{ 0.5, 0.48, 0.16, 0.16, 0, 0.5, "m" },
+			},
+		},
+	},
+	pireus = {
+		club = "pireus",
+		name = "Pireus FC",
+		fullName = "Pireus FC",
+		nameUpper = "PIREUS FC",
+		short = "PIR",
+		founded = 1925,
+		foundedOn = "10 March 1925",
+		bairro = "Pireu",
+		city = "Athina",
+		country = "gr",
+		motto = "O THRYLOS ZEI",
+		claque = "PORTA 7",
+		faixas = { "PORTA 7", "PORTA 7", "O THRYLOS ZEI" }, -- on the fence, left to right
+		color = Color3.fromRGB(214, 30, 40),
+		second = WHITE,
+		mask = Color3.fromRGB(214, 30, 40), -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
+		kits = {
+			-- Main: red and white vertical stripes; red shorts, red socks.
+			home = { pattern = "stripes", shirt = Color3.fromRGB(214, 30, 40), second = WHITE, trim = Color3.fromRGB(214, 30, 40), shorts = Color3.fromRGB(214, 30, 40), socks = Color3.fromRGB(214, 30, 40), sockTop = WHITE },
+			-- Alternate: plain black, red details; black shorts and socks.
+			away = { pattern = "plain", shirt = BLACK, second = Color3.fromRGB(214, 30, 40), trim = Color3.fromRGB(214, 30, 40), shorts = BLACK, socks = BLACK, sockTop = Color3.fromRGB(214, 30, 40) },
+		},
+		-- The emblem: a young man crowned with laurel, in profile, on a disc (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = Color3.fromRGB(214, 30, 40), w = WHITE, y = Color3.fromRGB(240, 172, 40) },
+			shapes = {
+				{ 0.5, 0.5, 0.94, 0.94, 0, 0.5, "w" },
+				{ 0.5, 0.5, 0.86, 0.86, 0, 0.5, "m" },
+				{ 0.47, 0.705, 0.18, 0.25, -8, 0.167, "w" },
+				{ 0.49, 0.46, 0.36, 0.36, 0, 0.5, "w" },
+				{ 0.675, 0.472, 0.09, 0.065, 0, 0.385, "w" },
+				{ 0.615, 0.603, 0.13, 0.085, 0, 0.412, "w" },
+				{ 0.31, 0.46, 0.15, 0.06, -90, 0.5, "y" },
+				{ 0.34, 0.355, 0.15, 0.06, -55, 0.5, "y" },
+				{ 0.43, 0.29, 0.15, 0.06, -20, 0.5, "y" },
+				{ 0.535, 0.285, 0.15, 0.06, 15, 0.5, "y" },
+				{ 0.63, 0.345, 0.15, 0.06, 50, 0.5, "y" },
+				{ 0.58, 0.44, 0.04, 0.04, 0, 0.5, "m" },
+			},
+		},
+	},
+	galata = {
+		club = "galata",
+		name = "Galata SK",
+		fullName = "Galata SK",
+		nameUpper = "GALATA SK",
+		short = "GAL",
+		founded = 1905,
+		foundedOn = "20 October 1905",
+		bairro = "Galata",
+		city = "Istanbul",
+		country = "tr",
+		motto = "ASLANLAR ÖLMEZ",
+		claque = "ASLAN",
+		faixas = { "ASLAN", "ASLAN", "ASLANLAR ÖLMEZ" }, -- on the fence, left to right
+		color = Color3.fromRGB(190, 30, 44),
+		second = Color3.fromRGB(250, 190, 30),
+		accent = Color3.fromRGB(250, 190, 30), -- the second colour of the details
+		mask = Color3.fromRGB(190, 30, 44), -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
+		kits = {
+			-- Main: red and yellow vertical halves; red shorts, red socks.
+			home = { pattern = "halves", shirt = Color3.fromRGB(190, 30, 44), second = Color3.fromRGB(250, 190, 30), trim = Color3.fromRGB(190, 30, 44), shorts = Color3.fromRGB(190, 30, 44), socks = Color3.fromRGB(190, 30, 44), sockTop = Color3.fromRGB(250, 190, 30) },
+			-- Alternate: plain white, red and yellow collar; white shorts and socks.
+			away = { pattern = "plain", shirt = WHITE, second = Color3.fromRGB(190, 30, 44), trim = Color3.fromRGB(190, 30, 44), shorts = WHITE, socks = WHITE, sockTop = Color3.fromRGB(250, 190, 30) },
+		},
+		-- The emblem: the head of a roaring lion, from the front, on a disc (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = Color3.fromRGB(190, 30, 44), y = Color3.fromRGB(250, 190, 30), w = WHITE, k = BLACK },
+			shapes = {
+				{ 0.5, 0.5, 0.94, 0.94, 0, 0.5, "y" },
+				{ 0.5, 0.5, 0.85, 0.85, 0, 0.5, "m" },
+				{ 0.5, 0.5, 0.56, 0.56, 0, 0, "y" },
+				{ 0.5, 0.5, 0.56, 0.56, 45, 0, "y" },
+				{ 0.34, 0.32, 0.11, 0.11, 0, 0.5, "w" },
+				{ 0.66, 0.32, 0.11, 0.11, 0, 0.5, "w" },
+				{ 0.5, 0.5, 0.4, 0.4, 0, 0.5, "w" },
+				{ 0.425, 0.45, 0.055, 0.055, 0, 0.5, "k" },
+				{ 0.575, 0.45, 0.055, 0.055, 0, 0.5, "k" },
+				{ 0.5, 0.527, 0.09, 0.055, 0, 0.364, "k" },
+				{ 0.5, 0.63, 0.21, 0.12, 0, 0.417, "k" },
+				{ 0.438, 0.593, 0.035, 0.045, 0, 0.286, "w" },
+				{ 0.562, 0.593, 0.035, 0.045, 0, 0.286, "w" },
+			},
+		},
+	},
+	kadikoy = {
+		club = "kadikoy",
+		name = "Kadiköy SK",
+		fullName = "Kadiköy SK",
+		nameUpper = "KADIKÖY SK",
+		short = "KAD",
+		founded = 1907,
+		foundedOn = "3 May 1907",
+		bairro = "Kadiköy",
+		city = "Istanbul",
+		country = "tr",
+		motto = "DENIZIN ÖTESI BIZIM",
+		claque = "GENÇ TRIBÜN",
+		faixas = { "GENÇ TRIBÜN", "GENÇ TRIBÜN", "DENIZIN ÖTESI BIZIM" }, -- on the fence, left to right
+		color = Color3.fromRGB(22, 40, 90),
+		second = Color3.fromRGB(250, 214, 50),
+		accent = Color3.fromRGB(250, 214, 50), -- the second colour of the details
+		mask = Color3.fromRGB(250, 214, 50), -- the ultras' face mask
+		keeperColor = Color3.fromRGB(240, 200, 40), -- replaced before each match (Config.pickKeepers)
+		kits = {
+			-- Main: navy and yellow vertical stripes; white shorts, navy socks.
+			home = { pattern = "stripes", shirt = Color3.fromRGB(22, 40, 90), second = Color3.fromRGB(250, 214, 50), trim = Color3.fromRGB(22, 40, 90), shorts = WHITE, socks = Color3.fromRGB(22, 40, 90), sockTop = Color3.fromRGB(250, 214, 50) },
+			-- Alternate: plain yellow, navy details; navy shorts, yellow socks.
+			away = { pattern = "plain", shirt = Color3.fromRGB(250, 214, 50), second = Color3.fromRGB(22, 40, 90), trim = Color3.fromRGB(22, 40, 90), shorts = Color3.fromRGB(22, 40, 90), socks = Color3.fromRGB(250, 214, 50), sockTop = Color3.fromRGB(22, 40, 90) },
+		},
+		-- The emblem: a lighthouse with an anchor, on a disc (see shared/Emblem for how the shapes are written).
+		emblem = {
+			colours = { m = Color3.fromRGB(22, 40, 90), y = Color3.fromRGB(250, 214, 50), w = WHITE },
+			shapes = {
+				{ 0.5, 0.5, 0.94, 0.94, 0, 0.5, "y" },
+				{ 0.5, 0.5, 0.85, 0.85, 0, 0.5, "m" },
+				{ 0.547, 0.251, 0.22, 0.035, -14, 0.429, "y" },
+				{ 0.37, 0.755, 0.22, 0.05, 0, 0.2, "w" },
+				{ 0.37, 0.55, 0.14, 0.38, 0, 0.071, "w" },
+				{ 0.37, 0.49, 0.14, 0.06, 0, 0, "y" },
+				{ 0.37, 0.62, 0.14, 0.06, 0, 0, "y" },
+				{ 0.37, 0.31, 0.12, 0.1, 0, 0.1, "y" },
+				{ 0.384, 0.226, 0.1, 0.1, 45, 0, "w" },
+				{ 0.69, 0.39, 0.1, 0.1, 0, 0.5, "w" },
+				{ 0.69, 0.39, 0.045, 0.045, 0, 0.5, "m" },
+				{ 0.69, 0.58, 0.03, 0.3, 0, 0.333, "w" },
+				{ 0.69, 0.495, 0.16, 0.03, 0, 0.5, "w" },
+				{ 0.669, 0.654, 0.15, 0.035, 35, 0.429, "w" },
+				{ 0.711, 0.654, 0.15, 0.035, -35, 0.429, "w" },
 			},
 		},
 	},
 }
 
--- Display order (admin bar, lists).
-Config.ClubOrder = { "aguias", "leoes", "verdes", "blancos" }
+-- Display order (menus, lists). Everything that lists the clubs counts this table.
+-- Two by two they are the derbies of the five cities: the first round of the calendar.
+Config.ClubOrder = { "luz", "alvalade", "nervion", "triana", "testaccio", "flaminio", "athinaikos", "pireus", "galata", "kadikoy" }
 
 --[[
-	THE MATCHES. Any club can play any other. The calendar is three rounds of
-	two matches (so the four clubs play in every round), and then the same
-	again with home and away swapped. The two matches of a round are played one
-	after the other; the two clubs take the two places of the match (home and
-	away). Both derbies are round 1.
+	THE COUNTRIES. Each club has one (`country`). The flag is drawn small beside
+	the club's name, from shapes like the emblems (Emblem.flag), in a box three
+	wide and two tall.
+]]
+Config.Countries = {
+	pt = {
+		name = "Portugal",
+		colours = { r = Color3.fromRGB(218, 41, 28), g = Color3.fromRGB(0, 102, 0), y = Color3.fromRGB(255, 220, 0) },
+		shapes = {
+			{ 0.5, 0.5, 1, 1, 0, 0, "r" },
+			{ 0.2, 0.5, 0.4, 1, 0, 0, "g" },
+			{ 0.4, 0.5, 0.227, 0.34, 0, 0.5, "y" },
+			{ 0.4, 0.5, 0.133, 0.2, 0, 0.5, "r" },
+		},
+	},
+	es = {
+		name = "España",
+		colours = { r = Color3.fromRGB(198, 11, 30), y = Color3.fromRGB(255, 196, 0) },
+		shapes = {
+			{ 0.5, 0.5, 1, 1, 0, 0, "r" },
+			{ 0.5, 0.5, 1, 0.5, 0, 0, "y" },
+		},
+	},
+	it = {
+		name = "Italia",
+		colours = { g = Color3.fromRGB(0, 146, 70), w = WHITE, r = Color3.fromRGB(206, 43, 55) },
+		shapes = {
+			{ 0.5, 0.5, 1, 1, 0, 0, "w" },
+			{ 0.167, 0.5, 0.333, 1, 0, 0, "g" },
+			{ 0.833, 0.5, 0.333, 1, 0, 0, "r" },
+		},
+	},
+	gr = {
+		name = "Ellada",
+		colours = { b = Color3.fromRGB(13, 94, 175), w = WHITE },
+		shapes = {
+			{ 0.5, 0.5, 1, 1, 0, 0, "b" },
+			{ 0.5, 0.3, 1, 0.2, 0, 0, "w" },
+			{ 0.5, 0.7, 1, 0.2, 0, 0, "w" },
+			{ 0.2, 0.3, 0.4, 0.6, 0, 0, "b" },
+			{ 0.2, 0.3, 0.08, 0.6, 0, 0, "w" },
+			{ 0.2, 0.3, 0.4, 0.12, 0, 0, "w" },
+		},
+	},
+	tr = {
+		name = "Türkiye",
+		colours = { r = Color3.fromRGB(227, 10, 23), w = WHITE },
+		shapes = {
+			{ 0.5, 0.5, 1, 1, 0, 0, "r" },
+			{ 0.393, 0.5, 0.333, 0.5, 0, 0.5, "w" },
+			{ 0.44, 0.5, 0.267, 0.4, 0, 0.5, "r" },
+			{ 0.607, 0.5, 0.107, 0.16, 0, 0, "w" },
+			{ 0.607, 0.5, 0.107, 0.16, 45, 0, "w" },
+		},
+	},
+}
+
+--[[
+	THE MATCHES. Any club can play any other: every club against every other,
+	once at home and once away, and then it starts again. The list is made
+	from Config.ClubOrder (the usual round-robin wheel), so a new club in
+	Config.Clubs gets its matches by itself. The first match is the first two
+	clubs of the list.
 
 	Config.Derbies is the list in the order it is played (the name is from when
 	there were only the two derbies).
 ]]
-Config.Rounds = {
-	{ { "aguias", "leoes" }, { "verdes", "blancos" } },
-	{ { "aguias", "verdes" }, { "leoes", "blancos" } },
-	{ { "aguias", "blancos" }, { "leoes", "verdes" } },
-}
-
-Config.Derbies = {} :: { { id: number, name: string, home: string, away: string } }
-for leg = 1, 2 do
-	for _, round in Config.Rounds do
-		for _, pair in round do
-			local home, away = pair[leg], pair[3 - leg]
-			local id = #Config.Derbies + 1
-			Config.Derbies[id] = {
-				id = id,
-				name = Config.Clubs[home].short .. " v " .. Config.Clubs[away].short,
-				home = home,
-				away = away,
-			}
+Config.Derbies = {} :: { { id: number, name: string, home: string, away: string, round: number } }
+do
+	-- The wheel: 1st v 2nd, 3rd v 4th, ... in the first round; then everyone but the first turns one place.
+	local wheel: { string } = {}
+	local order = table.clone(Config.ClubOrder)
+	if #order % 2 == 1 then
+		table.insert(order, "") -- an odd number of clubs: one rests each round
+	end
+	local n = #order
+	for i = 1, n, 2 do
+		table.insert(wheel, order[i])
+	end
+	for i = n - (n % 2), 2, -2 do
+		table.insert(wheel, order[i])
+	end
+	local rounds = n - 1
+	for leg = 1, 2 do
+		local seats = table.clone(wheel)
+		for round = 1, rounds do
+			for i = 1, n / 2 do
+				local a, b = seats[i], seats[n + 1 - i]
+				if a ~= "" and b ~= "" then
+					-- Alternate who is at home from round to round, and swap in the second leg.
+					local swap = (round % 2 == 0) ~= (leg == 2)
+					local home, away = if swap then b else a, if swap then a else b
+					local id = #Config.Derbies + 1
+					Config.Derbies[id] = {
+						id = id,
+						name = Config.Clubs[home].short .. " v " .. Config.Clubs[away].short,
+						home = home,
+						away = away,
+						round = (leg - 1) * rounds + round,
+					}
+				end
+			end
+			table.insert(seats, 2, table.remove(seats) :: string)
 		end
 	end
 end
@@ -245,6 +616,9 @@ Config.KeeperColours = {
 	Color3.fromRGB(140, 70, 200), -- purple
 	Color3.fromRGB(60, 190, 220), -- light blue
 	Color3.fromRGB(240, 110, 170), -- pink
+	Color3.fromRGB(150, 220, 60), -- lime
+	Color3.fromRGB(250, 250, 250), -- white
+	Color3.fromRGB(20, 20, 24), -- black
 }
 
 local function alike(a: Color3, b: Color3): boolean
@@ -254,7 +628,7 @@ end
 -- The colours that fill a shirt: one on plain ones, two on hoops and stripes.
 local function shirtColours(kit: any): { Color3 }
 	local list = { kit.shirt }
-	if (kit.pattern == "hoops" or kit.pattern == "stripes") and not kit.thin and kit.second then
+	if (kit.pattern == "hoops" or kit.pattern == "stripes" or kit.pattern == "halves") and not kit.thin and kit.second then
 		table.insert(list, kit.second)
 	end
 	return list
@@ -273,12 +647,12 @@ end
 
 -- Which kit each club wears in a match: ("home" | "away") for the home club and for the away club.
 function Config.pickKits(homeClub: any, awayClub: any): (string, string)
-	if not Config.kitsClash(homeClub.kits.home, awayClub.kits.home) then
-		return "home", "home"
-	elseif not Config.kitsClash(homeClub.kits.home, awayClub.kits.away) then
-		return "home", "away"
+	for _, try in { { "home", "home" }, { "home", "away" }, { "away", "home" }, { "away", "away" } } do
+		if not Config.kitsClash(homeClub.kits[try[1]], awayClub.kits[try[2]]) then
+			return try[1], try[2]
+		end
 	end
-	return "away", "home"
+	return "home", "away"
 end
 
 -- The two goalkeepers' colours, for the two kits of a match.
@@ -1215,7 +1589,7 @@ Config.Lider = {
 		{ name = "A bancada a cantar", id = 9112766203 },
 		{ name = "Festa com buzinas", id = 9112779173 },
 		-- `club`: only that club's leader sees it.
-		{ name = "Sporting o meu Lugar", id = 117260593732846, club = "leoes" },
+		{ name = "Sporting o meu Lugar", id = 117260593732846, club = "alvalade" },
 	},
 	farda = Color3.fromRGB(20, 20, 24), -- o casaco da farda (o cachecol e da cor da claque)
 	--[[

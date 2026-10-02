@@ -35,6 +35,7 @@ export type Kit = {
 	socks: Color3,
 	sockTop: Color3?,
 	thin: boolean?, -- thin hoops
+	sleeves: Color3?, -- sleeves in another colour
 }
 
 export type Extras = {
@@ -90,6 +91,7 @@ end
 local function label(plate: BasePart, face: Enum.NormalId, text: string, colour: Color3, size: UDim2, position: UDim2)
 	local gui = Instance.new("SurfaceGui")
 	gui.Name = "Texto"
+	gui.AutoLocalize = false -- names and numbers: never translated
 	gui.Face = face
 	gui.CanvasSize = Vector2.new(200, 200)
 	gui.LightInfluence = 0.6
@@ -155,6 +157,9 @@ function Uniform.wear(model: Model, kit: Kit, extras: Extras?): Folder
 			for i = 1, 6, 2 do
 				shell("Risca", torso, Vector3.new(each, h + 0.02, d + PAD * 2), CFrame.new(-w / 2 + (i + 0.5) * each, 0, 0), second, folder)
 			end
+		elseif kit.pattern == "halves" then
+			-- Two vertical halves: the wearer's right side in the second colour.
+			shell("Metade", torso, Vector3.new(w / 2, h + 0.02, d + PAD * 2), CFrame.new(w / 4, 0, 0), second, folder)
 		elseif kit.pattern == "sash" then
 			-- One diagonal band from the left shoulder to the right hip, front and back.
 			local angle = math.atan2(w - 0.5, h)
@@ -181,7 +186,7 @@ function Uniform.wear(model: Model, kit: Kit, extras: Extras?): Folder
 		local arm = part(model, name)
 		if arm then
 			local h = arm.Size.Y
-			band("Manga", arm, 0, h + 0.02, kit.shirt, folder)
+			band("Manga", arm, 0, h + 0.02, if kit.sleeves then kit.sleeves elseif kit.pattern == "halves" and name == "RightUpperArm" then second else kit.shirt, folder)
 			if kit.pattern == "hoops" then
 				local tall = if kit.thin then h * 0.07 else h * 0.2
 				band("Argola", arm, h * 0.2, tall, second, folder, PAD + 0.01)
@@ -224,7 +229,7 @@ function Uniform.wear(model: Model, kit: Kit, extras: Extras?): Folder
 	]]
 	if torso and e.number then
 		local w, h, d = torso.Size.X, torso.Size.Y, torso.Size.Z
-		local patterned = (kit.pattern == "hoops" or kit.pattern == "stripes") and not kit.thin
+		local patterned = (kit.pattern == "hoops" or kit.pattern == "stripes" or kit.pattern == "halves") and not kit.thin
 		local ink = inkFor(kit.shirt)
 		local back = shell("Costas", torso, Vector3.new(w * 0.62, h * 0.78, 0.03), CFrame.new(0, -h * 0.02, d / 2 + 0.1), kit.shirt, folder)
 		back.Transparency = 1
@@ -258,6 +263,113 @@ function Uniform.wear(model: Model, kit: Kit, extras: Extras?): Folder
 		holder.Size = UDim2.fromScale(1, 1)
 		holder.Parent = gui
 		Emblem.draw(holder, e.club, { year = false })
+	end
+
+	folder.Parent = model
+	return folder
+end
+
+--[[
+	THE ULTRA'S OUTFIT: what everyone in a claque wears, never on the pitch.
+	The same cut for every club; only the colours and the name change, and
+	they are read from the club (Config.Clubs): `color` and `accent` for the
+	details, `mask`, `claque` across the chest, the emblem small on the back.
+
+	Dark from head to foot, so the curvas read as dark blocks and the pitch as
+	colour: a dark top with collar, cuffs and a chest band in the club's colour,
+	the claque's name on the band, dark trousers, and a mask over mouth and nose.
+	(The scarf round the neck is the claque's material: Gear.)
+]]
+local ULTRA_DARK = Color3.fromRGB(26, 27, 31)
+local ULTRA_TROUSERS = Color3.fromRGB(20, 21, 25)
+
+function Uniform.ultra(model: Model, club: any): Folder
+	Uniform.strip(model)
+	for _, child in model:GetChildren() do
+		if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then
+			child:Destroy()
+		end
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = FOLDER
+	local colour: Color3 = club.color
+	local detail: Color3 = club.accent or club.color
+	-- A dark club colour would not show on the dark top: the second colour leads then.
+	if club.accent and colour.R * 0.3 + colour.G * 0.59 + colour.B * 0.11 < 0.25 then
+		colour, detail = club.accent, club.color
+	end
+	local head = part(model, "Head")
+	local skin = if head then head.Color else Color3.fromRGB(226, 190, 152)
+
+	local colours = model:FindFirstChildOfClass("BodyColors")
+	if not colours then
+		colours = Instance.new("BodyColors")
+		colours.Parent = model
+	end
+	local bc = colours :: BodyColors
+	bc.TorsoColor3 = ULTRA_DARK
+	bc.LeftArmColor3 = skin
+	bc.RightArmColor3 = skin
+	bc.LeftLegColor3 = ULTRA_TROUSERS
+	bc.RightLegColor3 = ULTRA_TROUSERS
+
+	local torso = part(model, "UpperTorso")
+	if torso then
+		local w, h, d = torso.Size.X, torso.Size.Y, torso.Size.Z
+		band("Camisola", torso, 0, h + 0.02, ULTRA_DARK, folder)
+		band("Gola", torso, h / 2 - 0.07, 0.14, colour, folder, PAD + 0.03)
+		-- The chest band, with the claque's name across it.
+		local stripe = band("Risca", torso, h * 0.1, h * 0.3, colour, folder, PAD + 0.02)
+		if club.accent then
+			band("Fio", torso, h * 0.1 - h * 0.18, h * 0.05, detail, folder, PAD + 0.02)
+		end
+		label(stripe, Enum.NormalId.Front, string.upper(club.claque), inkFor(colour), UDim2.fromScale(0.94, 0.8), UDim2.fromScale(0.03, 0.1))
+		local texts = stripe:FindFirstChild("Texto") :: SurfaceGui?
+		if texts then
+			texts.CanvasSize = Vector2.new(400, 110)
+		end
+		-- The club's emblem, small, on the back.
+		if club.emblem then
+			local plate = shell("Emblema", torso, Vector3.new(w * 0.34, w * 0.34, 0.03), CFrame.new(0, -h * 0.22, d / 2 + 0.1), ULTRA_DARK, folder)
+			plate.Transparency = 1
+			local gui = Instance.new("SurfaceGui")
+			gui.Name = "Emblema"
+			gui.Face = Enum.NormalId.Back
+			gui.CanvasSize = Vector2.new(120, 120)
+			gui.LightInfluence = 0.7
+			gui.Parent = plate
+			local holder = Instance.new("Frame")
+			holder.BackgroundTransparency = 1
+			holder.Size = UDim2.fromScale(1, 1)
+			holder.Parent = gui
+			Emblem.draw(holder, club, { year = false })
+		end
+	end
+	local hips = part(model, "LowerTorso")
+	if hips then
+		band("Calcas", hips, 0, hips.Size.Y + 0.02, ULTRA_TROUSERS, folder)
+	end
+	-- Long sleeves, with a cuff in the club's colour.
+	for _, name in { "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm" } do
+		local arm = part(model, name)
+		if arm then
+			local h = arm.Size.Y
+			band("Manga", arm, 0, h + 0.02, ULTRA_DARK, folder)
+			if string.find(name, "Lower") then
+				band("Punho", arm, -h / 2 + 0.08, 0.16, detail, folder, PAD + 0.03)
+			end
+		end
+	end
+	for _, name in { "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg" } do
+		local leg = part(model, name)
+		if leg then
+			band("Calcas", leg, 0, leg.Size.Y + 0.02, ULTRA_TROUSERS, folder)
+		end
+	end
+	-- The mask: over the mouth and the nose.
+	if head then
+		local s = head.Size
+		shell("Mascara", head, Vector3.new(s.X + 0.08, s.Y * 0.44, s.Z + 0.08), CFrame.new(0, -s.Y * 0.27, 0), club.mask or colour, folder)
 	end
 
 	folder.Parent = model

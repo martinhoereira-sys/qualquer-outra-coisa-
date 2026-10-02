@@ -97,24 +97,25 @@ local showClubs: () -> ()
 do
 	local title = label(menu, "", 34, TEXT)
 	title.Size = UDim2.new(1, -40, 0, 44)
-	title.Position = UDim2.new(0, 20, 0.5, -236)
+	title.Position = UDim2.new(0, 20, 0.5, -250)
 
 	local subtitle = label(menu, "", 16, MUTED)
 	subtitle.Font = Enum.Font.Gotham
 	subtitle.Size = UDim2.new(1, -40, 0, 22)
-	subtitle.Position = UDim2.new(0, 20, 0.5, -194)
+	subtitle.Position = UDim2.new(0, 20, 0.5, -208)
 
 	local CARD = Color3.fromRGB(26, 30, 40)
 	local YELLOW = Color3.fromRGB(240, 200, 50)
-	local CLUB_W, REF_W, HEIGHT, GAP = 176, 150, 250, 14
-	local WIDTH = CLUB_W * 4 + REF_W + GAP * 4
+	local CLUB_W, REF_W, HEIGHT, GAP = 176, 150, 250, 12
+	local WIDTH = 900
+	local TOP_H, SMALL_W, SMALL_H = 184, 102, 108
 
 	local stage = Instance.new("Frame")
 	stage.Name = "Escolha"
 	stage.BackgroundTransparency = 1
 	stage.AnchorPoint = Vector2.new(0.5, 0)
-	stage.Size = UDim2.fromOffset(WIDTH, HEIGHT + 40)
-	stage.Position = UDim2.new(0.5, 0, 0.5, -150)
+	stage.Size = UDim2.fromOffset(WIDTH, 480)
+	stage.Position = UDim2.new(0.5, 0, 0.5, -170)
 	stage.Parent = menu
 
 	local function card(x: number, y: number, width: number, height: number, colour: Color3, edge: Color3?): TextButton
@@ -158,6 +159,23 @@ do
 		Emblem.draw(holder, club, { year = false })
 	end
 
+	-- Proper names (clubs, claques, bairros, mottos) are never translated.
+	local function proper(l: TextLabel): TextLabel
+		l.AutoLocalize = false
+		return l
+	end
+
+	-- The club's country, small.
+	local function flag(parent: Instance, club: any, x: number, y: number, width: number)
+		local holder = Instance.new("Frame")
+		holder.BackgroundTransparency = 1
+		holder.Size = UDim2.fromOffset(width, width / 1.5)
+		holder.Position = UDim2.fromOffset(x, y)
+		holder.ZIndex = 30
+		holder.Parent = parent
+		Emblem.flag(holder, club.country)
+	end
+
 	local function levelOf(path: string): number
 		local level = player:GetAttribute("Nivel_" .. path)
 		return if type(level) == "number" then level else 1
@@ -191,9 +209,11 @@ do
 		corner.CornerRadius = UDim.new(0, 12)
 		corner.Parent = info
 		crest(info, club, 140, UDim.new(0.5, 0), 16)
-		line(info, club.claque, 15, TEXT, 166, Enum.Font.GothamBlack)
-		line(info, club.motto, 12, MUTED, 192)
-		line(info, club.bairro .. "  ·  " .. tostring(club.founded), 12, MUTED, 214, Enum.Font.Gotham)
+		proper(line(info, club.claque, 15, TEXT, 166, Enum.Font.GothamBlack))
+		proper(line(info, club.motto, 12, MUTED, 192))
+		proper(line(info, club.bairro .. "  ·  " .. club.foundedOn, 12, MUTED, 214, Enum.Font.Gotham))
+		flag(info, club, 10, 10, 30)
+		title.AutoLocalize = false
 
 		local roles = {
 			{ text = TXT.supporter, note = TXT.supporterNote, colour = club.color, level = levelOf("adepto"), pick = "adepto" },
@@ -222,10 +242,12 @@ do
 	-- Step 1: the four clubs, and the referee between the two derbies.
 	function showClubs()
 		stage:ClearAllChildren()
+		title.AutoLocalize = true
 		title.Text = TXT.chooseYourClub
 		subtitle.Text = TXT.thenSupporterOrPlayer
 
-		-- The two clubs of the match on now, and the two that play next.
+		-- The two clubs of the match on now in the top row, either side of the
+		-- referee; every other club underneath (their matches come later).
 		local match = Config.Derbies[Config.Derby]
 		local waiting = {}
 		for _, clubId in Config.ClubOrder do
@@ -233,42 +255,60 @@ do
 				table.insert(waiting, clubId)
 			end
 		end
-		for n, pair in { { match.home, match.away }, waiting } do
-			local today = n == 1
-			local x0 = if n == 1 then 0 else CLUB_W * 2 + REF_W + GAP * 3
-			local head = label(stage, if today then TXT.todaysDerby else TXT.nextMatchDay, 12, if today then BRASS else MUTED)
-			head.Font = Enum.Font.GothamBlack
-			head.Size = UDim2.fromOffset(CLUB_W * 2 + GAP, 20)
-			head.Position = UDim2.fromOffset(x0, 8)
+		local function clubCard(clubId: string, x: number, y: number, width: number, height: number, today: boolean)
+			local club = (Config.Clubs :: any)[clubId]
+			local b = card(x, y, width, height, CARD, club.color)
+			local big = height > 150
+			crest(b, club, if big then 96 else 58, UDim.new(0.5, 0), if big then 12 else 8)
+			proper(line(b, club.name, if big then 15 else 10, TEXT, if big then 114 else 70, Enum.Font.GothamBlack))
+			proper(line(b, club.claque, if big then 11 else 9, club.color:Lerp(TEXT, 0.45), if big then 138 else 86))
+			if big then
+				proper(line(b, club.bairro .. "  ·  " .. tostring(club.founded), 11, MUTED, 158, Enum.Font.Gotham))
+			end
+			flag(b, club, 7, 7, if big then 24 else 18)
+			b.Activated:Connect(function()
+				showRoles(club, today)
+			end)
+		end
 
-			for i, clubId in pair do
-				local club = (Config.Clubs :: any)[clubId]
-				local b = card(x0 + (i - 1) * (CLUB_W + GAP), 40, CLUB_W, HEIGHT, CARD, club.color)
-				crest(b, club, 120, UDim.new(0.5, 0), 18)
-				line(b, club.name, 16, TEXT, 150, Enum.Font.GothamBlack)
-				line(b, club.claque, 12, club.color:Lerp(TEXT, 0.45), 176)
-				line(b, club.bairro .. "  ·  " .. tostring(club.founded), 11, MUTED, 200, Enum.Font.Gotham)
-				b.Activated:Connect(function()
-					showRoles(club, today)
-				end)
+		local head = label(stage, TXT.todaysDerby, 12, BRASS)
+		head.Font = Enum.Font.GothamBlack
+		head.Size = UDim2.fromOffset(WIDTH, 18)
+		head.Position = UDim2.fromOffset(0, 0)
+		local left = (WIDTH - (CLUB_W * 2 + REF_W + GAP * 2)) / 2
+		clubCard(match.home, left, 22, CLUB_W, TOP_H, true)
+		clubCard(match.away, left + CLUB_W + REF_W + GAP * 2, 22, CLUB_W, TOP_H, true)
+
+		if #waiting > 0 then
+			local nextHead = label(stage, TXT.nextMatchDay, 12, MUTED)
+			nextHead.Font = Enum.Font.GothamBlack
+			nextHead.Size = UDim2.fromOffset(WIDTH, 18)
+			nextHead.Position = UDim2.fromOffset(0, 22 + TOP_H + 10)
+			-- As many to a row as fit; the rows are centred.
+			local perRow = math.max(1, math.floor((WIDTH + GAP) / (SMALL_W + GAP)))
+			for i, clubId in waiting do
+				local row, column = math.floor((i - 1) / perRow), (i - 1) % perRow
+				local inRow = math.min(perRow, #waiting - row * perRow)
+				local x0 = (WIDTH - (inRow * SMALL_W + (inRow - 1) * GAP)) / 2
+				clubCard(clubId, x0 + column * (SMALL_W + GAP), 22 + TOP_H + 32 + row * (SMALL_H + GAP), SMALL_W, SMALL_H, false)
 			end
 		end
 
-		local ref = card(CLUB_W * 2 + GAP * 2, 40, REF_W, HEIGHT, YELLOW)
+		local ref = card((WIDTH - REF_W) / 2, 22, REF_W, TOP_H, YELLOW)
 		local sheet = Instance.new("Frame")
 		sheet.BackgroundColor3 = INK
 		sheet.BorderSizePixel = 0
 		sheet.AnchorPoint = Vector2.new(0.5, 0)
-		sheet.Size = UDim2.fromOffset(58, 84)
-		sheet.Position = UDim2.new(0.5, 0, 0, 36)
+		sheet.Size = UDim2.fromOffset(46, 66)
+		sheet.Position = UDim2.new(0.5, 0, 0, 24)
 		sheet.Rotation = 8
 		sheet.Parent = ref
 		local sheetCorner = Instance.new("UICorner")
 		sheetCorner.CornerRadius = UDim.new(0, 8)
 		sheetCorner.Parent = sheet
-		line(ref, TXT.refereeRole, 16, INK, 150, Enum.Font.GothamBlack)
-		line(ref, TXT.refereeNote, 12, INK, 176)
-		line(ref, string.format(TXT.level, levelOf("arbitro")), 11, INK, 200, Enum.Font.GothamBlack)
+		line(ref, TXT.refereeRole, 15, INK, 112, Enum.Font.GothamBlack)
+		line(ref, TXT.refereeNote, 11, INK, 136)
+		line(ref, string.format(TXT.level, levelOf("arbitro")), 11, INK, 158, Enum.Font.GothamBlack)
 		ref.Activated:Connect(function()
 			pick("arbitro")
 		end)
@@ -383,6 +423,14 @@ local function drawCrests()
 	for teamId, crest in crests do
 		crest:ClearAllChildren()
 		Emblem.draw(crest, Config.Teams[teamId], { year = false })
+		-- The country, small, on the corner of the emblem.
+		local corner = Instance.new("Frame")
+		corner.BackgroundTransparency = 1
+		corner.Size = UDim2.fromOffset(15, 10)
+		corner.Position = UDim2.fromOffset(17, 20)
+		corner.ZIndex = 40
+		corner.Parent = crest
+		Emblem.flag(corner, Config.Teams[teamId].country)
 	end
 end
 drawCrests()

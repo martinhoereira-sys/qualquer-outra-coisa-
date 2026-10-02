@@ -8,6 +8,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
+local Emblem = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Emblem"))
+
 local T = Config.Tifo
 
 local TifoDesigns = {}
@@ -29,6 +31,10 @@ local GLYPHS: { [string]: { string } } = {
 	O = { ".BB.", "B..B", "B..B", "B..B", "B..B", ".BB." },
 	T = { "BBBB", ".B..", ".B..", ".B..", ".B..", ".B.." },
 	V = { "B..B", "B..B", "B..B", "B..B", ".BB.", ".B.." },
+	C = { ".BBB", "B...", "B...", "B...", "B...", ".BBB" },
+	F = { "BBBB", "B...", "BBB.", "B...", "B...", "B..." },
+	M = { "B..B", "BBBB", "BBBB", "B..B", "B..B", "B..B" },
+	R = { "BBB.", "B..B", "BBB.", "BB..", "B.B.", "B..B" },
 }
 
 local function initials(short: string): { string }
@@ -64,44 +70,34 @@ end
 	cabeca de leao. Mais finos do que a grelha das cartolinas (28 x 16), porque
 	a tela e pintada e nao feita de quadrados de cartao.
 ]]
-local EMBLEMS: { [string]: { string } } = {
-	AGN = {
-		"EEEEEEEEEEEEEBBEEEEEEEEEEEEE",
-		"EEEEEEEEEEEEBBBBEEEEEEEEEEEE",
-		"BEEEEEEEEEEEBPBBBEEEEEEEEEEB",
-		"BBEEEEEEEEEEBBBBBBEEEEEEEEBB",
-		"BBBEEEEEEEEEEBBBEEEEEEEEEBBB",
-		"BBBBBEEEEEEEBBBBBEEEEEEBBBBB",
-		"EBBBBBBBEEEBBBBBBBEEEBBBBBBE",
-		"EEBBBBBBBBBBBBBBBBBBBBBBBBEE",
-		"EEEBBBBBBBBBBBBBBBBBBBBBBEEE",
-		"EEEEBBBBBBBBBBBBBBBBBBBBEEEE",
-		"EEEEEEBBBBBBBBBBBBBBBBEEEEEE",
-		"EEEEEEEEEEBBBBBBBBEEEEEEEEEE",
-		"EEEEEEEEEEEBBBBBBEEEEEEEEEEE",
-		"EEEEEEEEEEBBEBBEBBEEEEEEEEEE",
-		"EEEEEEEEEBBEEBBEEBBEEEEEEEEE",
-		"EEEEEEEEEEEEEEEEEEEEEEEEEEEE",
-	},
-	LEO = {
-		"EEEEEEEEEBBBBBBBBBBEEEEEEEEE",
-		"EEEEEEEBBBBBBBBBBBBBBEEEEEEE",
-		"EEEEEEBBBBEEEEEEEEBBBBEEEEEE",
-		"EEEEEBBBBEEEEEEEEEEBBBBEEEEE",
-		"EEEEBBBBEEPPEEEEPPEEBBBBEEEE",
-		"EEEEBBBBEEPPEEEEPPEEBBBBEEEE",
-		"EEEEBBBBEEEEEEEEEEEEBBBBEEEE",
-		"EEEEBBBBEEEEEPPEEEEEBBBBEEEE",
-		"EEEEBBBBEEEEPPPPEEEEBBBBEEEE",
-		"EEEEBBBBEEEEEBBEEEEEBBBBEEEE",
-		"EEEEEBBBBEEEBEEBEEEBBBBEEEEE",
-		"EEEEEEBBBBEEEEEEEEBBBBEEEEEE",
-		"EEEEEEEBBBBEEEEEEBBBBEEEEEEE",
-		"EEEEEEEEBBBBBBBBBBBBEEEEEEEE",
-		"EEEEEEEEEEBBBBBBBBEEEEEEEEEE",
-		"EEEEEEEEEEEEEEEEEEEEEEEEEEEE",
-	},
-}
+--[[
+	The emblem of the club as a tifo: the same drawing as everywhere else
+	(Config.Clubs[...].emblem, through Emblem.keyAt), sampled on a grid twice
+	as fine as the cards. Each letter is the colour key of the emblem; outside
+	the emblem it is "E", the colour of the club. Every club has one, by itself.
+]]
+local emblemCache: { [string]: { string } } = {}
+local function emblemRows(club: any): { string }
+	local cached = emblemCache[club.club]
+	if cached then
+		return cached
+	end
+	local columns, rows = T.columns * 2, T.rows * 2
+	local side = math.min(columns, rows)
+	local lines = {}
+	for r = 1, rows do
+		local line = table.create(columns)
+		for c = 1, columns do
+			local u = (c - 0.5 - (columns - side) / 2) / side
+			local v = (r - 0.5 - (rows - side) / 2) / side
+			local key = if u >= 0 and u <= 1 and v >= 0 and v <= 1 then Emblem.keyAt(club, u, v) else nil
+			line[c] = key or "E"
+		end
+		lines[r] = table.concat(line)
+	end
+	emblemCache[club.club] = lines
+	return lines
+end
 
 function TifoDesigns.byId(id: string): any
 	for _, design in T.designs do
@@ -118,7 +114,8 @@ function TifoDesigns.rows(design: any, teamId: string): { string }
 		return initials(Config.Teams[teamId].short)
 	end
 	if design.emblem then
-		return EMBLEMS[Config.Teams[teamId].short] or initials(Config.Teams[teamId].short)
+		local club = Config.Teams[teamId]
+		return if club.emblem then emblemRows(club) else initials(club.short)
 	end
 	return design.rows
 end
@@ -146,7 +143,9 @@ function TifoDesigns.colour(code: string, teamId: string): Color3
 	elseif code == "P" then
 		return Color3.fromRGB(28, 30, 36)
 	end
-	return Config.Teams[teamId].color
+	local club = Config.Teams[teamId]
+	local own = club.emblem and club.emblem.colours[code]
+	return own or club.color
 end
 
 return TifoDesigns

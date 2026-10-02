@@ -15,7 +15,8 @@
 ]]
 
 local Players = game:GetService("Players")
-local TXT = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config")).Text.kit
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+local TXT = Config.Text.kit
 local Lider = require(script.Parent:WaitForChild("Lider"))
 local Squad = require(script.Parent:WaitForChild("Squad"))
 local Uniform = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Uniform"))
@@ -127,6 +128,9 @@ function Kit.apply(player: Player)
 		if f then
 			Squad.redress(f)
 		end
+	elseif type(role) == "string" and Config.Teams[role] and player.Character then
+		-- In a claque: the ultra's outfit of that club.
+		Uniform.ultra(player.Character, Config.Teams[role])
 	end
 end
 

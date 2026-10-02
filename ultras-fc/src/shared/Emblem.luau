@@ -26,6 +26,8 @@
 	                  smooth cloth of the pole flag)
 ]]
 
+local Config = require(script.Parent:WaitForChild("Config"))
+
 local Emblem = {}
 
 export type Options = {
@@ -83,8 +85,42 @@ function Emblem.draw(parent: GuiObject, club: any, options: Options?): Frame
 	return box
 end
 
--- The colour of the emblem at (u, v) in its box (0..1), or nil outside it.
-function Emblem.colourAt(club: any, u: number, v: number): Color3?
+-- The flag of a country (Config.Countries), filling `parent` (best three wide and two tall).
+function Emblem.flag(parent: GuiObject, countryId: string): Frame?
+	local country = (Config.Countries :: any)[countryId]
+	if not country then
+		return nil
+	end
+	local box = Instance.new("Frame")
+	box.Name = "Bandeira"
+	box.BackgroundTransparency = 1
+	box.ClipsDescendants = true
+	box.Size = UDim2.fromScale(1, 1)
+	local shape = Instance.new("UIAspectRatioConstraint")
+	shape.AspectRatio = 1.5
+	shape.Parent = box
+	box.Parent = parent
+	for index, s in country.shapes do
+		local f = Instance.new("Frame")
+		f.BorderSizePixel = 0
+		f.BackgroundColor3 = country.colours[s[7]]
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(s[1], s[2])
+		f.Size = UDim2.fromScale(s[3], s[4])
+		f.Rotation = s[5]
+		f.ZIndex = index
+		if s[6] > 0 then
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(s[6], 0)
+			corner.Parent = f
+		end
+		f.Parent = box
+	end
+	return box
+end
+
+-- The colour key of the emblem at (u, v) in its box (0..1), or nil outside it.
+function Emblem.keyAt(club: any, u: number, v: number): string?
 	local e = club.emblem
 	local shapes = e.shapes
 	for index = #shapes, 1, -1 do
@@ -100,10 +136,16 @@ function Emblem.colourAt(club: any, u: number, v: number): Color3?
 		local qx, qy = math.abs(dx) - halfW + r, math.abs(dy) - halfH + r
 		local outside = math.sqrt(math.max(qx, 0) ^ 2 + math.max(qy, 0) ^ 2) + math.min(math.max(qx, qy), 0) - r
 		if outside <= 0 then
-			return e.colours[s[7]]
+			return s[7]
 		end
 	end
 	return nil
+end
+
+-- The colour of the emblem at (u, v) in its box (0..1), or nil outside it.
+function Emblem.colourAt(club: any, u: number, v: number): Color3?
+	local key = Emblem.keyAt(club, u, v)
+	return if key then club.emblem.colours[key] else nil
 end
 
 return Emblem

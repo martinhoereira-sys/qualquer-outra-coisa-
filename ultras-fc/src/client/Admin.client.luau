@@ -74,8 +74,8 @@ panel.Visible = false
 panel.BackgroundColor3 = PANEL
 panel.BackgroundTransparency = 0.08
 panel.BorderSizePixel = 0
-local EXTRA = 3 * 28 -- the match list is four lines tall
-panel.Size = UDim2.fromOffset(LABEL + CELL * 4 + 96, 34 + rows * ROW + 8 + EXTRA)
+local EXTRA = 0
+panel.Size = UDim2.fromOffset(LABEL + CELL * #Config.ClubOrder + 96, 34 + rows * ROW + 8 + EXTRA)
 panel.Position = UDim2.new(0, 16, 1, -(52 + 34 + rows * ROW + 8 + EXTRA))
 panel.Parent = gui
 corner(panel, 10)
@@ -132,7 +132,7 @@ local function clubRow(index: number, text: string, action: string, off: boolean
 		end)
 	end
 	if off then
-		local b = button(panel, T.off, UDim2.fromOffset(80, ROW - 14), UDim2.fromOffset(LABEL + 4 * CELL + 4, y + 4))
+		local b = button(panel, T.off, UDim2.fromOffset(80, ROW - 14), UDim2.fromOffset(LABEL + #Config.ClubOrder * CELL + 4, y + 4))
 		b.Activated:Connect(function()
 			Remotes.Admin:FireServer(action, "")
 		end)
@@ -158,23 +158,28 @@ end
 do
 	local y = rowLabel(5, T.derby)
 	local buttons: { TextButton } = {}
-	for n, derby in Config.Derbies do
-		local home = (Config.Clubs :: any)[derby.home]
-		local away = (Config.Clubs :: any)[derby.away]
-		-- Three to a row: the two matches of a round, round after round.
-		local column, line = (n - 1) % 3, math.floor((n - 1) / 3)
-		local b = button(panel, home.short .. " v " .. away.short, UDim2.fromOffset(88, 24), UDim2.fromOffset(LABEL + column * 92, y + 4 + line * 28))
-		b.TextSize = 11
-		b.Activated:Connect(function()
-			Remotes.Admin:FireServer("derby", n)
-		end)
-		buttons[n] = b
+	-- The match on now, and one step back or forward in the calendar.
+	local back = button(panel, "<", UDim2.fromOffset(34, ROW - 14), UDim2.fromOffset(LABEL, y + 4))
+	local name = button(panel, "", UDim2.fromOffset(150, ROW - 14), UDim2.fromOffset(LABEL + 38, y + 4))
+	name.AutoButtonColor = false
+	local forward = button(panel, ">", UDim2.fromOffset(34, ROW - 14), UDim2.fromOffset(LABEL + 192, y + 4))
+	local function step(by: number)
+		local current = workspace:GetAttribute("Derby")
+		local n = ((if type(current) == "number" then current else 1) - 1 + by) % #Config.Derbies + 1
+		Remotes.Admin:FireServer("derby", n)
 	end
+	back.Activated:Connect(function()
+		step(-1)
+	end)
+	forward.Activated:Connect(function()
+		step(1)
+	end)
+	buttons[1] = name
 	local function light()
 		local current = workspace:GetAttribute("Derby")
-		for n, b in buttons do
-			b.BackgroundColor3 = if n == current then GOLD else BUTTON
-			b.TextColor3 = if n == current then PANEL else TEXT
+		local match = Config.Derbies[if type(current) == "number" then current else 1]
+		if match then
+			name.Text = string.format("%d / %d   %s", match.id, #Config.Derbies, match.name)
 		end
 	end
 	workspace:GetAttributeChangedSignal("Derby"):Connect(light)

@@ -1222,6 +1222,39 @@ if game:GetService("RunService"):IsStudio() then
 		end
 	end)
 end
+-- Studio only: the workspace attribute "TestParade" lines up one dummy per
+-- club and per outfit (main kit, alternate kit, ultra) on the pitch, to look
+-- at all of them at once. Setting it to false takes them away.
+if game:GetService("RunService"):IsStudio() then
+	workspace:GetAttributeChangedSignal("TestParade"):Connect(function()
+		local old = workspace:FindFirstChild("TestParade")
+		if old then
+			old:Destroy()
+		end
+		if not workspace:GetAttribute("TestParade") then
+			return
+		end
+		local folder = Instance.new("Folder")
+		folder.Name = "TestParade"
+		folder.Parent = workspace
+		for i, clubId in Config.ClubOrder do
+			local club = (Config.Clubs :: any)[clubId]
+			for j, outfit in { "home", "away", "ultra" } do
+				local dummy = Players:CreateHumanoidModelFromDescription(Instance.new("HumanoidDescription"), Enum.HumanoidRigType.R15)
+				dummy.Name = club.short .. " " .. outfit
+				local root = dummy:FindFirstChild("HumanoidRootPart") :: BasePart
+				root.Anchored = true
+				dummy:PivotTo(CFrame.new((i - (#Config.ClubOrder + 1) / 2) * 5, 3.2, (j - 2) * 7) * CFrame.Angles(0, math.pi, 0))
+				dummy.Parent = folder
+				if outfit == "ultra" then
+					Uniform.ultra(dummy, club)
+				else
+					Uniform.wear(dummy, club.kits[outfit], { number = 10, name = club.short, club = club })
+				end
+			end
+		end
+	end)
+end
 -- De 5 em 5 s: a bracadeira passa de um para outro, o tambor muda de dono sem lider.
 task.spawn(function()
 	while true do
