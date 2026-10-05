@@ -50,8 +50,10 @@ export type Playing = {
 local SERVER = if game.JobId ~= "" then game.JobId else "studio-" .. HttpService:GenerateGUID(false)
 
 local store: DataStore? = nil
+-- In Studio the tests have a store of their own: they never touch the season of the live game.
+local STORE = C.store .. (if game:GetService("RunService"):IsStudio() then "_Studio" else "")
 pcall(function()
-	store = DataStoreService:GetDataStore(C.store)
+	store = DataStoreService:GetDataStore(STORE)
 end)
 local offline = store == nil -- the DataStore cannot be used: keep everything here
 
