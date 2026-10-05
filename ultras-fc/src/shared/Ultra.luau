@@ -153,7 +153,7 @@ end
 function Ultra.nameTag(head: BasePart, seed: number)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Nome"
-	gui.Size = UDim2.fromScale(3.2, 0.5)
+	gui.Size = UDim2.fromOffset(120, 18)
 	gui.StudsOffset = Vector3.new(0, 1.6, 0)
 	gui.MaxDistance = math.min(45, Config.Labels.distance)
 	gui.LightInfluence = 0
@@ -161,7 +161,7 @@ function Ultra.nameTag(head: BasePart, seed: number)
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(1, 1)
 	label.Font = Enum.Font.GothamMedium
-	label.TextScaled = true
+	label.TextSize = 12
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.5
 	label.Text = Ultra.name(seed)

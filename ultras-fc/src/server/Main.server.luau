@@ -468,8 +468,13 @@ local function derbyTurn()
 	for _, player in Players:GetPlayers() do
 		local w = wish[player]
 		if w then
-			if clubPlace(w.club) then
-				if player:GetAttribute("UpNext") then
+			local place = clubPlace(w.club)
+			if place then
+				-- In again if they were waiting, and also if the club changed places
+				-- (home in one match, away in the next): never left in the other claque's stand.
+				local f = Squad.byPlayer(player)
+				local now = Teams.get(player) or (if f then f.teamId else nil)
+				if player:GetAttribute("UpNext") or (now ~= nil and now ~= place) then
 					switchedAt[player] = nil
 					task.spawn(pickClub, player, w.club, w.role)
 				end
@@ -655,6 +660,7 @@ local function shootOut(): string
 	return winner.club
 end
 
+local pickedSlot = -1
 local lastPhase = ""
 local lastKey = "" -- phase, slot and night: a new one is a phase that has just started
 local lastGoalStamp = 0
@@ -675,6 +681,12 @@ MatchLoop.onChange(function(snapshot)
 		Tifo.markGoal(snapshot.lastGoal)
 	end
 
+	-- The match of this slot, chosen once, whenever the slot comes (also when this
+	-- server opens with it already going: then it joins it as a friendly).
+	if not snapshot.night and snapshot.slot ~= pickedSlot then
+		pickedSlot = snapshot.slot
+		task.spawn(chooseMatch, snapshot.slot, snapshot.phase ~= "clubhouse" and snapshot.phase ~= "corteo")
+	end
 	local key = snapshot.phase .. ":" .. tostring(snapshot.slot) .. ":" .. tostring(snapshot.night)
 	local entered = key ~= lastKey
 	lastKey = key
@@ -688,10 +700,6 @@ MatchLoop.onChange(function(snapshot)
 	-- volta a sua sede. Guardar as tochas do jogo anterior nao faria sentido:
 	-- sao para o momento, nao para acumular.
 	if entered and snapshot.phase == "clubhouse" then
-		-- The match of this slot: the one still due that brings most people together (Competition).
-		if not snapshot.night then
-			task.spawn(chooseMatch, snapshot.slot, false)
-		end
 		matchDays += 1
 		-- Dia de jogo novo: quem joga volta a academia, a treinar.
 		Academy.setOpen(nil, true)
@@ -1706,7 +1714,6 @@ workspace:SetAttribute("Derby", Derby.current())
 Derby.onChanged(function(n)
 	local home, away = Derby.clubs()
 	print(string.format("[Ultras FC] %s: %s vs %s", Config.Derbies[n].name, home.name, away.name))
-	derbyTurn()
 	local estadio = workspace:FindFirstChild("Estadio")
 	if estadio then
 		for _, teamId in Config.TeamOrder do
@@ -1725,6 +1732,8 @@ Derby.onChanged(function(n)
 	for _, teamId in Config.TeamOrder do
 		City.place(teamId)
 	end
+	-- Only now the people: they go to where their club's place is today.
+	derbyTurn()
 end)
 
 -- The map still carries names from before the clubs were renamed: write
@@ -1844,13 +1853,6 @@ Remotes.Bike.OnServerEvent:Connect(function(player, action)
 	end
 end)
 MatchLoop.start()
--- This server may have opened with a match already going: it joins it, as a friendly.
-do
-	local moment = MatchLoop.snapshot()
-	if not moment.night then
-		task.spawn(chooseMatch, moment.slot, moment.phase ~= "clubhouse" and moment.phase ~= "corteo")
-	end
-end
 
 print("[Ultras FC] Servidor a postos.")
 
