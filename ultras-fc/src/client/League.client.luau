@@ -19,6 +19,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Emblem = require(Shared:WaitForChild("Emblem"))
+local Calendar = require(Shared:WaitForChild("Calendar"))
+local Schedule = require(Shared:WaitForChild("Schedule"))
 
 local player = Players.LocalPlayer
 local T = Config.Text.league
@@ -117,12 +119,17 @@ list.Parent = panel
 
 local function draw()
 	list:ClearAllChildren()
-	local raw = workspace:GetAttribute("Liga")
-	local ok, data = pcall(function()
+	local raw = workspace:GetAttribute("Epoca")
+	local ok, season = pcall(function()
 		return HttpService:JSONDecode(raw :: string)
 	end)
-	if not ok or type(data) ~= "table" or type(data.rows) ~= "table" then
+	if not ok or type(season) ~= "table" or type(season.results) ~= "table" then
 		return
+	end
+	local won = if type(season.titles) == "table" and type(season.titles.liga) == "table" then season.titles.liga else {}
+	local data = { rows = {}, ends = Schedule.weekStart(season.week) + 6 * 24 * 3600 }
+	for position, row in Calendar.leagueTable(season) do
+		table.insert(data.rows, { club = row.club, pos = position, p = row.p, w = row.w, d = row.d, l = row.l, gf = row.gf, ga = row.ga, pts = row.pts, titles = won[row.club] or 0 })
 	end
 	local mine = player:GetAttribute("Clube")
 	local second = player:GetAttribute("Clube2")
@@ -192,7 +199,7 @@ local function draw()
 	end
 
 	-- How long the season still has.
-	local seconds = (if type(data.ends) == "number" then data.ends else 0) - os.time()
+	local seconds = (if type(data.ends) == "number" then data.ends else 0) - Schedule.gameTime()
 	local days = math.ceil(seconds / 86400)
 	left.Text = if days > 1 then string.format(T.daysLeft, days) elseif days == 1 then T.lastDay else T.over
 end
@@ -206,7 +213,7 @@ end)
 close.Activated:Connect(function()
 	panel.Visible = false
 end)
-workspace:GetAttributeChangedSignal("Liga"):Connect(function()
+workspace:GetAttributeChangedSignal("Epoca"):Connect(function()
 	if panel.Visible then
 		draw()
 	end

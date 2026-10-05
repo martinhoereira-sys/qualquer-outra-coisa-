@@ -37,7 +37,9 @@ local Budget = require(script.Parent:WaitForChild("Budget"))
 local Entrance = require(script.Parent:WaitForChild("Entrance"))
 local DayNight = require(script.Parent:WaitForChild("DayNight"))
 local Money = require(script.Parent:WaitForChild("Money"))
-local League = require(script.Parent:WaitForChild("League"))
+local Competition = require(script.Parent:WaitForChild("Competition"))
+local Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar"))
+local Schedule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Schedule"))
 local Friendly = require(script.Parent:WaitForChild("Friendly"))
 local Bikes = require(script.Parent:WaitForChild("Bikes"))
 local Shops = require(script.Parent:WaitForChild("Shops"))
@@ -561,6 +563,66 @@ Gear.onCountChanged(function(player, counts)
 	Remotes.GearCount:FireClient(player, counts)
 end)
 
+--[[
+	THE MATCH OF THE SLOT. The server asks Competition which match it plays
+	(by who is inside), and puts its two clubs in the two places.
+]]
+local derbyOf: { [string]: number } = {}
+for n, match in Config.Derbies do
+	derbyOf[match.home .. ":" .. match.away] = n
+end
+
+local function chooseMatch(slot: number, late: boolean)
+	local people: { [string]: number } = {}
+	for _, player in Players:GetPlayers() do
+		local mine = Money.clubOf(player)
+		if mine then
+			people[mine] = (people[mine] or 0) + 1
+		end
+	end
+	local match = Competition.pick(slot, people, late)
+	local n = derbyOf[match.fixture.home .. ":" .. match.fixture.away]
+	if n then
+		Derby.set(n)
+	end
+	print(string.format("[Ultras FC] slot %s: %s %s v %s%s", Schedule.clock(Schedule.slotStart(slot)), match.fixture.kind, match.fixture.home, match.fixture.away, if match.noFans then " (no fans)" else ""))
+end
+
+-- A knockout match that ends level: penalties, kicked here on the server. Returns who goes through.
+local function shootOut(): string
+	local home, away = Config.Teams.home, Config.Teams.away
+	local goals = { 0, 0 }
+	local lines = {}
+	local kick = 0
+	while true do
+		kick += 1
+		for side = 1, 2 do
+			local club = if side == 1 then home else away
+			local scored = math.random() < Config.Competitions.penalty
+			if scored then
+				goals[side] += 1
+			end
+			table.insert(lines, string.format(if scored then Config.Text.comp.penaltyScored else Config.Text.comp.penaltyMissed, club.short, goals[1], goals[2]))
+		end
+		if kick >= 5 and goals[1] ~= goals[2] then
+			break
+		end
+		if kick >= 12 then
+			goals[if math.random() < 0.5 then 1 else 2] += 1
+			break
+		end
+	end
+	local winner = if goals[1] > goals[2] then home else away
+	table.insert(lines, string.format(Config.Text.comp.goesThrough, winner.name))
+	-- Only the last kicks fit on the screen.
+	local shown = {}
+	for i = math.max(1, #lines - 6), #lines do
+		table.insert(shown, lines[i])
+	end
+	Remotes.Npc:FireAllClients({ title = Config.Text.comp.penalties, lines = shown })
+	return winner.club
+end
+
 local lastPhase = ""
 local lastKey = "" -- phase, slot and night: a new one is a phase that has just started
 local lastGoalStamp = 0
@@ -594,33 +656,9 @@ MatchLoop.onChange(function(snapshot)
 	-- volta a sua sede. Guardar as tochas do jogo anterior nao faria sentido:
 	-- sao para o momento, nao para acumular.
 	if entered and snapshot.phase == "clubhouse" then
-		-- A new match day is the other derby (one derby per match day).
-		if matchDays > 0 and not snapshot.night then
-			--[[
-				The next official match: the next one in the calendar in which at
-				least one of the two clubs has real people (their club, or the one
-				they follow). Matches nobody is waiting for are skipped; with nobody
-				at all, the calendar just goes on.
-			]]
-			local total = #Config.Derbies
-			local chosen = Derby.current() % total + 1
-			for step = 1, total do
-				local n = (Derby.current() - 1 + step) % total + 1
-				local match = Config.Derbies[n]
-				local people = false
-				for _, player in Players:GetPlayers() do
-					local mine, second = Money.clubOf(player)
-					if mine == match.home or mine == match.away or second == match.home or second == match.away then
-						people = true
-						break
-					end
-				end
-				if people then
-					chosen = n
-					break
-				end
-			end
-			Derby.set(chosen)
+		-- The match of this slot: the one still due that brings most people together (Competition).
+		if not snapshot.night then
+			task.spawn(chooseMatch, snapshot.slot, false)
 		end
 		matchDays += 1
 		-- Dia de jogo novo: quem joga volta a academia, a treinar.
@@ -758,19 +796,35 @@ MatchLoop.onChange(function(snapshot)
 			end
 		end
 		Referee.endMatch()
-		-- The result goes to the league table, if real people were in this match.
-		local people = #Squad.humans()
-		for _, teamId in Config.TeamOrder do
-			people += Teams.count(teamId)
-		end
-		if people > 0 then
-			League.record(Config.Teams.home.club, Config.Teams.away.club, snapshot.score.home, snapshot.score.away)
-		end
-		-- Champions: on the last day of the season, the claque of the club on top of the table may invade.
-		if League.lastDay() then
-			for _, teamId in Config.TeamOrder do
-				if League.leader() == Config.Teams[teamId].club then
-					offerInvasion(teamId)
+		-- The result goes to the tables (everything played counts; a friendly does not).
+		do
+			local now = Competition.playing()
+			if now and now.counts then
+				local penalties: string? = nil
+				if Competition.knockout() and snapshot.score.home == snapshot.score.away then
+					penalties = shootOut()
+				end
+				local leagueMatch = now.fixture.kind == "liga"
+				Competition.record(snapshot.score.home, snapshot.score.away, penalties)
+				-- Champions: with the league all played, the claque of the club on top may invade.
+				if leagueMatch then
+					local state = Competition.state()
+					local left = false
+					for _, round in Calendar.leagueRounds() do
+						for _, fixture in round do
+							if not state.results[fixture.id] then
+								left = true
+							end
+						end
+					end
+					if not left then
+						local champion = Calendar.leagueTable(state)[1].club
+						for _, teamId in Config.TeamOrder do
+							if Config.Teams[teamId].club == champion then
+								offerInvasion(teamId)
+							end
+						end
+					end
 				end
 			end
 		end
@@ -1494,7 +1548,7 @@ Lider.start({
 Kit.start()
 
 Money.start()
-League.start()
+Competition.start()
 Friendly.onXP(function(player, amount)
 	Money.addXP(player, "jogador", amount)
 end)
@@ -1716,6 +1770,13 @@ Remotes.Bike.OnServerEvent:Connect(function(player, action)
 	end
 end)
 MatchLoop.start()
+-- This server may have opened with a match already going: it joins it, as a friendly.
+do
+	local moment = MatchLoop.snapshot()
+	if not moment.night then
+		task.spawn(chooseMatch, moment.slot, moment.phase ~= "clubhouse" and moment.phase ~= "corteo")
+	end
+end
 
 print("[Ultras FC] Servidor a postos.")
 

@@ -20,6 +20,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Schedule = require(Shared:WaitForChild("Schedule"))
+local Calendar = require(Shared:WaitForChild("Calendar"))
+local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local T = Config.Text.clock
@@ -39,7 +41,7 @@ local box = Instance.new("Frame")
 box.Name = "Relogio"
 box.AnchorPoint = Vector2.new(0, 0)
 box.Position = UDim2.fromOffset(326, 60)
-box.Size = UDim2.fromOffset(236, 52)
+box.Size = UDim2.fromOffset(236, 70)
 box.BackgroundColor3 = PANEL
 box.BackgroundTransparency = 0.2
 box.BorderSizePixel = 0
@@ -64,6 +66,8 @@ end
 
 local timeLine = label(box, 13, MUTED, 4, Enum.Font.GothamBold)
 local nextLine = label(box, 15, GOLD, 24, Enum.Font.GothamBlack)
+-- Which competition the match on now is of (and NO FANS when it is played between bots).
+local compLine = label(box, 12, TEXT, 46, Enum.Font.GothamBold)
 
 -- The notice two minutes before a match, and the button for the two clubs.
 local notice = Instance.new("TextLabel")
@@ -129,13 +133,30 @@ task.spawn(function()
 			nextLine.Text = string.format(T.nextIn, Schedule.countdown(kickOff - game))
 		end
 
+		-- The competition of the match of this slot.
+		local raw = workspace:GetAttribute("Jogo")
+		local okMatch, match = pcall(function()
+			return HttpService:JSONDecode(raw :: string)
+		end)
+		local supercup = false
+		if okMatch and type(match) == "table" and match.slot == moment.slot and not moment.night then
+			local key, value = Calendar.label(match)
+			local text = (Config.Text.comp :: any)[key]
+			compLine.Text = (if value ~= nil then string.format(text, value) else text) .. (if match.noFans then "  ·  " .. Config.Text.comp.noFans else "")
+			supercup = match.kind == "supertaca"
+		else
+			compLine.Text = ""
+		end
+		go.Text = if supercup then Config.Text.comp.goSuper else T.go
+
 		-- Two minutes before the match of this slot.
 		local toKickOff = Schedule.slotStart(moment.slot) - game
 		local soon = not moment.night and toKickOff > 0 and toKickOff <= Config.Schedule.noticeSeconds
 		notice.Visible = soon and toKickOff > Config.Schedule.noticeSeconds - 12
 		local teamId = player:GetAttribute("Team")
 		local mine = type(teamId) == "string" and Config.Teams[teamId] ~= nil
-		go.Visible = soon and mine and usedFor ~= moment.slot
+		-- (The supercup is for everyone: whoever is of neither club goes in as a neutral.)
+		go.Visible = soon and (mine or supercup) and usedFor ~= moment.slot
 		task.wait(0.5)
 	end
 end)

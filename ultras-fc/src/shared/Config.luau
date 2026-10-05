@@ -775,10 +775,6 @@ Config.TeamOrder = { "home", "away" }
 	  bancada  -> em cada curva de claque, no estadio
 	  cortejo  -> atras de cada faixa, no corteo
 ]]
---[[
-	THE LEAGUE. Points for a win and a draw; the season is a week (Monday to
-	Sunday) and the table starts again each Monday (server/League).
-]]
 -- The arrows of the corteo and the button to go straight to the stadium (client/Rota).
 Config.Rota = {
 	arrivedWithin = 230, -- studs from the centre of the pitch: closer than this, one has arrived
@@ -814,11 +810,25 @@ Config.Invasion = {
 	stewardSpeed = 22, -- studs per second
 }
 
-Config.League = {
+--[[
+	THE COMPETITIONS (shared/Calendar, server/Competition).
+	  win, draw       points
+	  windowsPerDay   a league round opens with each window of the day
+	  finalHour       the cup final is due on Saturday from this hour on
+	  superHour       the supercup is on Sunday at this hour
+	  penalty         chance of scoring each kick of a shoot-out
+	  store           the DataStore where the season and the titles are kept
+	  refreshSeconds  how often a server reads what the other servers wrote
+]]
+Config.Competitions = {
 	win = 3,
 	draw = 1,
-	store = "UltrasFC_Liga_v1", -- the DataStore of the table and the titles
-	refreshSeconds = 60, -- how often a server reads the table the other servers wrote
+	windowsPerDay = 3,
+	finalHour = 21,
+	superHour = 21,
+	penalty = 0.75,
+	store = "UltrasFC_Epoca_v1",
+	refreshSeconds = 60,
 }
 
 --[[
@@ -951,6 +961,20 @@ Config.Admins = {
 	Config.Clubs. To change a word on the screen, change it here.
 ]]
 Config.Text = {
+	comp = {
+		league = "LEAGUE  ·  ROUND %d",
+		group = "CUP  ·  GROUP %s",
+		semi = "CUP  ·  SEMI-FINAL",
+		final = "CUP  ·  FINAL",
+		supercup = "SUPERCUP",
+		friendly = "FRIENDLY",
+		noFans = "NO FANS",
+		penalties = "PENALTIES",
+		penaltyScored = "%s  scores   (%d - %d)",
+		penaltyMissed = "%s  misses   (%d - %d)",
+		goesThrough = "%s win on penalties",
+		goSuper = "GO TO THE SUPERCUP",
+	},
 	clock = {
 		local_ = "your time %s",
 		nextIn = "NEXT MATCH IN %s",
