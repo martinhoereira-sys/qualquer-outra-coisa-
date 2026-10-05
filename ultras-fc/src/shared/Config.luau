@@ -832,6 +832,55 @@ Config.Honour = {
 }
 
 --[[
+	THE LOOK OF EVERY SCREEN (shared/UI). One small set, used everywhere.
+
+	Screens are drawn on a canvas of `canvas` and shrink with the screen, down
+	to `minScale` (a phone): so the sizes here are big on purpose. On a phone
+	the small letter is still read and a button is still a thumb.
+
+	  minScale, maxScale     how far it shrinks (a phone) and grows (a big screen): it always fills the screen
+	  title, normal, small   the three letter sizes (there is no fourth)
+	  gap                    between two things; half of it between things that go together
+	  corner                 the rounding of every corner
+	  button                 the height of every button
+	  ground                 behind a whole screen: nearly black, see-through
+	  panel                  a card or a button on it
+	  text                   white; `dim` is how see-through the secondary text is
+	  good, bad              green only for "it went well", red only for "it went wrong"
+	  line                   the thickness of the club's colour, where it shows (an outline, a line)
+	  icons                  every icon goes with its word, never alone
+]]
+Config.UI = {
+	canvas = Vector2.new(1280, 720),
+	minScale = 0.5,
+	maxScale = 2,
+	title = 44,
+	normal = 28,
+	small = 22,
+	gap = 16,
+	corner = 12,
+	button = 84,
+	ground = Color3.fromRGB(8, 9, 12),
+	groundTransparency = 0.12,
+	panel = Color3.fromRGB(24, 26, 32),
+	panelTransparency = 0.1,
+	text = Color3.fromRGB(255, 255, 255),
+	dim = 0.4,
+	good = Color3.fromRGB(60, 190, 110),
+	bad = Color3.fromRGB(220, 70, 60),
+	line = 3,
+	icons = {
+		supporter = "🔥",
+		player = "⚽",
+		keeper = "🧤",
+		referee = "🟨",
+		back = "◀",
+		follow = "★",
+		change = "⇄",
+	},
+}
+
+--[[
 	FLOATING LABELS (names over heads, titles over desks, score boards): every
 	one of them only shows closer than `distance` studs, and is never bigger
 	than a player (sizes in studs, so they shrink with distance like the rest
@@ -1305,6 +1354,11 @@ Config.Text = {
 	},
 	hud = {
 		chooseYourClub = "Choose your club",
+		beAnUltra = "BE AN ULTRA",
+		forGood = "choose your club  ·  it stays with you",
+		derbyOf = "DERBY  ·  %s",
+		yourClub = "YOUR CLUB",
+		vs = "VS",
 		nightTitle = "NIGHT",
 		nightNote = "friendlies at the training pitches",
 		warnJoin = "You are joining %s.",

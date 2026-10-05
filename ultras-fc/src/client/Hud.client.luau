@@ -22,6 +22,10 @@ local ScheduleClock = require(game:GetService("ReplicatedStorage"):WaitForChild(
 local Derby = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Derby"))
 local Config = require(Shared:WaitForChild("Config"))
 local TXT = Config.Text.hud
+local U = Config.UI
+local UI = require(Shared:WaitForChild("UI"))
+local Uniform = require(Shared:WaitForChild("Uniform"))
+local Material = require(Shared:WaitForChild("Material"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local TifoDesigns = require(Shared:WaitForChild("TifoDesigns"))
 
@@ -83,82 +87,55 @@ end
 ]]
 local menu = Instance.new("Frame")
 menu.Size = UDim2.fromScale(1, 1)
-menu.BackgroundColor3 = INK
-menu.BackgroundTransparency = 0.06
-menu.Parent = gui
+menu.BackgroundColor3 = U.ground
+menu.BackgroundTransparency = U.groundTransparency
+-- Its own screen, over everything else: while a club is being chosen, nothing else is on.
+local menuGui = Instance.new("ScreenGui")
+menuGui.Name = "UltrasEscolha"
+menuGui.ResetOnSpawn = false
+menuGui.IgnoreGuiInset = true
+menuGui.DisplayOrder = 100
+menuGui.Parent = player:WaitForChild("PlayerGui")
+local menuScale = UI.scale(menuGui)
+menu.BorderSizePixel = 0
+menu.Active = true
+menu.Parent = menuGui
 
 --[[
-	Two steps. First the club: the four clubs with their emblem and name, in
-	their two derbies (the one on now and the one up next, the same day), and
-	the referee in the middle. Then the role in that club: supporter, player or
-	goalkeeper, each with the level you have in it. A club of the match up next
-	can be chosen already: the server keeps the choice until that match starts.
+	CHOOSING A CLUB: the first screen anyone sees, and a big decision.
+
+	First every club, as cards, side by side with its rival: one column per
+	city, the two clubs of its derby one over the other. Each card has the
+	emblem, the name, the country's flag and the name of the claque.
+
+	Pressing a card opens it: the ultra's outfit of that club (on my own
+	character), the motto and the date it was founded, and what I can be in
+	it. The first time, the warning comes after that: the choice is kept.
+
+	In a corner, always, how long until the next match.
 ]]
 local showClubs: () -> ()
 local askChange: (any) -> ()
 do
-	local title = label(menu, "", 34, TEXT)
-	title.Size = UDim2.new(1, -40, 0, 44)
-	title.Position = UDim2.new(0, 20, 0.5, -250)
-
-	local subtitle = label(menu, "", 16, MUTED)
-	subtitle.Font = Enum.Font.Gotham
-	subtitle.Size = UDim2.new(1, -40, 0, 22)
-	subtitle.Position = UDim2.new(0, 20, 0.5, -208)
-
-	local CARD = Color3.fromRGB(26, 30, 40)
-	local YELLOW = Color3.fromRGB(240, 200, 50)
-	local CLUB_W, REF_W, HEIGHT, GAP = 176, 150, 250, 12
-	local WIDTH = 900
-	local TOP_H, SMALL_W, SMALL_H = 184, 102, 108
+	local W, H = U.canvas.X, U.canvas.Y
+	local EDGE = U.gap * 1.5
+	local HALF = U.gap / 2
+	local CLOCK = Config.Text.clock
 
 	local stage = Instance.new("Frame")
 	stage.Name = "Escolha"
 	stage.BackgroundTransparency = 1
-	stage.AnchorPoint = Vector2.new(0.5, 0)
-	stage.Size = UDim2.fromOffset(WIDTH, 480)
-	stage.Position = UDim2.new(0.5, 0, 0.5, -170)
+	stage.AnchorPoint = Vector2.new(0.5, 0.5)
+	stage.Position = UDim2.fromScale(0.5, 0.5)
+	stage.Size = UDim2.fromOffset(W, H)
 	stage.Parent = menu
 
-	local function card(x: number, y: number, width: number, height: number, colour: Color3, edge: Color3?): TextButton
-		local b = Instance.new("TextButton")
-		b.Size = UDim2.fromOffset(width, height)
-		b.Position = UDim2.fromOffset(x, y)
-		b.BackgroundColor3 = colour
-		b.BorderSizePixel = 0
-		b.AutoButtonColor = true
-		b.Text = ""
-		b.Parent = stage
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 12)
-		corner.Parent = b
-		if edge then
-			local stroke = Instance.new("UIStroke")
-			stroke.Color = edge
-			stroke.Thickness = 2
-			stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			stroke.Parent = b
-		end
-		return b
-	end
-
-	local function line(parent: Instance, text: string, size: number, colour: Color3, y: number, font: Enum.Font?): TextLabel
-		local l = label(parent, text, size, colour)
-		l.Font = font or Enum.Font.GothamBold
-		l.Size = UDim2.new(1, -12, 0, size + 6)
-		l.Position = UDim2.fromOffset(6, y)
-		l.TextTruncate = Enum.TextTruncate.AtEnd
-		return l
-	end
-
-	local function crest(parent: Instance, club: any, size: number, x: UDim, y: number)
-		local holder = Instance.new("Frame")
-		holder.BackgroundTransparency = 1
-		holder.AnchorPoint = Vector2.new(0.5, 0)
-		holder.Size = UDim2.fromOffset(size, size)
-		holder.Position = UDim2.new(x.Scale, x.Offset, 0, y)
-		holder.Parent = parent
-		Emblem.draw(holder, club, { year = false })
+	-- A wide screen (most phones): the screen uses the width there is.
+	local function measure()
+		local camera = workspace.CurrentCamera
+		local wide = if camera then camera.ViewportSize.X / menuScale.Scale else U.canvas.X
+		W = math.clamp(math.floor(wide), U.canvas.X, U.canvas.X * 1.25)
+		stage.Size = UDim2.fromOffset(W, H)
 	end
 
 	-- Proper names (clubs, claques, bairros, mottos) are never translated.
@@ -167,7 +144,16 @@ do
 		return l
 	end
 
-	-- The club's country, small.
+	local function crest(parent: Instance, club: any, size: number, y: number)
+		local holder = Instance.new("Frame")
+		holder.BackgroundTransparency = 1
+		holder.AnchorPoint = Vector2.new(0.5, 0)
+		holder.Size = UDim2.fromOffset(size, size)
+		holder.Position = UDim2.new(0.5, 0, 0, y)
+		holder.Parent = parent
+		Emblem.draw(holder, club, { year = false })
+	end
+
 	local function flag(parent: Instance, club: any, x: number, y: number, width: number)
 		local holder = Instance.new("Frame")
 		holder.BackgroundTransparency = 1
@@ -188,226 +174,406 @@ do
 		menu.Visible = false
 	end
 
-	-- Step 2: the role in the club.
-	local function showRoles(club: any, today: boolean)
-		stage:ClearAllChildren()
-		title.Text = club.name
-		subtitle.Text = if today then TXT.chooseYourRole else TXT.upNextNote
+	-- How long until the next match: in the corner of both steps.
+	local countdown: TextLabel? = nil
+	local function tick()
+		local l = countdown
+		if not l or not l.Parent then
+			return
+		end
+		local now = ScheduleClock.gameTime()
+		local moment = ScheduleClock.at(now)
+		if moment.night then
+			l.Text = string.format(CLOCK.night, ScheduleClock.clock(ScheduleClock.slotStart(moment.slot)))
+		else
+			local kickOff = ScheduleClock.nextKickOff(now)
+			if moment.phase == "clubhouse" or moment.phase == "corteo" then
+				kickOff = ScheduleClock.slotStart(moment.slot)
+			end
+			l.Text = string.format(CLOCK.nextIn, ScheduleClock.countdown(kickOff - now))
+		end
+	end
+	local function nextMatch()
+		local box = UI.panel(stage)
+		box.Name = "ProximoJogo"
+		box.AnchorPoint = Vector2.new(1, 0)
+		box.Position = UDim2.fromOffset(W - EDGE - U.button - U.gap, 20)
+		box.Size = UDim2.fromOffset(360, U.button)
+		local l = UI.label(box, "", "normal", false, true)
+		l.Font = Enum.Font.GothamBlack
+		l.AnchorPoint = Vector2.new(0, 0.5)
+		l.Position = UDim2.new(0, U.gap, 0.5, 0)
+		l.Size = UDim2.new(1, -U.gap * 2, 0, U.normal + 6)
+		countdown = l
+		tick()
+	end
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			if menu.Visible then
+				tick()
+			end
+		end
+	end)
 
-		local back = card(0, 0, 96, 32, Color3.fromRGB(58, 62, 72))
-		line(back, TXT.back, 13, TEXT, 6)
-		back.Activated:Connect(function()
+	-- The ultra's outfit of `club`, on a copy of my own character.
+	local function outfit(parent: Frame, club: any)
+		local view = Instance.new("ViewportFrame")
+		view.Name = "Fato"
+		view.BackgroundTransparency = 1
+		view.Size = UDim2.fromScale(1, 1)
+		view.Ambient = Color3.fromRGB(175, 175, 180)
+		view.LightColor = Color3.fromRGB(255, 255, 255)
+		view.LightDirection = Vector3.new(0.4, -0.6, 1)
+		view.Parent = parent
+		local camera = Instance.new("Camera")
+		camera.FieldOfView = 30
+		camera.CFrame = CFrame.lookAt(Vector3.new(-3.2, 0.7, -15.5), Vector3.new(0, -0.2, 0))
+		camera.Parent = view
+		view.CurrentCamera = camera
+
+		local function fill(character: Model)
+			if not view.Parent or view:FindFirstChildOfClass("Model") or not character:FindFirstChild("HumanoidRootPart") then
+				return
+			end
+			local was = character.Archivable
+			character.Archivable = true
+			local copy = character:Clone()
+			character.Archivable = was
+			if not copy then
+				return
+			end
+			for _, d in copy:GetDescendants() do
+				if d:IsA("LuaSourceContainer") or d:IsA("BillboardGui") or d:IsA("Sound") or d:IsA("ForceField") or d:IsA("Tool") then
+					d:Destroy()
+				end
+			end
+			copy:PivotTo(CFrame.new())
+			pcall(Uniform.ultra, copy, club)
+			pcall(Material.wearScarf, copy, club.color, club)
+			copy.Parent = view
+		end
+		local character = player.Character
+		if character and character:FindFirstChild("HumanoidRootPart") then
+			fill(character)
+		else
+			task.spawn(function()
+				local loaded = player.Character or player.CharacterAdded:Wait()
+				loaded:WaitForChild("HumanoidRootPart", 10)
+				task.wait(1)
+				fill(loaded)
+			end)
+		end
+	end
+
+	--[[
+		The card, open: the outfit on the left, the club in the middle, and on
+		the right an empty column for what can be done (returned).
+	]]
+	local atClubs = false -- step 1 is on (it is drawn again when the screen changes size)
+	local function openCard(club: any, today: boolean, onBack: () -> ()): Frame
+		atClubs = false
+		stage:ClearAllChildren()
+		measure()
+		local back = UI.button(stage, TXT.back)
+		back.Name = "Voltar"
+		back.Size = UDim2.fromOffset(200, U.button)
+		back.Position = UDim2.fromOffset(EDGE, 20)
+		back.Activated:Connect(onBack)
+		nextMatch()
+
+		local top = 20 + U.button + U.gap
+		local body = H - top - 20
+		local look = UI.panel(stage)
+		look.Name = "Fato"
+		look.BackgroundColor3 = Color3.fromRGB(62, 66, 76)
+		look.BackgroundTransparency = 0
+		look.Position = UDim2.fromOffset(EDGE, top)
+		look.Size = UDim2.fromOffset(380, body)
+		UI.outline(look, club.color)
+		outfit(look, club)
+
+		local who = Instance.new("Frame")
+		who.Name = "Clube"
+		who.BackgroundTransparency = 1
+		who.Position = UDim2.fromOffset(EDGE + 380 + U.gap, top)
+		who.Size = UDim2.fromOffset(400, body)
+		who.Parent = stage
+		crest(who, club, 190, 0)
+		flag(who, club, 0, 0, 48)
+		local y = 190 + U.gap
+		local name = proper(UI.label(who, club.name, "title", false, true))
+		name.Position = UDim2.fromOffset(0, y)
+		y += U.title + 6 + HALF
+		local claque = proper(UI.label(who, club.claque, "normal", false, true))
+		claque.Font = Enum.Font.GothamBlack
+		claque.Position = UDim2.fromOffset(0, y)
+		y += U.normal + 6 + U.gap
+		proper(UI.label(who, club.motto, "small", true, true)).Position = UDim2.fromOffset(0, y)
+		y += U.small + 6 + HALF
+		proper(UI.label(who, club.foundedOn, "small", true, true)).Position = UDim2.fromOffset(0, y)
+		y += U.small + 6 + HALF
+		proper(UI.label(who, club.bairro .. "  ·  " .. club.city, "small", true, true)).Position = UDim2.fromOffset(0, y)
+		y += U.small + 6 + U.gap
+		local mine = player:GetAttribute("Clube") == club.club
+		if mine or today then
+			UI.label(who, if mine then TXT.yourClub else TXT.todaysDerby, "small").Position = UDim2.fromOffset(0, y)
+		end
+
+		local x = EDGE + 380 + U.gap + 400 + U.gap
+		local side = Instance.new("Frame")
+		side.Name = "Opcoes"
+		side.BackgroundTransparency = 1
+		side.Position = UDim2.fromOffset(x, top)
+		side.Size = UDim2.fromOffset(W - EDGE - x, body)
+		side.Parent = stage
+		return side
+	end
+
+	-- A sentence in the column: starts at `y`, takes `lines` lines; returns where it ends.
+	local function words(side: Frame, text: string, size: UI.Size, dim: boolean, y: number, lines: number): number
+		local l = UI.label(side, text, size, dim)
+		l.TextWrapped = true
+		l.TextXAlignment = Enum.TextXAlignment.Left
+		l.TextYAlignment = Enum.TextYAlignment.Top
+		l.Position = UDim2.fromOffset(0, y)
+		l.Size = UDim2.new(1, 0, 0, lines * ((U :: any)[size] + 6))
+		return y + lines * ((U :: any)[size] + 6) + HALF
+	end
+
+	-- The first choice is kept: nobody makes it without knowing.
+	local function warn(side: Frame, club: any, send: string)
+		side:ClearAllChildren()
+		local y = words(side, string.format(TXT.warnJoin, club.nameUpper), "normal", false, 0, 2)
+		y = words(side, TXT.warnKept, "small", true, y, 3)
+		y = words(side, TXT.warnChange, "small", true, y, 3)
+		y = words(side, TXT.warnSure, "normal", false, y + HALF, 1) + HALF
+		local yes = UI.button(side, string.format(TXT.warnYes, club.nameUpper))
+		yes.Name = "Sim"
+		yes.Position = UDim2.fromOffset(0, y)
+		UI.outline(yes, club.color)
+		yes.Activated:Connect(function()
+			pick(send)
+		end)
+		local no = UI.button(side, TXT.back)
+		no.Name = "Nao"
+		no.Position = UDim2.fromOffset(0, y + U.button + U.gap)
+		no.Activated:Connect(function()
 			showClubs()
 		end)
+	end
 
-		local left = WIDTH / 2 - 330
-		local info = Instance.new("Frame")
-		info.BackgroundColor3 = CARD
-		info.BorderSizePixel = 0
-		info.Size = UDim2.fromOffset(240, HEIGHT)
-		info.Position = UDim2.fromOffset(left, 40)
-		info.Parent = stage
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 12)
-		corner.Parent = info
-		crest(info, club, 140, UDim.new(0.5, 0), 16)
-		proper(line(info, club.claque, 15, TEXT, 166, Enum.Font.GothamBlack))
-		proper(line(info, club.motto, 12, MUTED, 192))
-		proper(line(info, club.bairro .. "  ·  " .. club.foundedOn, 12, MUTED, 214, Enum.Font.Gotham))
-		flag(info, club, 10, 10, 30)
-		title.AutoLocalize = false
-
-		--[[
-			What this club lets me do:
-			- no club yet, or it is MY club: supporter, player or goalkeeper;
-			- another club: follow it as my second club (and then play for it as
-			  a substitute), or change to it for good, after being asked.
-		]]
+	--[[
+		Step 2: what this club lets me be.
+		- no club yet, or it is MY club: supporter, player or goalkeeper;
+		- another club: follow it as my second club (and then play for it as a
+		  substitute). Changing to it for good is done at its clubhouse, in
+		  person: here it is only said.
+	]]
+	local function showRoles(club: any, today: boolean)
+		local side = openCard(club, today, function()
+			showClubs()
+		end)
+		local I = U.icons
 		local mine = player:GetAttribute("Clube")
 		local second = player:GetAttribute("Clube2")
 		local roles: { any } = {}
 		if mine == nil or mine == club.club then
 			roles = {
-				{ text = TXT.supporter, note = TXT.supporterNote, colour = club.color, level = levelOf("adepto"), send = "clube:" .. club.club .. ":adepto" },
-				{ text = TXT.playerRole, note = TXT.playerNote, colour = club.color:Lerp(INK, 0.35), level = levelOf("jogador"), send = "clube:" .. club.club .. ":jogador" },
-				{ text = TXT.goalkeeper, note = TXT.keeperNote, colour = Color3.fromRGB(70, 76, 90), level = levelOf("jogador"), send = "clube:" .. club.club .. ":baliza" },
+				{ text = TXT.supporter, icon = I.supporter, main = true, level = levelOf("adepto"), send = "clube:" .. club.club .. ":adepto" },
+				{ text = TXT.playerRole, icon = I.player, level = levelOf("jogador"), send = "clube:" .. club.club .. ":jogador" },
+				{ text = TXT.goalkeeper, icon = I.keeper, level = levelOf("jogador"), send = "clube:" .. club.club .. ":baliza" },
+			}
+		elseif second == club.club then
+			roles = {
+				{ text = TXT.substitute, icon = I.player, main = true, level = levelOf("jogador"), send = "clube:" .. club.club .. ":jogador" },
+				{ text = TXT.unfollow, icon = I.follow, send = "seguir:", stay = true },
 			}
 		else
-			if second == club.club then
-				table.insert(roles, { text = TXT.substitute, note = TXT.substituteNote, colour = club.color:Lerp(INK, 0.35), level = levelOf("jogador"), send = "clube:" .. club.club .. ":jogador" })
-				table.insert(roles, { text = TXT.unfollow, note = TXT.followNote, colour = Color3.fromRGB(70, 76, 90), send = "seguir:", stay = true })
-			else
-				table.insert(roles, { text = TXT.follow, note = TXT.followNote, colour = club.color:Lerp(INK, 0.35), send = "seguir:" .. club.club, stay = true })
-			end
-			-- Changing club is done at its clubhouse, in person: here it is only said.
-			table.insert(roles, { text = TXT.change, note = TXT.changeNote, colour = Color3.fromRGB(70, 76, 90), stay = true, send = "" })
+			roles = { { text = TXT.follow, icon = I.follow, main = true, send = "seguir:" .. club.club, stay = true } }
 		end
-		for i, role in roles do
-			local b = card(left + 256, 40 + (i - 1) * 86, 404, 78, role.colour)
-			local name = line(b, role.text, 20, TEXT, 14, Enum.Font.GothamBlack)
-			name.TextXAlignment = Enum.TextXAlignment.Left
-			name.Position = UDim2.fromOffset(20, 14)
-			local note = line(b, role.note, 13, TEXT, 44, Enum.Font.Gotham)
-			note.TextXAlignment = Enum.TextXAlignment.Left
-			note.TextTransparency = 0.3
-			note.Position = UDim2.fromOffset(20, 44)
-			if role.level then
-				local level = line(b, string.format(TXT.level, role.level), 13, TEXT, 30, Enum.Font.GothamBlack)
-				level.TextXAlignment = Enum.TextXAlignment.Right
-				level.Size = UDim2.new(1, -40, 0, 20)
-				level.Position = UDim2.fromOffset(20, 30)
+		local y = 0
+		for _, role in roles do
+			local b = UI.button(side, role.text, role.icon, if role.level then string.format(TXT.level, role.level) else nil)
+			b.Position = UDim2.fromOffset(0, y)
+			y += U.button + U.gap
+			if role.main then
+				UI.outline(b, club.color)
 			end
 			b.Activated:Connect(function()
-				if role.confirm then
-					-- Changing club is deliberate: ask first.
-					stage:ClearAllChildren()
-					local old = (Config.Clubs :: any)[mine]
-					title.Text = club.name
-					subtitle.Text = string.format(TXT.confirmChange, if old then old.name else "", club.name)
-					local yes = card(WIDTH / 2 - 210, 60, 200, 64, Color3.fromRGB(150, 44, 40))
-					line(yes, TXT.yesChange, 16, TEXT, 22, Enum.Font.GothamBlack)
-					yes.Activated:Connect(function()
-						pick("mudar:" .. club.club)
-					end)
-					local no = card(WIDTH / 2 + 10, 60, 200, 64, Color3.fromRGB(58, 62, 72))
-					line(no, TXT.noStay, 16, TEXT, 22, Enum.Font.GothamBlack)
-					no.Activated:Connect(function()
-						showClubs()
-					end)
-				elseif mine == nil then
-					-- The first choice is kept: nobody makes it without knowing.
-					stage:ClearAllChildren()
-					title.Text = club.name
-					subtitle.Text = string.format(TXT.warnJoin, club.nameUpper)
-					for n, words in { TXT.warnKept, TXT.warnChange, TXT.warnSure } do
-						local l = label(stage, words, 15, if n == 3 then TEXT else MUTED)
-						l.Font = if n == 3 then Enum.Font.GothamBlack else Enum.Font.Gotham
-						l.Size = UDim2.fromOffset(WIDTH, 22)
-						l.Position = UDim2.fromOffset(0, 20 + (n - 1) * 28)
-					end
-					local backButton = card(WIDTH / 2 - 250, 124, 200, 64, Color3.fromRGB(58, 62, 72))
-					line(backButton, TXT.back, 16, TEXT, 22, Enum.Font.GothamBlack)
-					backButton.Activated:Connect(function()
-						showClubs()
-					end)
-					local yes = card(WIDTH / 2 - 30, 124, 280, 64, club.color)
-					line(yes, string.format(TXT.warnYes, club.nameUpper), 16, TEXT, 22, Enum.Font.GothamBlack)
-					yes.Activated:Connect(function()
-						pick(role.send)
-					end)
+				if mine == nil then
+					warn(side, club, role.send)
 				elseif role.stay then
-					if role.send ~= "" then
-						Remotes.PickTeam:FireServer(role.send)
-						task.delay(0.4, showClubs)
-					end
+					Remotes.PickTeam:FireServer(role.send)
+					task.delay(0.4, showClubs)
 				else
 					pick(role.send)
 				end
 			end)
+		end
+		if mine ~= nil and mine ~= club.club then
+			words(side, TXT.changeNote, "small", true, y, 2)
 		end
 	end
 
 	-- At a clubhouse: "do you really want to leave X and join Y?"
 	function askChange(club: any)
 		menu.Visible = true
-		stage:ClearAllChildren()
+		local function close()
+			menu.Visible = false
+		end
+		local side = openCard(club, false, close)
 		local old = (Config.Clubs :: any)[player:GetAttribute("Clube")]
-		title.AutoLocalize = false
-		title.Text = club.name
-		subtitle.Text = string.format(TXT.confirmChange, if old then old.name else "", club.name)
-		local yes = card(WIDTH / 2 - 210, 60, 200, 64, Color3.fromRGB(150, 44, 40))
-		line(yes, TXT.yesChange, 16, TEXT, 22, Enum.Font.GothamBlack)
+		local y = words(side, string.format(TXT.confirmChange, if old then old.name else "", club.name), "normal", false, 0, 4) + HALF
+		local yes = UI.button(side, TXT.yesChange)
+		yes.Name = "Sim"
+		yes.Position = UDim2.fromOffset(0, y)
+		UI.outline(yes, club.color)
 		yes.Activated:Connect(function()
 			pick("mudar:" .. club.club)
 		end)
-		local no = card(WIDTH / 2 + 10, 60, 200, 64, Color3.fromRGB(58, 62, 72))
-		line(no, TXT.noStay, 16, TEXT, 22, Enum.Font.GothamBlack)
-		no.Activated:Connect(function()
-			menu.Visible = false
-		end)
+		local no = UI.button(side, TXT.noStay)
+		no.Name = "Nao"
+		no.Position = UDim2.fromOffset(0, y + U.button + U.gap)
+		no.Activated:Connect(close)
 	end
 
-	-- Step 1: the four clubs, and the referee between the two derbies.
+	-- Step 1: every club, each beside its rival.
 	function showClubs()
+		atClubs = true
 		stage:ClearAllChildren()
-		title.AutoLocalize = true
-		title.Text = TXT.chooseYourClub
-		subtitle.Text = TXT.thenSupporterOrPlayer
+		measure()
+		local title = UI.label(stage, TXT.beAnUltra, "title")
+		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.Position = UDim2.fromOffset(EDGE, 20)
+		title.Size = UDim2.fromOffset(W - EDGE * 2 - 360 - U.button - U.gap * 2, U.title + 6)
+		local sub = UI.label(stage, TXT.forGood, "small", true)
+		sub.TextXAlignment = Enum.TextXAlignment.Left
+		sub.Position = UDim2.fromOffset(EDGE, 20 + U.title + 6 + HALF)
+		sub.Size = title.Size
+		nextMatch()
 
-		-- The two clubs of the match on now in the top row, either side of the
-		-- referee; every other club underneath (their matches come later).
 		local match = Config.Derbies[Config.Derby]
-		local waiting = {}
+		local myClub, myFollowed = player:GetAttribute("Clube"), player:GetAttribute("Clube2")
+
+		-- One column per city: the clubs of a city are each other's derby.
+		local groups: { { city: string, clubs: { any } } } = {}
+		local rows = 1
 		for _, clubId in Config.ClubOrder do
-			if clubId ~= match.home and clubId ~= match.away then
-				table.insert(waiting, clubId)
-			end
-		end
-		local function clubCard(clubId: string, x: number, y: number, width: number, height: number, today: boolean)
 			local club = (Config.Clubs :: any)[clubId]
-			local b = card(x, y, width, height, CARD, club.color)
-			local big = height > 150
-			crest(b, club, if big then 96 else 58, UDim.new(0.5, 0), if big then 12 else 8)
-			proper(line(b, club.name, if big then 15 else 10, TEXT, if big then 114 else 70, Enum.Font.GothamBlack))
-			proper(line(b, club.claque, if big then 11 else 9, club.color:Lerp(TEXT, 0.45), if big then 138 else 86))
-			if big then
-				proper(line(b, club.bairro .. "  ·  " .. tostring(club.founded), 11, MUTED, 158, Enum.Font.Gotham))
+			local group = nil
+			for _, g in groups do
+				if g.city == club.city then
+					group = g
+				end
 			end
-			flag(b, club, 7, 7, if big then 24 else 18)
-			b.Activated:Connect(function()
-				showRoles(club, today)
-			end)
+			if not group then
+				group = { city = club.city, clubs = {} }
+				table.insert(groups, group)
+			end
+			table.insert(group.clubs, club)
+			rows = math.max(rows, #group.clubs)
 		end
 
-		local head = label(stage, TXT.todaysDerby, 12, BRASS)
-		head.Font = Enum.Font.GothamBlack
-		head.Size = UDim2.fromOffset(WIDTH, 18)
-		head.Position = UDim2.fromOffset(0, 0)
-		local left = (WIDTH - (CLUB_W * 2 + REF_W + GAP * 2)) / 2
-		clubCard(match.home, left, 22, CLUB_W, TOP_H, true)
-		clubCard(match.away, left + CLUB_W + REF_W + GAP * 2, 22, CLUB_W, TOP_H, true)
+		local top = 20 + U.button + U.gap
+		local bottom = H - 20 - U.button - U.gap
+		local head = U.small + 6 + HALF
+		local area = Instance.new("ScrollingFrame")
+		area.Name = "Clubes"
+		area.BackgroundTransparency = 1
+		area.BorderSizePixel = 0
+		-- (A little wider and taller than the cards: their outline is not cut.)
+		area.Position = UDim2.fromOffset(EDGE - U.line, top)
+		area.Size = UDim2.fromOffset(W - EDGE * 2 + U.line * 2, bottom - top + U.line)
+		local inset = Instance.new("UIPadding")
+		inset.PaddingLeft = UDim.new(0, U.line)
+		inset.PaddingRight = UDim.new(0, U.line)
+		inset.Parent = area
+		area.ScrollBarThickness = 0
+		area.ScrollingDirection = Enum.ScrollingDirection.X
+		area.Parent = stage
+		local columnW = math.max(210, math.floor((W - EDGE * 2 - (#groups - 1) * U.gap) / #groups))
+		local cardH = math.floor((bottom - top - U.line - head - (rows - 1) * U.gap) / rows)
+		area.CanvasSize = UDim2.fromOffset(#groups * columnW + (#groups - 1) * U.gap, 0)
 
-		if #waiting > 0 then
-			local nextHead = label(stage, TXT.nextMatchDay, 12, MUTED)
-			nextHead.Font = Enum.Font.GothamBlack
-			nextHead.Size = UDim2.fromOffset(WIDTH, 18)
-			nextHead.Position = UDim2.fromOffset(0, 22 + TOP_H + 10)
-			-- As many to a row as fit; the rows are centred.
-			local perRow = math.max(1, math.floor((WIDTH + GAP) / (SMALL_W + GAP)))
-			for i, clubId in waiting do
-				local row, column = math.floor((i - 1) / perRow), (i - 1) % perRow
-				local inRow = math.min(perRow, #waiting - row * perRow)
-				local x0 = (WIDTH - (inRow * SMALL_W + (inRow - 1) * GAP)) / 2
-				clubCard(clubId, x0 + column * (SMALL_W + GAP), 22 + TOP_H + 32 + row * (SMALL_H + GAP), SMALL_W, SMALL_H, false)
+		for g, group in groups do
+			local column = Instance.new("Frame")
+			column.Name = "Derby_" .. g
+			column.BackgroundTransparency = 1
+			column.Position = UDim2.fromOffset((g - 1) * (columnW + U.gap), 0)
+			column.Size = UDim2.new(0, columnW, 1, 0)
+			column.Parent = area
+			proper(UI.label(column, string.format(TXT.derbyOf, string.upper(group.city)), "small", true, true))
+			for i, club in group.clubs do
+				local today = club.club == match.home or club.club == match.away
+				local mine = club.club == myClub
+				local b = UI.card(column)
+				b.Name = "Clube_" .. club.club
+				b.Position = UDim2.fromOffset(0, head + (i - 1) * (cardH + U.gap))
+				b.Size = UDim2.fromOffset(columnW, cardH)
+				UI.outline(b, club.color, if mine then U.line * 2 else U.line)
+				local emblem = cardH - (U.normal + 6) - (U.small + 6) * 2 - HALF * 4
+				crest(b, club, emblem, HALF)
+				flag(b, club, HALF, HALF, 36)
+				local y = HALF + emblem + HALF
+				local name = proper(UI.label(b, club.name, "normal", false, true))
+				name.Font = Enum.Font.GothamBlack
+				name.Position = UDim2.fromOffset(HALF, y)
+				name.Size = UDim2.new(1, -U.gap, 0, U.normal + 6)
+				y += U.normal + 6
+				local claque = proper(UI.label(b, club.claque, "small", true, true))
+				claque.Position = UDim2.fromOffset(HALF, y)
+				claque.Size = UDim2.new(1, -U.gap, 0, U.small + 6)
+				y += U.small + 6
+				if mine or today then
+					local tag = UI.label(b, if mine then TXT.yourClub else TXT.todaysDerby, "small", false, true)
+					tag.Position = UDim2.fromOffset(HALF, y)
+					tag.Size = UDim2.new(1, -U.gap, 0, U.small + 6)
+				end
+				b.Activated:Connect(function()
+					showRoles(club, today)
+				end)
+				if i > 1 then
+					-- Between the two: they play each other.
+					local versus = UI.label(column, TXT.vs, "small")
+					versus.Name = "Contra"
+					versus.BackgroundTransparency = 0
+					versus.BackgroundColor3 = U.ground
+					versus.AnchorPoint = Vector2.new(0.5, 0.5)
+					versus.Position = UDim2.new(0.5, 0, 0, head + (i - 1) * (cardH + U.gap) - HALF)
+					versus.Size = UDim2.fromOffset(64, U.small + 10)
+					versus.ZIndex = 40
+					UI.corner(versus)
+				end
 			end
 		end
 
 		-- Nobody referees a match of their own club, nor of the club they follow:
-		-- the card is not even there (the server refuses it too).
-		local myClub, myFollowed = player:GetAttribute("Clube"), player:GetAttribute("Clube2")
+		-- the button is not even there (the server refuses it too).
 		local involved = match.home == myClub or match.away == myClub or match.home == myFollowed or match.away == myFollowed
-		local ref = card((WIDTH - REF_W) / 2, 22, REF_W, TOP_H, YELLOW)
+		local ref = UI.button(stage, TXT.refereeRole, U.icons.referee, string.format(TXT.level, levelOf("arbitro")))
+		ref.Name = "Arbitro"
+		ref.AnchorPoint = Vector2.new(0.5, 0)
+		ref.Position = UDim2.fromOffset(W / 2, H - 20 - U.button)
+		ref.Size = UDim2.fromOffset(440, U.button)
 		ref.Visible = not involved
-		local sheet = Instance.new("Frame")
-		sheet.BackgroundColor3 = INK
-		sheet.BorderSizePixel = 0
-		sheet.AnchorPoint = Vector2.new(0.5, 0)
-		sheet.Size = UDim2.fromOffset(46, 66)
-		sheet.Position = UDim2.new(0.5, 0, 0, 24)
-		sheet.Rotation = 8
-		sheet.Parent = ref
-		local sheetCorner = Instance.new("UICorner")
-		sheetCorner.CornerRadius = UDim.new(0, 8)
-		sheetCorner.Parent = sheet
-		line(ref, TXT.refereeRole, 15, INK, 112, Enum.Font.GothamBlack)
-		line(ref, TXT.refereeNote, 11, INK, 136)
-		line(ref, string.format(TXT.level, levelOf("arbitro")), 11, INK, 158, Enum.Font.GothamBlack)
 		ref.Activated:Connect(function()
 			pick("arbitro")
 		end)
 	end
 
 	showClubs()
+	if workspace.CurrentCamera then
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+			local before = W
+			task.defer(function()
+				measure()
+				if atClubs and W ~= before then
+					showClubs()
+				end
+			end)
+		end)
+	end
 	-- A new derby: the clubs on offer today are others.
 	Derby.onChanged(showClubs)
 end
@@ -658,19 +824,19 @@ end)
 
 local closeMenu = Instance.new("TextButton")
 closeMenu.AnchorPoint = Vector2.new(1, 0)
-closeMenu.Size = UDim2.fromOffset(44, 44)
-closeMenu.Position = UDim2.new(1, -24, 0, 70)
-closeMenu.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
+-- In the top right corner of the choice screen, beside the next match.
+closeMenu.Name = "Fechar"
+closeMenu.Size = UDim2.fromOffset(U.button, U.button)
+closeMenu.Position = UDim2.new(1, -U.gap * 1.5, 0.5, -U.canvas.Y / 2 + 20)
+closeMenu.BackgroundColor3 = U.panel
+closeMenu.BackgroundTransparency = U.panelTransparency
 closeMenu.BorderSizePixel = 0
 closeMenu.Font = Enum.Font.GothamBlack
-closeMenu.TextSize = 22
-closeMenu.TextColor3 = TEXT
+closeMenu.TextSize = U.normal
+closeMenu.TextColor3 = U.text
 closeMenu.Text = "X"
 closeMenu.Parent = menu
-
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 8)
-closeCorner.Parent = closeMenu
+UI.corner(closeMenu)
 
 closeMenu.Activated:Connect(function()
 	menu.Visible = false
