@@ -21,7 +21,13 @@
 	oldest. It CLAIMS it in the DataStore, so another server does not play the
 	same one; an unfinished claim lapses by itself. With nobody of either club
 	it is played between bots, marked NO FANS: the round has to close all the
-	same. With nothing due, the stadium has a friendly (it does not count).
+	same. With nothing due, the stadium has an official friendly (claque and
+	corteo, but it counts for no table).
+
+	In the league mode "tudoConta" (Config.Competitions.modoDaLiga) a league
+	slot has no list of matches: the server plays the two clubs with most
+	people in it, nothing is claimed, and the result is added to the table
+	kept club by club (season.open). With nobody of any club it is a friendly.
 
 	Points, goals, champions: everything is decided here. Nothing comes from a
 	player's side.
@@ -74,6 +80,7 @@ local function cleanSeason(saved: any, week: number): any
 		reset = if type(s.reset) == "number" then s.reset else 0,
 		results = if type(s.results) == "table" then s.results else {},
 		claims = if type(s.claims) == "table" then s.claims else {},
+		open = if type(s.open) == "table" then s.open else nil, -- "tudoConta": the league table, club by club
 		semis = if type(s.semis) == "table" then s.semis else nil,
 		super = if type(s.super) == "table" then s.super else nil,
 	}
@@ -137,6 +144,7 @@ local function publish()
 		week = season.week,
 		reset = season.reset,
 		results = season.results,
+		open = season.open,
 		semis = season.semis,
 		super = season.super,
 		titles = titles.all,
@@ -152,6 +160,7 @@ local function publish()
 			round = now.fixture.round,
 			group = now.fixture.group,
 			stage = now.fixture.stage,
+			open = now.fixture.open,
 			counts = now.counts,
 			noFans = now.noFans,
 			slot = now.slot,
@@ -202,14 +211,7 @@ end
 
 -- The week is over (Saturday night has passed): the league champion and the cup winner get their titles.
 local function settle(finished: any)
-	local played = false
-	for id in finished.results do
-		if string.sub(id, 1, 2) == "L:" then
-			played = true
-			break
-		end
-	end
-	if played then
+	if Calendar.leaguePlayed(finished) then
 		award("liga", finished.week, Calendar.leagueTable(finished)[1].club)
 	end
 	local cup = Calendar.cupWinner(finished)
@@ -407,7 +409,7 @@ function Competition.pick(slot: number, people: { [string]: number }, late: bool
 		end
 	end
 
-	-- Nothing due: a friendly at the stadium, between the two clubs with most people here.
+	-- Nothing due (or a league of no rounds): the two clubs with most people here.
 	local clubs = table.clone(Config.ClubOrder)
 	table.sort(clubs, function(a, b)
 		if (people[a] or 0) ~= (people[b] or 0) then
@@ -424,6 +426,13 @@ function Competition.pick(slot: number, people: { [string]: number }, late: bool
 				break
 			end
 		end
+	end
+	-- "tudoConta": this is a league match, and it counts (with real people of one of the two).
+	if not late and Calendar.isOpenLeague(slot, state()) and (people[home] or 0) + (people[away] or 0) > 0 then
+		local open: Calendar.Fixture = { id = "X:" .. slot .. ":" .. home .. ":" .. away, kind = "liga", home = home, away = away, open = true }
+		playing = { fixture = open, counts = true, noFans = false, slot = slot }
+		publish()
+		return playing :: Playing
 	end
 	local friendly: Calendar.Fixture = { id = "A:" .. slot, kind = "amigavel", home = home, away = away }
 	playing = { fixture = friendly, counts = false, noFans = crowd(friendly) == 0, slot = slot }
@@ -448,6 +457,27 @@ function Competition.record(homeGoals: number, awayGoals: number, penalties: str
 	local fixture = now.fixture
 	local result = { h = homeGoals, a = awayGoals, p = penalties }
 	local week = season.week
+	if fixture.open then
+		-- A league of no rounds: the result is added to the lines of its two clubs.
+		local function add(s: any)
+			s.open = s.open or {}
+			s.open[fixture.home] = s.open[fixture.home] or Calendar.emptyRow(fixture.home)
+			s.open[fixture.away] = s.open[fixture.away] or Calendar.emptyRow(fixture.away)
+			Calendar.add(s.open[fixture.home], s.open[fixture.away], result)
+		end
+		if offline then
+			add(season)
+		else
+			update(weekKey(week), function(old)
+				local s = cleanSeason(old, week)
+				add(s)
+				season = s
+				return s
+			end)
+		end
+		publish()
+		return
+	end
 	season.results[fixture.id] = result
 	season.claims[fixture.id] = nil
 	if not offline then

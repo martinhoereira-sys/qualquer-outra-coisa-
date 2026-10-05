@@ -857,15 +857,7 @@ MatchLoop.onChange(function(snapshot)
 				-- Champions: with the league all played, the claque of the club on top may invade.
 				if leagueMatch then
 					local state = Competition.state()
-					local left = false
-					for _, round in Calendar.leagueRounds() do
-						for _, fixture in round do
-							if not state.results[fixture.id] then
-								left = true
-							end
-						end
-					end
-					if not left then
+					if Calendar.leagueOver(state) then
 						local champion = Calendar.leagueTable(state)[1].club
 						ceremony("liga", champion)
 						for _, teamId in Config.TeamOrder do

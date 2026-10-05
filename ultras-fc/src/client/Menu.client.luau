@@ -314,13 +314,18 @@ local function drawTable(rows: { Calendar.Row }, x: number, y: number, width: nu
 			mark.Position = UDim2.fromOffset(HALF / 2, U.gap)
 			mark.Parent = line
 		end
-		text(line, tostring(i), "normal", true, HALF, 0, 44, ROW).AutoLocalize = false
+		text(line, if entry.missing then "-" else tostring(i), "normal", true, HALF, 0, 44, ROW).AutoLocalize = false
 		crestAt(line, club, 44 + HALF * 2, ROW)
 		local won = if stars then stars[entry.club] or 0 else 0
 		local nameX = 44 + HALF * 3 + CREST
 		local name = text(line, club.name .. (if won > 0 then "  " .. string.rep("★", math.min(won, 5)) else ""), "normal", false, nameX, 0, left - nameX - HALF, ROW, Enum.TextXAlignment.Left, true)
 		name.Font = Enum.Font.GothamBlack
 		local values: { [string]: any } = { played = entry.p, won = entry.w, drawn = entry.d, lost = entry.l, goals = entry.gf .. ":" .. entry.ga, points = entry.pts }
+		if entry.missing then
+			-- Not ranked yet: how many matches it still needs, in place of the numbers.
+			text(line, string.format(T.matchesToGo, entry.missing), "small", true, left, 0, #names * COLUMN, ROW, Enum.TextXAlignment.Right)
+			continue
+		end
 		for k, key in names do
 			local v = text(line, tostring(values[key]), "normal", key ~= "points", left + (k - 1) * COLUMN, 0, COLUMN, ROW)
 			v.AutoLocalize = false
@@ -379,13 +384,17 @@ local function drawSchedule(state: Calendar.State)
 		end
 		nightOpen = false
 		local fixture = entry.fixture
-		local involved = fixture ~= nil and (fixture.home == myClub() or fixture.away == myClub())
+		local involved = fixture ~= nil and (fixture.home == myClub() or fixture.away == myClub() or (fixture.open == true and myClub() ~= nil))
 		local line = row(page, 0, y, PAGE, ROW, involved, (Config.Clubs :: any)[myClub() or ""])
 		local time = text(line, Schedule.clock(start), "normal", false, U.gap, 0, TIME - U.gap, ROW, Enum.TextXAlignment.Left)
 		time.Font = Enum.Font.GothamBlack
 		time.AutoLocalize = false
 		if not fixture then
 			text(line, T.openSlot, "small", true, TIME, 0, PAGE - TIME - U.gap, ROW)
+		elseif fixture.open then
+			-- A league of no rounds: whoever is there plays.
+			text(line, T.openLeague, "small", true, TIME, 0, PAGE - TIME - KIND - U.gap, ROW)
+			text(line, compText(fixture), "small", true, PAGE - KIND - U.gap, 0, KIND, ROW, Enum.TextXAlignment.Right)
 		else
 			local derby = Calendar.isDerby(fixture.home, fixture.away)
 			text(line, compText(fixture) .. (if derby then "  ·  " .. T.derby else ""), "small", not derby, PAGE - KIND - U.gap, 0, KIND, ROW, Enum.TextXAlignment.Right)
@@ -535,7 +544,7 @@ local function draw()
 		for _, entry in plan(state, first, math.floor(24 * 3600 / Schedule.SLOT)) do
 			local fixture = entry.fixture
 			local over = Schedule.slotStart(entry.slot) + Schedule.MATCH < game
-			if fixture and not over and (fixture.home == clubId or fixture.away == clubId) then
+			if fixture and not over and (fixture.home == clubId or fixture.away == clubId or fixture.open) then
 				answerWords.Text = string.format(T.yourClub, Schedule.clock(Schedule.slotStart(entry.slot)), compText(fixture))
 				break
 			end

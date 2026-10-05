@@ -9,23 +9,37 @@
 	  Monday to Saturday   LEAGUE and CUP side by side
 	  Sunday               SUPERCUP at Config.Competitions.superHour
 
-	The six days are cut in WINDOWS (Config.Competitions.windowsPerDay a day).
-	  LEAGUE  every club against every other, home and away (Config.Derbies).
-	          One round opens with each window. A round only closes when all
-	          its matches are played: what is left stays due until it is.
+	Every hour has three slots, and each has its competition
+	(Config.Competitions.slots): :00 LEAGUE, :20 LEAGUE, :40 CUP. A cup slot
+	with no cup match left to play goes to the league (and a league slot with
+	no league match left, to the cup); with neither, the stadium has an
+	official friendly: claque and corteo, counting for no table.
+
+	  LEAGUE  every club against every other, home and away, and then all of
+	          it again (Config.Competitions.voltasDaLiga). How it is played
+	          is one word, Config.Competitions.modoDaLiga:
+	            "jornadas"   rounds: every club plays once a round, a round
+	                         opens when the one before has had its slots;
+	                         what is left of a round stays due until played.
+	            "tudoConta"  no rounds: each server plays the match that
+	                         brings most people together, everything played
+	                         counts, and the table goes by points per match.
+	                         A club is only ranked after
+	                         Config.Competitions.minimoDeJogos matches.
 	  CUP     two groups drawn on Monday morning; in each, everyone against
-	          everyone, home and away. Its rounds open in the first windows of
-	          each day from Monday to Friday. The top two of each group go
-	          through: semi-finals on Saturday (1st A v 2nd B, 1st B v 2nd A),
-	          final on Saturday night. A draw there goes to penalties.
+	          everyone, home and away, a round opening when the one before
+	          has had its slots. The top two of each group go through:
+	          semi-finals on Saturday (1st A v 2nd B, 1st B v 2nd A), final
+	          on Saturday night. A draw there goes to penalties.
 	  SUPERCUP  league champion against cup winner (if the same club won
 	          both: against the league runner-up).
 
 	A FIXTURE is { id, kind, home, away, round?, group?, stage? }:
 	  kind   "liga" | "taca" | "supertaca" | "amigavel"
-	  id     "L:home:away" · "T:home:away" · "SF1" · "SF2" · "F" · "S"
+	  id     "L:home:away" (second time round: "L2:home:away") · "X:slot:home:away" (tudoConta) · "T:home:away" · "SF1" · "SF2" · "F" · "S"
 	A RESULT is { h, a, p? }: goals, and on penalties the club that went through.
-	The STATE of a season is { week, reset, results, semis?, super? }.
+	The STATE of a season is { week, reset, results, open?, semis?, super? }
+	(`open`: in "tudoConta", the league table itself, club by club).
 ]]
 
 local Config = require(script.Parent:WaitForChild("Config"))
@@ -43,28 +57,39 @@ export type Fixture = {
 	round: number?,
 	group: string?,
 	stage: string?,
+	open: boolean?, -- "tudoConta": a league match of no round
 }
 export type Result = { h: number, a: number, p: string? }
 export type State = {
 	week: number,
 	reset: number,
 	results: { [string]: Result },
+	open: { [string]: any }?,
 	semis: { { string } }?,
 	super: { string }?,
 }
-export type Row = { club: string, p: number, w: number, d: number, l: number, gf: number, ga: number, pts: number }
+export type Row = { club: string, p: number, w: number, d: number, l: number, gf: number, ga: number, pts: number, missing: number? }
 
 local DAY = 24 * 3600
 local slotsPerDay = math.floor(DAY / Schedule.SLOT)
 
--- How many slots with an official match a day has, and so how long a window is.
-local officialPerDay = 0
+-- What a slot is for, by its place in the hour (Config.Competitions.slots).
+local function kindOf(slot: number): string
+	local place = math.floor(Schedule.slotStart(slot) % 3600 / Schedule.SLOT)
+	return C.slots[place % #C.slots + 1]
+end
+
+-- How many slots of each kind a day of official matches has.
+local perDay: { [string]: number } = {}
 for k = 0, slotsPerDay - 1 do
 	if Schedule.isOfficial(k) then
-		officialPerDay += 1
+		perDay[kindOf(k)] = (perDay[kindOf(k)] or 0) + 1
 	end
 end
-Calendar.WINDOW = math.max(1, officialPerDay // C.windowsPerDay)
+
+local function openLeague(): boolean
+	return C.modoDaLiga == "tudoConta"
+end
 
 -- Two clubs of the same city: a derby.
 function Calendar.isDerby(a: string, b: string): boolean
@@ -77,16 +102,24 @@ end
 --------------------------------------------------------------------------------
 
 local leagueRounds: { { Fixture } } = {}
-for _, match in Config.Derbies do
-	local round = (match :: any).round or 1
-	leagueRounds[round] = leagueRounds[round] or {}
-	table.insert(leagueRounds[round], {
-		id = "L:" .. match.home .. ":" .. match.away,
-		kind = "liga",
-		home = match.home,
-		away = match.away,
-		round = round,
-	})
+do
+	local once = 0 -- the rounds of one time round
+	for _, match in Config.Derbies do
+		once = math.max(once, (match :: any).round or 1)
+	end
+	for turn = 1, math.max(1, C.voltasDaLiga) do
+		for _, match in Config.Derbies do
+			local round = (turn - 1) * once + ((match :: any).round or 1)
+			leagueRounds[round] = leagueRounds[round] or {}
+			table.insert(leagueRounds[round], {
+				id = (if turn == 1 then "L:" else "L" .. turn .. ":") .. match.home .. ":" .. match.away,
+				kind = "liga",
+				home = match.home,
+				away = match.away,
+				round = round,
+			})
+		end
+	end
 end
 -- Derbies first: they are the big match of the round.
 for _, list in leagueRounds do
@@ -191,36 +224,45 @@ function Calendar.winner(fixture: Fixture, result: Result?): string?
 	return result.p
 end
 
+-- One result into the lines of its two clubs.
+function Calendar.add(home: any, away: any, result: Result)
+	home.p += 1
+	away.p += 1
+	home.gf += result.h
+	home.ga += result.a
+	away.gf += result.a
+	away.ga += result.h
+	if result.h > result.a then
+		home.w += 1
+		away.l += 1
+		home.pts += C.win
+	elseif result.h < result.a then
+		away.w += 1
+		home.l += 1
+		away.pts += C.win
+	else
+		home.d += 1
+		away.d += 1
+		home.pts += C.draw
+		away.pts += C.draw
+	end
+end
+
+function Calendar.emptyRow(clubId: string): Row
+	return { club = clubId, p = 0, w = 0, d = 0, l = 0, gf = 0, ga = 0, pts = 0 }
+end
+
 -- The table of `clubs` over `fixtures`: points, then goal difference, then goals scored.
 function Calendar.table(clubs: { string }, fixtures: { Fixture }, results: { [string]: Result }): { Row }
 	local rows: { [string]: Row } = {}
 	for _, clubId in clubs do
-		rows[clubId] = { club = clubId, p = 0, w = 0, d = 0, l = 0, gf = 0, ga = 0, pts = 0 }
+		rows[clubId] = Calendar.emptyRow(clubId)
 	end
 	for _, fixture in fixtures do
 		local result = results[fixture.id]
 		local home, away = rows[fixture.home], rows[fixture.away]
 		if result and home and away then
-			home.p += 1
-			away.p += 1
-			home.gf += result.h
-			home.ga += result.a
-			away.gf += result.a
-			away.ga += result.h
-			if result.h > result.a then
-				home.w += 1
-				away.l += 1
-				home.pts += C.win
-			elseif result.h < result.a then
-				away.w += 1
-				home.l += 1
-				away.pts += C.win
-			else
-				home.d += 1
-				away.d += 1
-				home.pts += C.draw
-				away.pts += C.draw
-			end
+			Calendar.add(home, away, result)
 		end
 	end
 	local list: { Row } = {}
@@ -242,7 +284,90 @@ function Calendar.table(clubs: { string }, fixtures: { Fixture }, results: { [st
 	return list
 end
 
+--[[
+	"tudoConta": the table is kept club by club (state.open), and goes by
+	points per match played. A club with fewer than
+	Config.Competitions.minimoDeJogos matches is not ranked yet: it goes to
+	the end, with how many it still needs (`missing`).
+]]
+local function openTable(state: State): { Row }
+	local saved: any = state.open or {}
+	local list: { Row } = {}
+	for _, clubId in Config.ClubOrder do
+		local row = Calendar.emptyRow(clubId)
+		local s = saved[clubId]
+		if type(s) == "table" then
+			for _, key in { "p", "w", "d", "l", "gf", "ga", "pts" } do
+				if type(s[key]) == "number" then
+					(row :: any)[key] = s[key]
+				end
+			end
+		end
+		if row.p < C.minimoDeJogos then
+			row.missing = C.minimoDeJogos - row.p
+		end
+		table.insert(list, row)
+	end
+	local function rate(row: Row, value: number): number
+		return if row.p > 0 then value / row.p else 0
+	end
+	table.sort(list, function(x, y)
+		if (x.missing == nil) ~= (y.missing == nil) then
+			return x.missing == nil
+		end
+		if x.missing and y.missing and x.p ~= y.p then
+			return x.p > y.p
+		end
+		if rate(x, x.pts) ~= rate(y, y.pts) then
+			return rate(x, x.pts) > rate(y, y.pts)
+		end
+		if rate(x, x.gf - x.ga) ~= rate(y, y.gf - y.ga) then
+			return rate(x, x.gf - x.ga) > rate(y, y.gf - y.ga)
+		end
+		return (table.find(Config.ClubOrder, x.club) or 0) < (table.find(Config.ClubOrder, y.club) or 0)
+	end)
+	return list
+end
+
+-- Has any league match of this season been played?
+function Calendar.leaguePlayed(state: State): boolean
+	if openLeague() then
+		for _, row in openTable(state) do
+			if row.p > 0 then
+				return true
+			end
+		end
+		return false
+	end
+	for _, list in leagueRounds do
+		for _, fixture in list do
+			if state.results[fixture.id] then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Is the league all played? (Never, in "tudoConta": it ends with the week.)
+function Calendar.leagueOver(state: State): boolean
+	if openLeague() then
+		return false
+	end
+	for _, list in leagueRounds do
+		for _, fixture in list do
+			if not state.results[fixture.id] then
+				return false
+			end
+		end
+	end
+	return true
+end
+
 function Calendar.leagueTable(state: State): { Row }
+	if openLeague() then
+		return openTable(state)
+	end
 	local all: { Fixture } = {}
 	for _, list in leagueRounds do
 		for _, fixture in list do
@@ -330,10 +455,10 @@ end
 export type Window = {
 	week: number,
 	day: number, -- 0 Monday ... 6 Sunday
-	index: number, -- which window of the day (0, 1, 2 ...), or -1 at night
-	pos: number, -- which slot of the window (0 ...)
-	league: number, -- the league round open now (0: none)
-	cup: number, -- the cup group round open now (0: none)
+	index: number, -- 0 in the hours of official matches, -1 at night
+	kind: string, -- what this slot is for: "liga" or "taca"
+	leagueSlot: number, -- how many league slots the week has had before this one
+	cupSlot: number, -- the same for the cup
 	semis: boolean, -- the semi-finals are due
 	final: boolean, -- the final is due
 	supercup: boolean, -- this is the slot of the supercup
@@ -362,9 +487,9 @@ function Calendar.window(slot: number): Window
 		week = Schedule.week(game),
 		day = day,
 		index = -1,
-		pos = 0,
-		league = 0,
-		cup = 0,
+		kind = kindOf(slot),
+		leagueSlot = 0,
+		cupSlot = 0,
 		semis = false,
 		final = false,
 		supercup = false,
@@ -372,50 +497,48 @@ function Calendar.window(slot: number): Window
 	if not n then
 		return w
 	end
-	w.index = math.min(n // Calendar.WINDOW, C.windowsPerDay - 1)
-	w.pos = n - w.index * Calendar.WINDOW
+	w.index = 0
 	local hour = math.floor(game % DAY / 3600)
 	local minute = math.floor(game % 3600 / 60)
 	if day >= 6 then
 		w.supercup = hour == C.superHour and minute == 0
 		return w
 	end
-	-- League: one more round with each window; in the last window, all that is left.
-	local windows = 6 * C.windowsPerDay
-	local number = day * C.windowsPerDay + w.index + 1
-	w.league = if number >= windows then #leagueRounds else math.min(number, #leagueRounds)
-	-- Cup groups: Monday to Friday, the first windows of the day (all but the last).
-	local perDay = math.max(1, C.windowsPerDay - 1)
-	if day <= 4 then
-		w.cup = day * perDay + math.min(w.index, perDay - 1) + 1
-	else
-		w.cup = math.huge -- Saturday: whatever is left of the groups
-		w.semis = w.index >= 1 or C.windowsPerDay == 1
-		-- The final on Saturday night, from Config.Competitions.finalHour on.
-		local night = hour >= C.finalHour or hour < Config.Schedule.firstHour
-		w.final = w.index >= C.windowsPerDay - 1 and night
+	-- The slots of each kind the week has had before this one.
+	local before: { [string]: number } = {}
+	for k = slot - n, slot - 1 do
+		before[kindOf(k)] = (before[kindOf(k)] or 0) + 1
+	end
+	w.leagueSlot = day * (perDay.liga or 0) + (before.liga or 0)
+	w.cupSlot = day * (perDay.taca or 0) + (before.taca or 0)
+	if day >= 5 then
+		-- Saturday: the semi-finals, and the final from Config.Competitions.finalHour on.
+		w.semis = true
+		w.final = hour >= C.finalHour or hour < Config.Schedule.firstHour
 	end
 	return w
 end
 
--- Everything due at `slot` and not yet played, the oldest first.
-function Calendar.due(slot: number, state: State): { Fixture }
-	local w = Calendar.window(slot)
-	local list: { Fixture } = {}
-	if w.index < 0 or w.week ~= state.week then
-		return list
-	end
-	if w.supercup then
-		local fixture = Calendar.supercup(state)
-		if fixture and not state.results[fixture.id] then
-			table.insert(list, fixture)
+-- The rounds open after `slots` slots: one more each time the one before has had its slots.
+local function openRounds(rounds: { { Fixture } }, slots: number): number
+	local size = if rounds[1] then math.max(1, #rounds[1]) else 1
+	return math.min(#rounds, slots // size + 1)
+end
+
+-- What is left to play of `rounds`, up to round `top`, the oldest first.
+local function left(rounds: { { Fixture } }, top: number, state: State, list: { Fixture })
+	for round = 1, top do
+		for _, fixture in rounds[round] or {} do
+			if not state.results[fixture.id] then
+				table.insert(list, fixture)
+			end
 		end
-		return list
 	end
-	if w.day >= 6 then
-		return list
-	end
-	-- The knockout matches first: they have their hour.
+end
+
+-- The cup matches due at this slot (the knockout matches first: they have their day).
+local function cupDue(w: Window, state: State): { Fixture }
+	local list: { Fixture } = {}
 	if w.final then
 		local fixture = Calendar.final(state)
 		if fixture and not state.results[fixture.id] then
@@ -429,25 +552,60 @@ function Calendar.due(slot: number, state: State): { Fixture }
 			end
 		end
 	end
-	local cupRounds = Calendar.cupRounds(state)
-	local top = math.max(w.league, if w.cup == math.huge then #cupRounds else w.cup)
-	for round = 1, top do
-		if round <= w.league and leagueRounds[round] then
-			for _, fixture in leagueRounds[round] do
-				if not state.results[fixture.id] then
-					table.insert(list, fixture)
-				end
-			end
-		end
-		if round <= w.cup and cupRounds[round] then
-			for _, fixture in cupRounds[round] do
-				if not state.results[fixture.id] then
-					table.insert(list, fixture)
-				end
-			end
-		end
+	local rounds = Calendar.cupRounds(state)
+	left(rounds, if w.day >= 5 then #rounds else openRounds(rounds, w.cupSlot), state, list)
+	return list
+end
+
+local function leagueDue(w: Window, state: State): { Fixture }
+	local list: { Fixture } = {}
+	if not openLeague() then
+		left(leagueRounds, openRounds(leagueRounds, w.leagueSlot), state, list)
 	end
 	return list
+end
+
+--[[
+	Is `slot` a league slot of "tudoConta"? (There the league has no list of
+	matches: the server plays whoever brings most people.) A cup slot with
+	nothing of the cup left is one too.
+]]
+function Calendar.isOpenLeague(slot: number, state: State): boolean
+	if not openLeague() then
+		return false
+	end
+	local w = Calendar.window(slot)
+	if w.index < 0 or w.week ~= state.week or w.day >= 6 then
+		return false
+	end
+	return w.kind ~= "taca" or #cupDue(w, state) == 0
+end
+
+--[[
+	Everything due at `slot` and not yet played, the oldest first. The slot's
+	own competition; if it has nothing left, the other one; nothing at all
+	means an official friendly.
+]]
+function Calendar.due(slot: number, state: State): { Fixture }
+	local w = Calendar.window(slot)
+	if w.index < 0 or w.week ~= state.week then
+		return {}
+	end
+	if w.supercup then
+		local fixture = Calendar.supercup(state)
+		return if fixture and not state.results[fixture.id] then { fixture } else {}
+	end
+	if w.day >= 6 then
+		return {}
+	end
+	local cup, league = cupDue(w, state), leagueDue(w, state)
+	if w.kind == "taca" then
+		return if #cup > 0 then cup else league
+	end
+	if #league > 0 or openLeague() then
+		return league
+	end
+	return cup
 end
 
 --[[
@@ -458,6 +616,10 @@ end
 	Returns nil when nothing is due: a friendly at the stadium.
 ]]
 function Calendar.planned(slot: number, state: State, taken: { [string]: boolean }): Fixture?
+	if Calendar.isOpenLeague(slot, state) then
+		-- "tudoConta": a league match, between whoever is there.
+		return { id = "X:" .. slot, kind = "liga", home = "", away = "", open = true }
+	end
 	for _, fixture in Calendar.due(slot, state) do
 		if not taken[fixture.id] then
 			return fixture
@@ -469,6 +631,9 @@ end
 -- The competition and the round of a fixture, for the screens: a key of Config.Text.comp and a number.
 function Calendar.label(fixture: Fixture): (string, any)
 	if fixture.kind == "liga" then
+		if not fixture.round then
+			return "leagueOpen", nil
+		end
 		return "league", fixture.round
 	elseif fixture.kind == "supertaca" then
 		return "supercup", nil

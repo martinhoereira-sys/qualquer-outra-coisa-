@@ -897,7 +897,19 @@ Config.Labels = {
 --[[
 	THE COMPETITIONS (shared/Calendar, server/Competition).
 	  win, draw       points
-	  windowsPerDay   a league round opens with each window of the day
+	  modoDaLiga      how the league is played:
+	                    "jornadas"   rounds of matches, every club once a round; a round
+	                                 opens when the one before has had its slots
+	                    "tudoConta"  no rounds: each server plays the match that brings
+	                                 most people, all of it counts, the table goes by
+	                                 points per match played
+	  minimoDeJogos   "tudoConta": a club is only ranked after this many matches of the
+	                  season; until then it is at the end of the table, with how many are left
+	  voltasDaLiga    how many times the league goes round (once round: everyone against
+	                  everyone, home and away)
+	  slots           what each slot of the hour is for, in order (:00, :20, :40). A slot
+	                  whose competition has nothing left goes to the other; with neither,
+	                  an official friendly at the stadium
 	  finalHour       the cup final is due on Saturday from this hour on
 	  superHour       the supercup is on Sunday at this hour
 	  penalty         chance of scoring each kick of a shoot-out
@@ -907,7 +919,10 @@ Config.Labels = {
 Config.Competitions = {
 	win = 3,
 	draw = 1,
-	windowsPerDay = 3,
+	modoDaLiga = "jornadas",
+	minimoDeJogos = 20,
+	voltasDaLiga = 2,
+	slots = { "liga", "liga", "taca" },
 	finalHour = 21,
 	superHour = 21,
 	penalty = 0.75,
@@ -1056,7 +1071,9 @@ Config.Text = {
 		noMatch = "%s: no match in the next 24 hours",
 		scheduleNote = "THE NEXT 24 HOURS  ·  the order can change with who is online",
 		night = "%s to %s  ·  NIGHT  ·  friendlies at the training pitches",
-		openSlot = "friendly at the stadium",
+		openSlot = "official friendly at the stadium",
+		openLeague = "the match that brings most people",
+		matchesToGo = "%d MATCHES TO GO",
 		derby = "DERBY",
 		daysLeft = "%d DAYS LEFT",
 		lastDay = "LAST DAY",
@@ -1091,6 +1108,7 @@ Config.Text = {
 	},
 	comp = {
 		league = "LEAGUE  ·  ROUND %d",
+		leagueOpen = "LEAGUE",
 		group = "CUP  ·  GROUP %s",
 		semi = "CUP  ·  SEMI-FINAL",
 		final = "CUP  ·  FINAL",
