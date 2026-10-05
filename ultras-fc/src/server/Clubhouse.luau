@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local TXT = Config.Text.clubhouse
+local Emblem = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Emblem"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
@@ -51,25 +52,27 @@ end
 	saberem para onde ir. Um mundo so funciona como menu se os sitios se virem
 	de longe.
 ]]
-local function marker(host: BasePart, text: string, colour: Color3, height: number)
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "Marker"
-	gui.Size = UDim2.fromOffset(220, 50)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, height, 0)
-	gui.AlwaysOnTop = true
-	gui.MaxDistance = 1200
-	gui.Parent = host
+local function marker(host: BasePart, text: string?, colour: Color3, height: number)
+	-- The words, if any: small and only from close (Config.Labels).
+	if text then
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "Marker"
+		gui.Size = UDim2.fromScale(Config.Labels.width, Config.Labels.height)
+		gui.StudsOffsetWorldSpace = Vector3.new(0, math.min(height, 6), 0)
+		gui.MaxDistance = Config.Labels.distance
+		gui.Parent = host
 
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBlack
-	label.Text = text
-	label.TextScaled = true
-	label.TextColor3 = colour
-	label.TextStrokeTransparency = 0.2
-	label.TextStrokeColor3 = Color3.fromRGB(10, 12, 16)
-	label.Parent = gui
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBlack
+		label.Text = text
+		label.TextScaled = true
+		label.TextColor3 = colour
+		label.TextStrokeTransparency = 0.2
+		label.TextStrokeColor3 = Color3.fromRGB(10, 12, 16)
+		label.Parent = gui
+	end
 
 	-- Um feixe a subir, para se localizar mesmo com predios pelo meio.
 	local beam = Instance.new("Part")
@@ -190,7 +193,35 @@ function Clubhouse.equip(teamId: string, pivot: CFrame, parent: Instance, front:
 	-- A porta. So o lider a abre, e so com gente suficiente atras dele.
 	local door = spot("Porta", Vector3.new(12, 6, 1.5), pivot * CFrame.new(0, 3, reach))
 	local start = prompt(door, TXT.leaveInCorteo, TXT.capoOnly, 14)
-	marker(door, TXT.clubhouse .. team.nameUpper, team.color, 22)
+	-- Over the door: a plate on the wall with the emblem and the club's name
+	-- (no floating words). The beam still shows where the clubhouse is.
+	marker(door, nil, team.color, 22)
+	do
+		local plate = fixture("Placa", Vector3.new(11, 2.6, 0.3), pivot * CFrame.new(0, 8.6, reach + 0.6) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(20, 20, 24), parent)
+		plate.CanCollide = false
+		local gui = Instance.new("SurfaceGui")
+		gui.Name = "Placa"
+		gui.Face = Enum.NormalId.Front
+		gui.CanvasSize = Vector2.new(440, 104)
+		gui.LightInfluence = 1
+		gui.AutoLocalize = false -- a proper name: never translated
+		gui.Parent = plate
+		local holder = Instance.new("Frame")
+		holder.BackgroundTransparency = 1
+		holder.Size = UDim2.fromOffset(92, 92)
+		holder.Position = UDim2.fromOffset(8, 6)
+		holder.Parent = gui
+		Emblem.draw(holder, team, { year = false })
+		local name = Instance.new("TextLabel")
+		name.BackgroundTransparency = 1
+		name.Size = UDim2.fromOffset(320, 80)
+		name.Position = UDim2.fromOffset(110, 12)
+		name.Font = Enum.Font.GothamBlack
+		name.TextScaled = true
+		name.TextColor3 = Color3.fromRGB(240, 240, 236)
+		name.Text = team.nameUpper
+		name.Parent = gui
+	end
 
 	start.Triggered:Connect(function(player)
 		if not Teams.isLeader(player) or Teams.get(player) ~= teamId then
@@ -284,9 +315,9 @@ local function person(shirt: Color3, name: string, title: string, at: CFrame, pa
 
 	-- O titulo por cima da cabeca, para se saber de longe para que e cada mesa.
 	local tag = Instance.new("BillboardGui")
-	tag.Size = UDim2.fromOffset(200, 40)
+	tag.Size = UDim2.fromScale(Config.Labels.width, Config.Labels.height)
 	tag.StudsOffset = Vector3.new(0, 3.4, 0)
-	tag.MaxDistance = 80
+	tag.MaxDistance = Config.Labels.distance
 	tag.Parent = root
 	local text = Instance.new("TextLabel")
 	text.Size = UDim2.fromScale(1, 1)
@@ -317,11 +348,11 @@ function Clubhouse.dealer(at: CFrame, parent: Instance)
 		return
 	end
 	table.insert(dealers, root)
-	-- O letreiro do dealer ve-se de longe, para se dar com ele de bicicleta.
+	-- The dealer's sign follows the rule of every floating label (Config.Labels).
 	local tag = root:FindFirstChildOfClass("BillboardGui")
 	if tag then
-		tag.MaxDistance = 700
-		tag.Size = UDim2.fromOffset(160, 34)
+		tag.MaxDistance = Config.Labels.distance
+		tag.Size = UDim2.fromScale(Config.Labels.width, Config.Labels.height)
 	end
 	local p = prompt(root, "Comprar", "Tochas, fumos, velas, estrobos", 10)
 	p.Triggered:Connect(function(player)

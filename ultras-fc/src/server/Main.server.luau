@@ -1549,6 +1549,26 @@ Kit.start()
 
 Money.start()
 Competition.start()
+-- Players' own name tags follow the rule of every floating label (Config.Labels).
+game:GetService("StarterPlayer").NameDisplayDistance = Config.Labels.distance
+game:GetService("StarterPlayer").HealthDisplayDistance = 0
+local function nameTagRule(player: Player)
+	local function apply(character: Model)
+		local humanoid = character:WaitForChild("Humanoid", 10)
+		if humanoid and humanoid:IsA("Humanoid") then
+			humanoid.NameDisplayDistance = Config.Labels.distance
+			humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+		end
+	end
+	player.CharacterAdded:Connect(apply)
+	if player.Character then
+		task.spawn(apply, player.Character)
+	end
+end
+Players.PlayerAdded:Connect(nameTagRule)
+for _, player in Players:GetPlayers() do
+	nameTagRule(player)
+end
 Friendly.onXP(function(player, amount)
 	Money.addXP(player, "jogador", amount)
 end)

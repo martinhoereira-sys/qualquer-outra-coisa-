@@ -195,9 +195,9 @@ local function setup(ground: Instance, club: any)
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Marcador"
-	gui.Size = UDim2.fromOffset(260, 60)
-	gui.StudsOffset = Vector3.new(0, 12, 0)
-	gui.MaxDistance = 180
+	gui.Size = UDim2.fromScale(Config.Labels.width, Config.Labels.height)
+	gui.StudsOffset = Vector3.new(0, 7, 0)
+	gui.MaxDistance = Config.Labels.distance
 	gui.AlwaysOnTop = false
 	gui.Parent = spot
 	local board = Instance.new("TextLabel")

@@ -811,6 +811,18 @@ Config.Invasion = {
 }
 
 --[[
+	FLOATING LABELS (names over heads, titles over desks, score boards): every
+	one of them only shows closer than `distance` studs, and is never bigger
+	than a player (sizes in studs, so they shrink with distance like the rest
+	of the world).
+]]
+Config.Labels = {
+	distance = 60,
+	width = 5, -- studs
+	height = 1.1,
+}
+
+--[[
 	THE COMPETITIONS (shared/Calendar, server/Competition).
 	  win, draw       points
 	  windowsPerDay   a league round opens with each window of the day

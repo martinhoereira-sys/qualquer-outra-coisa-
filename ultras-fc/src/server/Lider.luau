@@ -114,11 +114,10 @@ local function sign(player: Player)
 	local colour = Config.Teams[teamId].color
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "LiderSinal"
-	-- Em pixeis: le-se do mesmo tamanho perto ou do outro lado do estadio.
-	gui.Size = UDim2.fromOffset(150, 52)
+	-- Small and only from close, like every floating label (Config.Labels).
+	gui.Size = UDim2.fromScale(Config.Labels.width * 0.7, Config.Labels.height * 1.6)
 	gui.StudsOffset = Vector3.new(0, 3.4, 0)
-	gui.AlwaysOnTop = true
-	gui.MaxDistance = 1500
+	gui.MaxDistance = Config.Labels.distance
 	gui.LightInfluence = 0
 	local text = Instance.new("TextLabel")
 	text.BackgroundTransparency = 1
