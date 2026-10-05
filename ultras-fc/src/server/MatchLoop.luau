@@ -1,39 +1,43 @@
 --!strict
 --[[
-	O relogio do dia de jogo. Anda sempre em ciclo, sem nunca parar:
+	The match day, on the server. The phases come from the REAL clock
+	(shared/Schedule), never from when this server opened:
 
-		sede -> corteo -> espera -> entrada -> 1a parte -> intervalo
-		-> 2a parte -> fim -> sede
+		clubhouse -> corteo -> espera -> entrada -> 1st half -> half-time
+		-> 2nd half -> full time -> clubhouse ...
 
-	A espera pelas bancadas acaba mais cedo quando a gente ja la esta.
+	in slots of 20 minutes (15 of match, 5 of break), and one long clubhouse
+	at night. Whoever comes in half-way comes into the phase that is on:
+	nothing here waits for anybody, and a server that opens at 21:27 opens in
+	the first half of the 21:20 match, like every other server.
 
-	Quem entra a meio entra na fase que esta a decorrer: nada aqui espera por
-	ninguem. Um servidor que ficasse parado a espera de uma pessoa ficava parado
-	para toda a gente.
+	This module keeps what the clock does not know: the score of the match on
+	now. It tells its listeners when the phase changes (and once a second, for
+	the clocks on the screens).
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Schedule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Schedule"))
 
 local MatchLoop = {}
 
 export type Phase = "clubhouse" | "corteo" | "espera" | "entrada" | "first" | "halftime" | "second" | "fulltime"
 
-local M = Config.Match
-
 local state = {
 	phase = "clubhouse" :: Phase,
-	clock = 0, -- segundos restantes da fase atual
-	length = 0, -- quanto dura a fase atual, para saber quanto ja passou
+	clock = 0, -- seconds left of the phase on now
+	length = 0, -- how long the phase lasts, to know how much has gone
+	slot = 0, -- the slot of the match this phase belongs to
+	night = false,
 	score = { home = 0, away = 0 },
-	lastGoal = nil :: string?, -- equipa que marcou o ultimo golo, para a UI festejar
+	lastGoal = nil :: string?, -- the team that scored last, for the screens to celebrate
 	goalStamp = 0,
 }
 
--- Quem ouve mudancas (o Main liga-se aqui para avisar os clientes).
-local listeners: { (typeof(state)) -> () } = {}
+-- Who listens to changes (Main links here to tell the clients).
+local listeners: { (any) -> () } = {}
 
-function MatchLoop.onChange(fn: (typeof(state)) -> ())
+function MatchLoop.onChange(fn: (any) -> ())
 	table.insert(listeners, fn)
 end
 
@@ -42,6 +46,8 @@ function MatchLoop.snapshot()
 		phase = state.phase,
 		clock = math.max(math.ceil(state.clock), 0),
 		length = state.length,
+		slot = state.slot,
+		night = state.night,
 		score = { home = state.score.home, away = state.score.away },
 		lastGoal = state.lastGoal,
 		goalStamp = state.goalStamp,
@@ -52,7 +58,16 @@ function MatchLoop.phase(): Phase
 	return state.phase
 end
 
--- Segundos desde que a fase atual comecou.
+-- The slot of the match on now (or of the next one, in the break and at night).
+function MatchLoop.slot(): number
+	return state.slot
+end
+
+function MatchLoop.isNight(): boolean
+	return state.night
+end
+
+-- Seconds since the phase on now started.
 function MatchLoop.elapsed(): number
 	return state.length - state.clock
 end
@@ -64,88 +79,39 @@ local function broadcast()
 	end
 end
 
-local PHASE_LENGTH: { [string]: number } = {
-	clubhouse = M.clubhouseLength,
-	corteo = M.corteoLength,
-	espera = M.waitLength,
-	entrada = M.entranceLength,
-	first = M.halfLength,
-	halftime = M.halfTimeLength,
-	second = M.halfLength,
-	fulltime = M.fullTimeLength,
-}
-
-local NEXT_PHASE: { [string]: Phase } = {
-	clubhouse = "corteo",
-	corteo = "espera",
-	espera = "entrada",
-	entrada = "first",
-	first = "halftime",
-	halftime = "second",
-	second = "fulltime",
-	fulltime = "clubhouse",
-}
-
-local function enterPhase(phase: Phase)
-	state.phase = phase
-	state.length = PHASE_LENGTH[phase]
-	state.clock = state.length
-
-	-- Dia de jogo novo: tabela limpa.
-	if phase == "clubhouse" then
-		state.score.home = 0
-		state.score.away = 0
-		state.lastGoal = nil
+local function read()
+	local moment = Schedule.at(Schedule.gameTime())
+	local changed = moment.phase ~= state.phase or moment.slot ~= state.slot or moment.night ~= state.night
+	state.clock = moment.remaining
+	state.length = moment.length
+	if changed then
+		local newMatch = moment.slot ~= state.slot
+		state.phase = moment.phase :: Phase
+		state.slot = moment.slot
+		state.night = moment.night
+		-- A new match: a clean scoreboard.
+		if newMatch or moment.phase == "clubhouse" then
+			state.score.home = 0
+			state.score.away = 0
+			state.lastGoal = nil
+		end
+		broadcast()
 	end
-
-	broadcast()
 end
 
 --[[
-	Enquanto isto for verdade, a parte nao acaba: um golo aos 7:25 festeja-se na
-	mesma ate ao fim, e so depois se apita para o intervalo.
+	These used to bend the clock (a half that waited for a celebration, a wait
+	that ended early with the stands full). The clock is the world's now and
+	bends for nobody; they are kept so the callers need not change.
 ]]
-local holdWhile: (() -> boolean)? = nil
-local pauseWhile: (() -> boolean)? = nil
-
--- Enquanto isto for verdade, o relogio da parte nao anda (faltas: nada de antijogo).
-function MatchLoop.pauseWhile(fn: () -> boolean)
-	pauseWhile = fn
-end
-
-function MatchLoop.holdWhile(fn: () -> boolean)
-	holdWhile = fn
-end
+function MatchLoop.pauseWhile(_fn: () -> boolean) end
+function MatchLoop.holdWhile(_fn: () -> boolean) end
+function MatchLoop.readyWhen(_fn: () -> boolean) end
+function MatchLoop.entranceIn(_seconds: number) end
 
 --[[
-	A espera pelas bancadas acaba quando isto for verdade — com toda a gente
-	de claque ja no seu lugar, ou sem ninguem de claque a quem esperar.
-]]
-local readyWhen: (() -> boolean)? = nil
-
-function MatchLoop.readyWhen(fn: () -> boolean)
-	readyWhen = fn
-end
-
---[[
-	A entrada em campo daqui a `seconds`, a partir do corteo ou da espera: o
-	autocarro da equipa chegou, e quem joga nao fica muito tempo parado no
-	balneario. Salta a espera pelas bancadas.
-]]
-local entranceSoon = false
-function MatchLoop.entranceIn(seconds: number)
-	if state.phase ~= "corteo" and state.phase ~= "espera" then
-		return
-	end
-	entranceSoon = true
-	state.clock = seconds
-	state.length = math.max(state.length, seconds)
-	broadcast()
-end
-
---[[
-	Marcar um golo. Quem decide que houve golo e o campo, nao este modulo: a bola
-	entrar na baliza e que conta.
+	A goal. Who decides there was a goal is the pitch, not this module: the
+	ball going into the goal is what counts.
 ]]
 function MatchLoop.scoreGoal(teamId: string)
 	if state.phase ~= "first" and state.phase ~= "second" then
@@ -161,7 +127,7 @@ function MatchLoop.scoreGoal(teamId: string)
 	broadcast()
 end
 
--- Quem ganhou, ou nil se empataram.
+-- Who won, or nil on a draw.
 function MatchLoop.winner(): string?
 	local home, away = state.score.home, state.score.away
 	if home == away then
@@ -171,52 +137,44 @@ function MatchLoop.winner(): string?
 end
 
 --[[
-	Para onde salta o botao. Do corteo em diante, tudo o que e esperar pelo
-	jogo — a espera das bancadas, a entrada em campo — salta-se de uma vez:
-	carrega-se uma vez e ja se esta a jogar.
+	For tests (who may call this is Main's business: the admin list): the clock
+	of this server jumps to the end of the phase on now. From the corteo on,
+	everything that is waiting for the match is jumped at once, straight to the
+	first half.
 ]]
-local SKIP_TO: { [string]: Phase } = {
-	clubhouse = "corteo",
-	corteo = "first",
-	espera = "first",
-	entrada = "first",
-	first = "halftime",
-	halftime = "second",
-	second = "fulltime",
-	fulltime = "clubhouse",
-}
-
--- Salta ja para a fase seguinte. So para testes: quem pode chamar isto e o Main
--- decide, pela lista de admins.
 function MatchLoop.skip()
-	entranceSoon = false
-	enterPhase(SKIP_TO[state.phase])
+	local now = Schedule.gameTime()
+	local moment = Schedule.at(now)
+	local jump = moment.remaining
+	if moment.phase == "corteo" or moment.phase == "espera" or moment.phase == "entrada" then
+		local at = now + jump
+		for _ = 1, 3 do
+			local nextMoment = Schedule.at(at + 0.5)
+			if nextMoment.phase == "first" then
+				break
+			end
+			at += nextMoment.remaining + 0.5
+		end
+		jump = at - now
+	end
+	local push = workspace:GetAttribute("RelogioSalto")
+	workspace:SetAttribute("RelogioSalto", (if type(push) == "number" then push else 0) + jump + 0.5)
+	read()
 end
 
 function MatchLoop.start()
-	enterPhase("clubhouse")
+	-- So that the first reading is always "a change", whatever is on.
+	state.slot = -1
+	read()
 
 	task.spawn(function()
 		while true do
-			local dt = task.wait(0.25)
-			local halfEnding = state.phase == "first" or state.phase == "second"
-			if not (halfEnding and pauseWhile ~= nil and pauseWhile()) then
-				state.clock -= dt
-			end
-			local held = halfEnding and holdWhile ~= nil and holdWhile()
-			local ready = state.phase == "espera" and readyWhen ~= nil and readyWhen()
-			if (state.clock <= 0 and not held) or ready then
-				local nextPhase = NEXT_PHASE[state.phase]
-				if entranceSoon and (state.phase == "corteo" or state.phase == "espera") then
-					nextPhase = "entrada"
-				end
-				entranceSoon = false
-				enterPhase(nextPhase)
-			end
+			task.wait(0.25)
+			read()
 		end
 	end)
 
-	-- O relogio na UI so precisa de um acerto por segundo.
+	-- The clocks on the screens only need setting once a second.
 	task.spawn(function()
 		while true do
 			task.wait(1)

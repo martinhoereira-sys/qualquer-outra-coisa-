@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Emblem = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Emblem"))
+local ScheduleClock = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Schedule"))
 local Derby = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Derby"))
 local Config = require(Shared:WaitForChild("Config"))
 local TXT = Config.Text.hud
@@ -580,8 +581,8 @@ dayClock.ZIndex = 6
 task.spawn(function()
 	local Lighting = game:GetService("Lighting")
 	while true do
-		local hour = Lighting.ClockTime
-		dayClock.Text = string.format("%02d:%02d", math.floor(hour), math.floor((hour % 1) * 60))
+		-- One clock only: the real time of the game (shared/Schedule), not the hour of the sky.
+		dayClock.Text = ScheduleClock.clock(ScheduleClock.gameTime())
 		task.wait(1)
 	end
 end)
@@ -1885,6 +1886,12 @@ Remotes.MatchState.OnClientEvent:Connect(function(snapshot)
 		end
 	end
 	phaseClock.Text = string.format("%d:%02d", snapshot.clock // 60, snapshot.clock % 60)
+	-- At night there is no match on: say so, and count in hours.
+	if snapshot.night then
+		phaseLabel.Text = TXT.nightTitle
+		phaseNote.Text = TXT.nightNote
+		phaseClock.Text = string.format("%d:%02d", snapshot.clock // 3600, snapshot.clock % 3600 // 60)
+	end
 
 	if snapshot.lastGoal and snapshot.goalStamp > lastGoalStamp then
 		local fresh = lastGoalStamp > 0 or workspace:GetServerTimeNow() - snapshot.goalStamp < 3

@@ -562,6 +562,7 @@ Gear.onCountChanged(function(player, counts)
 end)
 
 local lastPhase = ""
+local lastKey = "" -- phase, slot and night: a new one is a phase that has just started
 local lastGoalStamp = 0
 
 MatchLoop.onChange(function(snapshot)
@@ -580,7 +581,9 @@ MatchLoop.onChange(function(snapshot)
 		Tifo.markGoal(snapshot.lastGoal)
 	end
 
-	local entered = snapshot.phase ~= lastPhase
+	local key = snapshot.phase .. ":" .. tostring(snapshot.slot) .. ":" .. tostring(snapshot.night)
+	local entered = key ~= lastKey
+	lastKey = key
 
 	-- Fora das partes nao ha faltas a apitar.
 	if entered and snapshot.phase ~= "first" and snapshot.phase ~= "second" then
@@ -592,7 +595,7 @@ MatchLoop.onChange(function(snapshot)
 	-- sao para o momento, nao para acumular.
 	if entered and snapshot.phase == "clubhouse" then
 		-- A new match day is the other derby (one derby per match day).
-		if matchDays > 0 then
+		if matchDays > 0 and not snapshot.night then
 			--[[
 				The next official match: the next one in the calendar in which at
 				least one of the two clubs has real people (their club, or the one
@@ -684,9 +687,17 @@ MatchLoop.onChange(function(snapshot)
 	if entered and snapshot.phase == "espera" then
 		March.stop()
 	end
-	-- Friendlies are for the breaks: the big match ends them all.
+	-- Friendlies are for the breaks and the night: they end by themselves a
+	-- minute before an official match, and are off while it is on.
+	do
+		local allowed = snapshot.night
+			or snapshot.phase == "clubhouse"
+			or (snapshot.phase == "corteo" and snapshot.clock > Config.Friendly.stopBefore)
+		if allowed ~= Friendly.allowed() then
+			Friendly.setAllowed(allowed)
+		end
+	end
 	if entered then
-		Friendly.setAllowed(snapshot.phase == "clubhouse" or snapshot.phase == "corteo")
 		-- The clubs' buses are only in the city around the match.
 		Transit.showTeamBuses(snapshot.phase == "corteo" or snapshot.phase == "espera" or snapshot.phase == "entrada")
 	end
@@ -1443,6 +1454,20 @@ Remotes.Home.OnServerEvent:Connect(function(player, where)
 		return
 	end
 	lastHome[player] = now
+	-- "jogo": the match of my club is about to start: to the corteo if it is on
+	-- its way, or to my stand.
+	if where == "jogo" then
+		local mine = Teams.get(player)
+		if mine then
+			local banner = March.bannerPosition(mine)
+			if MatchLoop.phase() == "corteo" and banner then
+				placeAt(player, banner + Vector3.new(0, 1, 6), banner)
+			else
+				task.spawn(sendToClaque, player, mine)
+			end
+		end
+		return
+	end
 	-- "estadio": straight to my stand, when the match has already started
 	-- (nobody is stuck in a corteo that left late).
 	local teamId = Teams.get(player)
@@ -1601,6 +1626,23 @@ end
 if game:GetService("RunService"):IsStudio() then
 	workspace:GetAttributeChangedSignal("TestInvasion"):Connect(function()
 		offerInvasion("home")
+	end)
+end
+-- Studio only: the workspace attribute "TestJoin" ("<club>" or "<club>:<role>") puts the first player in that club (for tests).
+if game:GetService("RunService"):IsStudio() then
+	workspace:GetAttributeChangedSignal("TestJoin"):Connect(function()
+		local value = workspace:GetAttribute("TestJoin")
+		local player = Players:GetPlayers()[1]
+		if type(value) == "string" and player then
+			local clubId, role = string.match(value, "^(%w+):?(%w*)$")
+			if clubId then
+				switchedAt[player] = nil
+				if not Money.clubOf(player) then
+					Money.setClub(player, clubId)
+				end
+				pickClub(player, clubId, if role == "" then "adepto" else role)
+			end
+		end
 	end)
 end
 -- Studio only: the workspace attribute "TestLeader" makes the first player in a claque its capo (for tests).

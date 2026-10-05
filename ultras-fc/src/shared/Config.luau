@@ -791,7 +791,8 @@ Config.Friendly = {
 	-- The goals of the training pitches: a little smaller than the stadium's (21 x 9.6).
 	goalHalfWidth = 9,
 	goalHeight = 8.4,
-	minutes = 5,
+	minutes = 4,
+	stopBefore = 60, -- friendlies end by themselves this many seconds before an official match
 	xp = 15, -- player XP for playing one (less than an official match)
 	kick = 34, -- how hard the ball goes when one walks into it
 	kickRun = 1.1, -- and how much more for each stud per second one is running at
@@ -890,16 +891,35 @@ Config.Atmosphere = {
 	Em segundos reais. Ao intervalo ninguem troca de campo: cada equipa ataca
 	sempre a baliza a frente da sua claque.
 ]]
+--[[
+	THE TIMETABLE (shared/Schedule). One clock, from the real time of the world.
+	  utcOffset     the game's own time zone, in hours from UTC (0 = Lisbon in winter, London)
+	  firstHour     official matches from this hour...
+	  lastHour      ...until this hour (past midnight); the rest is the night
+	  slotMinutes   a slot: a match and the break after it
+	  matchMinutes  the match in it (the phases below must add up to this)
+	  noticeSeconds how long before a match everyone is told
+]]
+Config.Schedule = {
+	utcOffset = 0,
+	firstHour = 9,
+	lastHour = 1,
+	slotMinutes = 20,
+	matchMinutes = 15,
+	noticeSeconds = 120,
+}
+
 Config.Match = {
-	-- One official match at a time, in a cycle: about 15 minutes of match (from the
-	-- wait for the stands to full time) and 5 of break (clubhouse and corteo).
+	-- The break before a match (5 minutes): the clubhouse, then the corteo.
+	-- The match (15 minutes): wait 20 s, entrance 40 s, two halves of 6:35,
+	-- half-time 30 s, full time 20 s. They must add up to the slot (Config.Schedule).
 	clubhouseLength = 120, -- na sede: material, lider, e esperar pelos outros
 	corteoLength = 180, -- a caminhada ate ao estadio: ~1200 studs a 7 studs/s, mais a espera e a formatura
-	waitLength = 30, -- no maximo, a espera de que as bancadas estejam nos seus lugares
+	waitLength = 20, -- no maximo, a espera de que as bancadas estejam nos seus lugares
 	entranceLength = 40, -- do tunel ao apito: saida, fila e cada um ao seu lugar
-	halfLength = 390, -- each half: six and a half minutes
+	halfLength = 395, -- each half: six minutes and thirty-five seconds
 	halfTimeLength = 30,
-	fullTimeLength = 50, -- no relvado ou na bancada, antes de voltar a sede
+	fullTimeLength = 20, -- no relvado ou na bancada, antes de voltar a sede
 	celebrationLength = 15, -- do golo ao pontape de saida
 	switchCooldown = 60, -- depois de escolher um papel, segundos ate poder trocar outra vez
 }
@@ -931,6 +951,18 @@ Config.Admins = {
 	Config.Clubs. To change a word on the screen, change it here.
 ]]
 Config.Text = {
+	clock = {
+		local_ = "your time %s",
+		nextIn = "NEXT MATCH IN %s",
+		night = "NIGHT  ·  FIRST MATCH AT %s",
+		notice = "KICK-OFF IN 2 MINUTES",
+		go = "GO TO THE MATCH",
+		schedule = "SCHEDULE",
+		scheduleTitle = "THE NEXT 24 HOURS",
+		official = "OFFICIAL MATCH",
+		nightRow = "NIGHT  ·  friendlies at the training pitches",
+		now = "NOW",
+	},
 	friendly = {
 		training = "TRAINING",
 		friendly = "Friendly",
@@ -1171,6 +1203,8 @@ Config.Text = {
 	},
 	hud = {
 		chooseYourClub = "Choose your club",
+		nightTitle = "NIGHT",
+		nightNote = "friendlies at the training pitches",
 		warnJoin = "You are joining %s.",
 		warnKept = "This club is kept. It is your ultras, your shirt and your curva.",
 		warnChange = "To change later you must go to the other club's clubhouse, in person.",
