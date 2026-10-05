@@ -67,7 +67,7 @@ end
 local open = button(gui, T.open, UDim2.fromOffset(84, 28), UDim2.new(0, 16, 1, -44))
 open.BackgroundTransparency = 0.15
 
-local rows = 5
+local rows = 6
 local panel = Instance.new("Frame")
 panel.Name = "Bar"
 panel.Visible = false
@@ -184,4 +184,53 @@ do
 	end
 	workspace:GetAttributeChangedSignal("Derby"):Connect(light)
 	light()
+end
+
+-- Start the season again (asks first).
+do
+	local y = rowLabel(6, T.reset)
+	local ask = button(panel, T.resetButton, UDim2.fromOffset(190, ROW - 14), UDim2.fromOffset(LABEL, y + 4))
+	ask.Name = "Reset"
+	ask.BackgroundColor3 = Color3.fromRGB(120, 44, 40)
+
+	local confirm = Instance.new("Frame")
+	confirm.Name = "Confirmar"
+	confirm.Visible = false
+	confirm.AnchorPoint = Vector2.new(0.5, 0.5)
+	confirm.Position = UDim2.fromScale(0.5, 0.5)
+	confirm.Size = UDim2.fromOffset(520, 150)
+	confirm.BackgroundColor3 = PANEL
+	confirm.BorderSizePixel = 0
+	confirm.Parent = gui
+	corner(confirm, 10)
+	local line = Instance.new("UIStroke")
+	line.Color = Color3.fromRGB(200, 60, 50)
+	line.Thickness = 2
+	line.Parent = confirm
+	local words = Instance.new("TextLabel")
+	words.BackgroundTransparency = 1
+	words.Size = UDim2.new(1, -30, 0, 60)
+	words.Position = UDim2.fromOffset(15, 14)
+	words.Font = Enum.Font.GothamBold
+	words.TextSize = 16
+	words.TextWrapped = true
+	words.TextColor3 = TEXT
+	words.Text = T.resetAsk
+	words.Parent = confirm
+	local yes = button(confirm, T.resetYes, UDim2.fromOffset(200, 44), UDim2.fromOffset(40, 90))
+	yes.Name = "Sim"
+	yes.BackgroundColor3 = Color3.fromRGB(170, 44, 40)
+	local no = button(confirm, T.resetNo, UDim2.fromOffset(200, 44), UDim2.fromOffset(280, 90))
+	no.Name = "Nao"
+
+	ask.Activated:Connect(function()
+		confirm.Visible = true
+	end)
+	no.Activated:Connect(function()
+		confirm.Visible = false
+	end)
+	yes.Activated:Connect(function()
+		confirm.Visible = false
+		Remotes.Admin:FireServer("reset")
+	end)
 end

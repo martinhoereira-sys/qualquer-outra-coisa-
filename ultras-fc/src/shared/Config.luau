@@ -811,6 +811,27 @@ Config.Invasion = {
 }
 
 --[[
+	THE TROPHIES (server/Trophy): the ceremony at the end of each competition.
+]]
+Config.Trophy = {
+	seconds = 18, -- how long the ceremony lasts
+	liftSeconds = 1.6, -- the captain lifting the trophy
+	pumps = 4, -- how many times it is shown up and down to the stands
+	groundY = 0.5, -- the height of the grass at the centre spot
+	confettiHeight = 34,
+	confettiSpread = 60,
+	confettiRate = 60, -- pieces a second, of each colour
+}
+
+--[[
+	THE HONOUR BOARD of the month: the clubs that lead each list get an extra.
+	`extra` is what they get; it is empty until it is decided.
+]]
+Config.Honour = {
+	extra = nil,
+}
+
+--[[
 	FLOATING LABELS (names over heads, titles over desks, score boards): every
 	one of them only shows closer than `distance` studs, and is never bigger
 	than a player (sizes in studs, so they shrink with distance like the rest
@@ -1011,6 +1032,11 @@ Config.Text = {
 		honourSuper = "SUPERCUP WINNERS",
 		honourOverall = "OVERALL",
 		honourNone = "nobody yet",
+	},
+	trophy = {
+		liga = "LEAGUE CHAMPIONS",
+		taca = "CUP WINNERS",
+		supertaca = "SUPERCUP WINNERS",
 	},
 	comp = {
 		league = "LEAGUE  ·  ROUND %d",
@@ -1551,6 +1577,12 @@ Config.Text = {
 		farda = "WEAR UNIFORM",
 		kitType = "KIT",
 		derby = "MATCH",
+		reset = "START AGAIN",
+		resetButton = "RESET THE SEASON",
+		resetAsk = "This wipes all results and starts a new season. Are you sure?",
+		resetYes = "YES, WIPE",
+		resetNo = "NO",
+		resetDone = "New season started",
 		off = "OFF",
 		home = "MAIN",
 		alt = "ALTERNATE",
@@ -2509,11 +2541,13 @@ Config.Futuro = {
 	presidente = false,
 	atributos = false,
 	transferencias = false,
+	clubeSecundario = false,
 	treinadores = false,
 	segundoEstadio = false,
 	roupaDeClaque = false,
 	var = false,
 	taca = false,
+	vidaNaCidade = false,
 }
 
 return Config

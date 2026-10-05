@@ -38,6 +38,7 @@ local Entrance = require(script.Parent:WaitForChild("Entrance"))
 local DayNight = require(script.Parent:WaitForChild("DayNight"))
 local Money = require(script.Parent:WaitForChild("Money"))
 local Competition = require(script.Parent:WaitForChild("Competition"))
+local Trophy = require(script.Parent:WaitForChild("Trophy"))
 local Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar"))
 local Schedule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Schedule"))
 local Friendly = require(script.Parent:WaitForChild("Friendly"))
@@ -588,6 +589,37 @@ local function chooseMatch(slot: number, late: boolean)
 	print(string.format("[Ultras FC] slot %s: %s %s v %s%s", Schedule.clock(Schedule.slotStart(slot)), match.fixture.kind, match.fixture.home, match.fixture.away, if match.noFans then " (no fans)" else ""))
 end
 
+--[[
+	The trophy ceremony: the trophy on the pitch, the captain of the winners
+	lifting it, confetti in their colours. `kind` is "liga", "taca" or
+	"supertaca"; `clubId` is who won it.
+]]
+local function ceremony(kind: string, clubId: string)
+	local club = (Config.Clubs :: any)[clubId]
+	if not club then
+		return
+	end
+	Remotes.Npc:FireAllClients({ title = (Config.Text.trophy :: any)[kind], lines = { club.name } })
+	-- The captain: of that club, if it is on this pitch (the armband, or the first one).
+	local captain: any = nil
+	for _, teamId in Config.TeamOrder do
+		if Config.Teams[teamId].club == clubId then
+			for _, f in Squad.team(teamId) do
+				if f.model and (captain == nil or f.model:FindFirstChild("Bracadeira", true)) then
+					captain = f
+				end
+			end
+		end
+	end
+	task.spawn(Trophy.present, kind, club, if captain then captain.model else nil, function(at: Vector3, facing: Vector3)
+		Squad.place(captain, at, facing)
+	end, function(up: boolean)
+		if captain then
+			Squad.openArms(captain, up)
+		end
+	end)
+end
+
 -- A knockout match that ends level: penalties, kicked here on the server. Returns who goes through.
 local function shootOut(): string
 	local home, away = Config.Teams.home, Config.Teams.away
@@ -805,7 +837,15 @@ MatchLoop.onChange(function(snapshot)
 					penalties = shootOut()
 				end
 				local leagueMatch = now.fixture.kind == "liga"
+				local fixture = now.fixture
 				Competition.record(snapshot.score.home, snapshot.score.away, penalties)
+				-- The cup final and the supercup end with a trophy.
+				if fixture.id == "F" or fixture.id == "S" then
+					local winner = Calendar.winner(fixture, { h = snapshot.score.home, a = snapshot.score.away, p = penalties })
+					if winner then
+						ceremony(if fixture.id == "F" then "taca" else "supertaca", winner)
+					end
+				end
 				-- Champions: with the league all played, the claque of the club on top may invade.
 				if leagueMatch then
 					local state = Competition.state()
@@ -819,6 +859,7 @@ MatchLoop.onChange(function(snapshot)
 					end
 					if not left then
 						local champion = Calendar.leagueTable(state)[1].club
+						ceremony("liga", champion)
 						for _, teamId in Config.TeamOrder do
 							if Config.Teams[teamId].club == champion then
 								offerInvasion(teamId)
@@ -1365,7 +1406,11 @@ end
 
 local function adminBar(player: Player, action: any, value: any)
 	local club = if type(value) == "string" then (Config.Clubs :: any)[value] else nil
-	if action == "derby" then
+	if action == "reset" then
+		-- Start the season again: results, points, goals and tables go; people's clubs, levels and gear stay.
+		Competition.reset()
+		Remotes.Npc:FireClient(player, { title = Config.Text.admin.resetDone, lines = {} })
+	elseif action == "derby" then
 		if type(value) == "number" and Config.Derbies[value] then
 			Derby.set(value)
 		end
@@ -1716,6 +1761,15 @@ if game:GetService("RunService"):IsStudio() then
 				end
 				pickClub(player, clubId, if role == "" then "adepto" else role)
 			end
+		end
+	end)
+end
+-- Studio only: the workspace attribute "TestTrophy" ("liga", "taca" or "supertaca") runs the ceremony for the home club (for tests).
+if game:GetService("RunService"):IsStudio() then
+	workspace:GetAttributeChangedSignal("TestTrophy"):Connect(function()
+		local kind = workspace:GetAttribute("TestTrophy")
+		if type(kind) == "string" and (Config.Text.trophy :: any)[kind] then
+			ceremony(kind, Config.Teams.home.club)
 		end
 	end)
 end
