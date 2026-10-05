@@ -843,6 +843,7 @@ Config.Honour = {
 	  gap                    between two things; half of it between things that go together
 	  corner                 the rounding of every corner
 	  button                 the height of every button
+	  row                    the height of a line in a list or a table (tall: it is read on a phone)
 	  ground                 behind a whole screen: nearly black, see-through
 	  panel                  a card or a button on it
 	  text                   white; `dim` is how see-through the secondary text is
@@ -860,6 +861,7 @@ Config.UI = {
 	gap = 16,
 	corner = 12,
 	button = 84,
+	row = 64,
 	ground = Color3.fromRGB(8, 9, 12),
 	groundTransparency = 0.12,
 	panel = Color3.fromRGB(24, 26, 32),
@@ -2684,6 +2686,7 @@ Config.Futuro = {
 	var = false,
 	taca = false,
 	vidaNaCidade = false,
+	mensagemDoLider = false,
 }
 
 return Config

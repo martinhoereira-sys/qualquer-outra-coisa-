@@ -158,7 +158,7 @@ local function look(inst: Instance)
 	end
 	seen[inst] = true
 	-- An emblem is always one club's own (whoever draws it redraws it); the admin bar names all four clubs.
-	if not inst:IsA("BasePart") and (inst.Name == "Emblema" or inst:FindFirstAncestor("Emblema") or inst:FindFirstAncestor("UltrasAdmin") or inst:FindFirstAncestor("UltrasLiga") or inst:FindFirstAncestor("UltrasRota") or inst:FindFirstAncestor("UltrasRelogio") or inst:FindFirstAncestor("UltrasEscolha")) then
+	if not inst:IsA("BasePart") and (inst.Name == "Emblema" or inst:FindFirstAncestor("Emblema") or inst:FindFirstAncestor("UltrasAdmin") or inst:FindFirstAncestor("UltrasLiga") or inst:FindFirstAncestor("UltrasRota") or inst:FindFirstAncestor("UltrasRelogio") or inst:FindFirstAncestor("UltrasEscolha") or inst:FindFirstAncestor("UltrasMenu")) then
 		return
 	end
 	if inst:IsA("BasePart") then

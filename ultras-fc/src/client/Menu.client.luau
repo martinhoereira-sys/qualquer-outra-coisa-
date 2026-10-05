@@ -26,114 +26,171 @@ local Emblem = require(Shared:WaitForChild("Emblem"))
 local Calendar = require(Shared:WaitForChild("Calendar"))
 local Schedule = require(Shared:WaitForChild("Schedule"))
 
+local UI = require(Shared:WaitForChild("UI"))
+
 local player = Players.LocalPlayer
 local T = Config.Text.menu
 local COMP = Config.Text.comp
+local U = Config.UI
 
-local PANEL = Color3.fromRGB(18, 22, 32)
-local ROW = Color3.fromRGB(30, 34, 46)
-local TEXT = Color3.fromRGB(236, 238, 242)
-local MUTED = Color3.fromRGB(141, 150, 163)
-local GOLD = Color3.fromRGB(255, 200, 60)
+local H = U.canvas.Y
+local W = U.canvas.X
+local EDGE = U.gap * 1.5
+local HALF = U.gap / 2
+local MINE = Color3.fromRGB(52, 56, 68) -- my club's line: a lighter ground
 
+-- The button that opens it lives with the rest of the HUD.
 local gui = Instance.new("ScreenGui")
 gui.Name = "UltrasLiga"
 gui.ResetOnSpawn = false
 gui.DisplayOrder = 15
 gui.Parent = player:WaitForChild("PlayerGui")
-
--- Small screens: everything shrinks together.
-local uiScale = Instance.new("UIScale")
-uiScale.Parent = gui
+local hudScale = Instance.new("UIScale")
+hudScale.Parent = gui
 local function rescale()
 	local camera = workspace.CurrentCamera
-	local size = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-	uiScale.Scale = math.clamp(math.min(size.X / 1280, size.Y / 720), 0.5, 1)
+	local size = if camera then camera.ViewportSize else U.canvas
+	hudScale.Scale = math.clamp(math.min(size.X / U.canvas.X, size.Y / U.canvas.Y), U.minScale, 1)
 end
 rescale()
 if workspace.CurrentCamera then
 	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 end
+local open = Instance.new("TextButton")
+open.Name = "Abrir"
+open.Size = UDim2.fromOffset(150, 28)
+open.Position = UDim2.fromOffset(16, 246)
+open.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
+open.BackgroundTransparency = 0.15
+open.BorderSizePixel = 0
+open.Font = Enum.Font.GothamBold
+open.TextSize = 12
+open.TextColor3 = U.text
+open.Text = T.open
+open.Parent = gui
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(0, 6)
+openCorner.Parent = open
 
-local function corner(parent: Instance, radius: number)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius)
-	c.Parent = parent
-end
+-- The menu itself: its own screen, over everything, filling the screen.
+local screen = Instance.new("ScreenGui")
+screen.Name = "UltrasMenu"
+screen.ResetOnSpawn = false
+screen.IgnoreGuiInset = true
+screen.DisplayOrder = 90
+screen.Enabled = false
+screen.Parent = player:WaitForChild("PlayerGui")
+local scale = UI.scale(screen)
 
-local function text(parent: Instance, value: string, size: number, colour: Color3, font: Enum.Font?, proper: boolean?): TextLabel
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.Font = font or Enum.Font.GothamBold
-	l.TextSize = size
-	l.TextColor3 = colour
-	l.Text = value
-	l.TextTruncate = Enum.TextTruncate.AtEnd
+local ground = Instance.new("Frame")
+ground.Size = UDim2.fromScale(1, 1)
+ground.BackgroundColor3 = U.ground
+ground.BackgroundTransparency = U.groundTransparency
+ground.BorderSizePixel = 0
+ground.Active = true
+ground.Parent = screen
+
+local panel = Instance.new("Frame")
+panel.Name = "Painel"
+panel.BackgroundTransparency = 1
+panel.AnchorPoint = Vector2.new(0.5, 0.5)
+panel.Position = UDim2.fromScale(0.5, 0.5)
+panel.Size = UDim2.fromOffset(W, H)
+panel.Visible = false
+panel.Parent = ground
+
+-- A piece of text at a place. `size` is one of the three; `dim` is secondary text.
+local function text(parent: Instance, value: string, size: UI.Size, dim: boolean, x: number, y: number, width: number, height: number, align: Enum.TextXAlignment?, proper: boolean?): TextLabel
+	local l = UI.label(parent, value, size, dim, true)
+	l.Position = UDim2.fromOffset(x, y)
+	l.Size = UDim2.fromOffset(width, height)
+	l.TextXAlignment = align or Enum.TextXAlignment.Center
 	if proper then
 		l.AutoLocalize = false
 	end
-	l.Parent = parent
 	return l
 end
 
-local function frame(parent: Instance, colour: Color3, size: UDim2, position: UDim2, transparency: number?): Frame
-	local f = Instance.new("Frame")
-	f.BackgroundColor3 = colour
-	f.BackgroundTransparency = transparency or 0
-	f.BorderSizePixel = 0
-	f.Size = size
-	f.Position = position
-	f.Parent = parent
+local function row(parent: Instance, x: number, y: number, width: number, height: number, mine: boolean, club: any?): Frame
+	local f = UI.panel(parent)
+	f.Position = UDim2.fromOffset(x, y)
+	f.Size = UDim2.fromOffset(width, height)
+	if mine then
+		-- My club: a lighter ground, and its colour as a line round it.
+		f.BackgroundColor3 = MINE
+		f.BackgroundTransparency = 0
+		if club then
+			UI.outline(f, club.color)
+		end
+	end
 	return f
 end
 
-local function button(parent: Instance, value: string, size: UDim2, position: UDim2): TextButton
-	local b = Instance.new("TextButton")
-	b.Size = size
-	b.Position = position
-	b.BackgroundColor3 = Color3.fromRGB(58, 62, 72)
-	b.BorderSizePixel = 0
-	b.Font = Enum.Font.GothamBold
-	b.TextSize = 12
-	b.TextColor3 = TEXT
-	b.Text = value
-	b.Parent = parent
-	corner(b, 6)
-	return b
-end
+-- Always on top, big: when my club plays next, and in which competition.
+local answer = Instance.new("Frame")
+answer.Name = "MeuClube"
+answer.BackgroundTransparency = 1
+answer.Position = UDim2.fromOffset(EDGE, 20)
+answer.Size = UDim2.fromOffset(W - EDGE * 2 - U.button - U.gap, U.button)
+answer.Parent = panel
+local answerCrest = Instance.new("Frame")
+answerCrest.BackgroundTransparency = 1
+answerCrest.Size = UDim2.fromOffset(U.button, U.button)
+answerCrest.Parent = answer
+local answerWords = UI.label(answer, "", "title", false, true)
+answerWords.AutoLocalize = false
+answerWords.TextXAlignment = Enum.TextXAlignment.Left
+answerWords.AnchorPoint = Vector2.new(0, 0.5)
+answerWords.Position = UDim2.new(0, U.button + U.gap, 0.5, 0)
+answerWords.Size = UDim2.new(1, -(U.button + U.gap), 0, U.title + 6)
 
-local open = button(gui, T.open, UDim2.fromOffset(150, 28), UDim2.fromOffset(16, 246))
-open.Name = "Abrir"
-open.BackgroundTransparency = 0.15
-
-local WIDTH, HEIGHT = 780, 520
-local panel = frame(gui, PANEL, UDim2.fromOffset(WIDTH, HEIGHT), UDim2.fromScale(0.5, 0.5), 0.03)
-panel.Name = "Painel"
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Visible = false
-corner(panel, 12)
-
-local close = button(panel, "X", UDim2.fromOffset(32, 28), UDim2.fromOffset(WIDTH - 44, 10))
+local close = UI.button(panel, "X")
+close.Name = "Fechar"
 close.AutoLocalize = false
-
--- Always on top: when my club plays next, and in which competition.
-local mine = text(panel, "", 15, GOLD, Enum.Font.GothamBlack, true)
-mine.Size = UDim2.fromOffset(WIDTH - 80, 26)
-mine.Position = UDim2.fromOffset(16, 10)
-mine.TextXAlignment = Enum.TextXAlignment.Left
+close.Size = UDim2.fromOffset(U.button, U.button)
 
 local TABS = { "schedule", "league", "cup", "supercup", "honour" }
 local tabButtons: { [string]: TextButton } = {}
+local tabLines: { [string]: UIStroke } = {}
+local TOP = 20 + (U.button + U.gap) * 2
 local page = Instance.new("ScrollingFrame")
 page.Name = "Pagina"
 page.BackgroundTransparency = 1
 page.BorderSizePixel = 0
-page.Size = UDim2.fromOffset(WIDTH - 24, HEIGHT - 96)
-page.Position = UDim2.fromOffset(12, 84)
 page.ScrollBarThickness = 6
 page.CanvasSize = UDim2.fromOffset(0, 0)
 page.AutomaticCanvasSize = Enum.AutomaticSize.Y
 page.Parent = panel
+local inset = Instance.new("UIPadding")
+inset.PaddingLeft = UDim.new(0, U.line)
+inset.PaddingRight = UDim.new(0, U.line)
+inset.PaddingTop = UDim.new(0, U.line)
+inset.PaddingBottom = UDim.new(0, U.line)
+inset.Parent = page
+
+-- The width there is to draw in (inside the page).
+local PAGE = W - EDGE * 2 - U.line * 2 - 6
+
+-- A wide screen (most phones): the menu uses the width there is.
+local function measure()
+	local camera = workspace.CurrentCamera
+	local wide = if camera then camera.ViewportSize.X / scale.Scale else U.canvas.X
+	W = math.clamp(math.floor(wide), U.canvas.X, U.canvas.X * 1.25)
+	PAGE = W - EDGE * 2 - U.line * 2 - 6
+	panel.Size = UDim2.fromOffset(W, H)
+	answer.Size = UDim2.fromOffset(W - EDGE * 2 - U.button - U.gap, U.button)
+	close.Position = UDim2.fromOffset(W - EDGE - U.button, 20)
+	local tabW = (W - EDGE * 2 - HALF * (#TABS - 1)) / #TABS
+	for i, name in TABS do
+		local b = tabButtons[name]
+		if b then
+			b.Position = UDim2.fromOffset(EDGE + (i - 1) * (tabW + HALF), 20 + U.button + U.gap)
+			b.Size = UDim2.fromOffset(tabW, U.button)
+		end
+	end
+	page.Position = UDim2.fromOffset(EDGE - U.line, TOP - U.line)
+	page.Size = UDim2.fromOffset(W - EDGE * 2 + U.line * 2, H - TOP - 20 + U.line)
+end
 
 local current = "schedule"
 
@@ -199,173 +256,146 @@ local function myClub(): string?
 	return if type(club) == "string" then club else nil
 end
 
--- flag + emblem + name of a club, starting at x (to the right) or ending at x (to the left).
+local ROW = U.row
+local STEP = U.row + HALF
+local CREST = U.row - HALF * 2
+
+local function crestAt(parent: Instance, club: any, x: number, height: number)
+	local holder = Instance.new("Frame")
+	holder.BackgroundTransparency = 1
+	holder.Size = UDim2.fromOffset(CREST, CREST)
+	holder.Position = UDim2.fromOffset(x, (height - CREST) / 2)
+	holder.Parent = parent
+	Emblem.draw(holder, club, { year = false })
+end
+
+-- emblem + name of a club, starting at x (to the right) or ending at x (to the left).
 local function clubCell(parent: Instance, clubId: string, x: number, height: number, toLeft: boolean, width: number)
 	local club = (Config.Clubs :: any)[clubId]
 	if not club then
 		return
 	end
-	local flag = frame(parent, PANEL, UDim2.fromOffset(18, 12), UDim2.fromOffset(if toLeft then x - 18 else x, (height - 12) / 2), 1)
-	Emblem.flag(flag, club.country)
-	local crest = frame(parent, PANEL, UDim2.fromOffset(22, 22), UDim2.fromOffset(if toLeft then x - 44 else x + 22, (height - 22) / 2), 1)
-	Emblem.draw(crest, club, { year = false })
-	local name = text(parent, club.name, 13, if clubId == myClub() then GOLD else TEXT, Enum.Font.GothamBold, true)
-	name.Size = UDim2.fromOffset(width - 50, height)
-	name.Position = UDim2.fromOffset(if toLeft then x - width else x + 50, 0)
-	name.TextXAlignment = if toLeft then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left
+	crestAt(parent, club, if toLeft then x - CREST else x, height)
+	local name = text(parent, club.name, "normal", false, if toLeft then x - width else x + CREST + HALF, 0, width - CREST - HALF, height, if toLeft then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left, true)
+	if clubId == myClub() then
+		name.Font = Enum.Font.GothamBlack
+	end
 end
 
 local function section(y: number, words: string): number
-	local l = text(page, words, 12, MUTED, Enum.Font.GothamBlack)
-	l.Size = UDim2.fromOffset(WIDTH - 40, 20)
-	l.Position = UDim2.fromOffset(4, y)
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	return y + 24
+	text(page, words, "small", true, 0, y, PAGE, U.small + 6, Enum.TextXAlignment.Left)
+	return y + U.small + 6 + HALF
 end
 
--- A table of clubs (league or a cup group) at (x, y), `width` wide. Returns the height used.
+--[[
+	A table of clubs (league or a cup group) at (x, y), `width` wide. Tall
+	lines, few columns: when it is narrow, columns go (never the letter).
+	Returns the height used.
+]]
 local function drawTable(rows: { Calendar.Row }, x: number, y: number, width: number, stars: { [string]: number }?, through: number?): number
-	local LINE = 30
-	local columns = { { T.played, 0.52 }, { T.won, 0.6 }, { T.drawn, 0.67 }, { T.lost, 0.74 }, { T.goals, 0.84 }, { T.points, 0.95 } }
-	for _, column in columns do
-		local head = text(page, column[1], 10, MUTED, Enum.Font.GothamBlack)
-		head.Size = UDim2.fromOffset(44, 16)
-		head.Position = UDim2.fromOffset(x + width * column[2] - 22, y)
+	local COLUMN = 84
+	local names = if width > 900
+		then { "played", "won", "drawn", "lost", "goals", "points" }
+		else { "played", "points" }
+	local left = width - #names * COLUMN - HALF
+	for k, name in names do
+		text(page, (T :: any)[name], "small", true, x + left + (k - 1) * COLUMN, y, COLUMN, U.small + 6)
 	end
-	y += 18
+	y += U.small + 6 + HALF
 	for i, entry in rows do
 		local club = (Config.Clubs :: any)[entry.club]
-		local isMine = entry.club == myClub()
-		local row = frame(page, ROW, UDim2.fromOffset(width, LINE - 4), UDim2.fromOffset(x, y + (i - 1) * LINE), if isMine then 0 else 0.45)
-		corner(row, 6)
-		if isMine then
-			local edge = Instance.new("UIStroke")
-			edge.Color = GOLD
-			edge.Thickness = 1.5
-			edge.Parent = row
-		end
+		local line = row(page, x, y + (i - 1) * STEP, width, ROW, entry.club == myClub(), club)
 		-- The ones that go through (cup groups) have a mark.
 		if through and i <= through then
-			frame(row, GOLD, UDim2.fromOffset(3, LINE - 12), UDim2.fromOffset(0, 4))
+			local mark = Instance.new("Frame")
+			mark.BackgroundColor3 = U.text
+			mark.BorderSizePixel = 0
+			mark.Size = UDim2.fromOffset(U.line, ROW - U.gap * 2)
+			mark.Position = UDim2.fromOffset(HALF / 2, U.gap)
+			mark.Parent = line
 		end
-		local position = text(row, tostring(i), 12, if isMine then GOLD else TEXT, Enum.Font.GothamBlack)
-		position.AutoLocalize = false
-		position.Size = UDim2.fromOffset(22, LINE - 4)
-		position.Position = UDim2.fromOffset(5, 0)
-		local flag = frame(row, PANEL, UDim2.fromOffset(18, 12), UDim2.fromOffset(28, (LINE - 16) / 2), 1)
-		Emblem.flag(flag, club.country)
-		local crest = frame(row, PANEL, UDim2.fromOffset(22, 22), UDim2.fromOffset(50, (LINE - 26) / 2), 1)
-		Emblem.draw(crest, club, { year = false })
+		text(line, tostring(i), "normal", true, HALF, 0, 44, ROW).AutoLocalize = false
+		crestAt(line, club, 44 + HALF * 2, ROW)
 		local won = if stars then stars[entry.club] or 0 else 0
-		local name = text(row, club.name .. (if won > 0 then "  " .. string.rep("★", math.min(won, 5)) else ""), 12, TEXT, Enum.Font.GothamBold, true)
-		name.Size = UDim2.fromOffset(width * 0.5 - 84, LINE - 4)
-		name.Position = UDim2.fromOffset(78, 0)
-		name.TextXAlignment = Enum.TextXAlignment.Left
-		local values = { entry.p, entry.w, entry.d, entry.l, entry.gf .. ":" .. entry.ga, entry.pts }
-		for k, column in columns do
-			local v = text(row, tostring(values[k]), 12, if k == #columns then GOLD else TEXT, if k == #columns then Enum.Font.GothamBlack else Enum.Font.Gotham)
+		local nameX = 44 + HALF * 3 + CREST
+		local name = text(line, club.name .. (if won > 0 then "  " .. string.rep("★", math.min(won, 5)) else ""), "normal", false, nameX, 0, left - nameX - HALF, ROW, Enum.TextXAlignment.Left, true)
+		name.Font = Enum.Font.GothamBlack
+		local values: { [string]: any } = { played = entry.p, won = entry.w, drawn = entry.d, lost = entry.l, goals = entry.gf .. ":" .. entry.ga, points = entry.pts }
+		for k, key in names do
+			local v = text(line, tostring(values[key]), "normal", key ~= "points", left + (k - 1) * COLUMN, 0, COLUMN, ROW)
 			v.AutoLocalize = false
-			v.Size = UDim2.fromOffset(44, LINE - 4)
-			v.Position = UDim2.fromOffset(width * column[2] - 22, 0)
+			if key == "points" then
+				v.Font = Enum.Font.GothamBlack
+			end
 		end
 	end
-	return 18 + #rows * LINE
+	return U.small + 6 + HALF + #rows * STEP
 end
 
--- One match on a line: home  score  away.
-local function matchLine(y: number, fixture: any, result: any, head: string?, width: number?, x: number?): number
-	local w = width or (WIDTH - 40)
-	local left = x or 4
-	local row = frame(page, ROW, UDim2.fromOffset(w, 30), UDim2.fromOffset(left, y), 0.45)
-	corner(row, 6)
-	if fixture.home == myClub() or fixture.away == myClub() then
-		local edge = Instance.new("UIStroke")
-		edge.Color = GOLD
-		edge.Thickness = 1.5
-		edge.Parent = row
-		row.BackgroundTransparency = 0
-	end
-	local headWidth = if head then 150 else 0
+-- One match on a line: (what it is)  home  score  away.
+local function matchLine(y: number, fixture: any, result: any, head: string?): number
+	local mine = fixture.home == myClub() or fixture.away == myClub()
+	local line = row(page, 0, y, PAGE, ROW, mine, (Config.Clubs :: any)[myClub() or ""])
+	local headWidth = if head then 240 else 0
 	if head then
-		local h = text(row, head, 11, MUTED, Enum.Font.GothamBlack)
-		h.Size = UDim2.fromOffset(headWidth - 10, 30)
-		h.Position = UDim2.fromOffset(8, 0)
-		h.TextXAlignment = Enum.TextXAlignment.Left
+		text(line, head, "small", true, U.gap, 0, headWidth - U.gap, ROW, Enum.TextXAlignment.Left)
 	end
-	local centre = headWidth + (w - headWidth) / 2
-	local side = (w - headWidth) / 2 - 34
-	clubCell(row, fixture.home, centre - 34, 30, true, side)
-	clubCell(row, fixture.away, centre + 34, 30, false, side)
+	local centre = headWidth + (PAGE - headWidth) / 2
+	local side = (PAGE - headWidth) / 2 - 60 - HALF
+	clubCell(line, fixture.home, centre - 60, ROW, true, side)
+	clubCell(line, fixture.away, centre + 60, ROW, false, side)
 	local score = if result then result.h .. " - " .. result.a else "v"
-	local s = text(row, score, 13, if result then GOLD else MUTED, Enum.Font.GothamBlack)
+	local s = text(line, score, "normal", result == nil, centre - 50, 0, 100, ROW)
+	s.Font = Enum.Font.GothamBlack
 	s.AutoLocalize = false
-	s.Size = UDim2.fromOffset(60, 30)
-	s.Position = UDim2.fromOffset(centre - 30, 0)
-	return y + 34
+	return y + STEP
 end
 
 --------------------------------------------------------------------------------
 -- The tabs
 --------------------------------------------------------------------------------
 
+-- The next 24 hours, slot by slot. (When MY club plays is on top of the menu, big.)
 local function drawSchedule(state: Calendar.State)
 	-- From the match on now (or, in the break, the one about to start).
 	local first = Schedule.at(Schedule.gameTime()).slot
 	if Schedule.at(Schedule.gameTime()).night then
 		first = Schedule.slotOf(Schedule.gameTime())
 	end
-	local y = section(0, T.scheduleNote)
+	local y = 0
 	local nightOpen = false
+	local TIME, KIND = 120, 280
 	for _, entry in plan(state, first, math.floor(24 * 3600 / Schedule.SLOT)) do
 		local start = Schedule.slotStart(entry.slot)
 		if entry.night then
 			-- The whole night is one line.
 			if not nightOpen then
 				nightOpen = true
-				local row = frame(page, Color3.fromRGB(12, 14, 22), UDim2.fromOffset(WIDTH - 40, 30), UDim2.fromOffset(4, y), 0.2)
-				corner(row, 6)
-				local l = text(row, string.format(T.night, Schedule.clock(start), string.format("%02d:00", Config.Schedule.firstHour)), 12, MUTED, Enum.Font.GothamBold)
-				l.Size = UDim2.fromScale(1, 1)
-				y += 34
+				local line = row(page, 0, y, PAGE, ROW, false)
+				text(line, string.format(T.night, Schedule.clock(start), string.format("%02d:00", Config.Schedule.firstHour)), "small", true, U.gap, 0, PAGE - U.gap * 2, ROW)
+				y += STEP
 			end
 			continue
 		end
 		nightOpen = false
 		local fixture = entry.fixture
-		local isNow = entry.slot == first
-		local row = frame(page, ROW, UDim2.fromOffset(WIDTH - 40, 30), UDim2.fromOffset(4, y), 0.45)
-		corner(row, 6)
 		local involved = fixture ~= nil and (fixture.home == myClub() or fixture.away == myClub())
-		if involved then
-			local edge = Instance.new("UIStroke")
-			edge.Color = GOLD
-			edge.Thickness = 1.5
-			edge.Parent = row
-			row.BackgroundTransparency = 0
-		end
-		local time = text(row, Schedule.clock(start), 13, if isNow then GOLD else TEXT, Enum.Font.GothamBlack)
+		local line = row(page, 0, y, PAGE, ROW, involved, (Config.Clubs :: any)[myClub() or ""])
+		local time = text(line, Schedule.clock(start), "normal", false, U.gap, 0, TIME - U.gap, ROW, Enum.TextXAlignment.Left)
+		time.Font = Enum.Font.GothamBlack
 		time.AutoLocalize = false
-		time.Size = UDim2.fromOffset(50, 30)
-		time.Position = UDim2.fromOffset(6, 0)
 		if not fixture then
-			local l = text(row, T.openSlot, 12, MUTED, Enum.Font.Gotham)
-			l.Size = UDim2.fromOffset(WIDTH - 120, 30)
-			l.Position = UDim2.fromOffset(60, 0)
+			text(line, T.openSlot, "small", true, TIME, 0, PAGE - TIME - U.gap, ROW)
 		else
 			local derby = Calendar.isDerby(fixture.home, fixture.away)
-			local comp = text(row, compText(fixture) .. (if derby then "  ·  " .. T.derby else ""), 10, if derby then GOLD else MUTED, Enum.Font.GothamBlack)
-			comp.Size = UDim2.fromOffset(170, 30)
-			comp.Position = UDim2.fromOffset(58, 0)
-			comp.TextXAlignment = Enum.TextXAlignment.Left
-			local centre = 230 + (WIDTH - 40 - 230) / 2
-			clubCell(row, fixture.home, centre - 20, 30, true, 220)
-			clubCell(row, fixture.away, centre + 20, 30, false, 220)
-			local v = text(row, "v", 12, MUTED, Enum.Font.GothamBlack)
-			v.AutoLocalize = false
-			v.Size = UDim2.fromOffset(20, 30)
-			v.Position = UDim2.fromOffset(centre - 10, 0)
+			text(line, compText(fixture) .. (if derby then "  ·  " .. T.derby else ""), "small", not derby, PAGE - KIND - U.gap, 0, KIND, ROW, Enum.TextXAlignment.Right)
+			local centre = TIME + (PAGE - TIME - KIND - U.gap) / 2
+			local side = (PAGE - TIME - KIND - U.gap) / 2 - 30 - HALF
+			clubCell(line, fixture.home, centre - 30, ROW, true, side)
+			clubCell(line, fixture.away, centre + 30, ROW, false, side)
+			text(line, "v", "small", true, centre - 20, 0, 40, ROW).AutoLocalize = false
 		end
-		y += 34
+		y += STEP
 	end
 end
 
@@ -375,23 +405,20 @@ local function drawLeague(state: Calendar.State)
 	local ends = Schedule.weekStart(state.week) + 6 * 24 * 3600
 	local days = math.ceil((ends - Schedule.gameTime()) / 86400)
 	local y = section(0, if days > 1 then string.format(T.daysLeft, days) elseif days == 1 then T.lastDay else T.over)
-	drawTable(Calendar.leagueTable(state), 4, y, WIDTH - 40, won)
+	drawTable(Calendar.leagueTable(state), 0, y, PAGE, won)
 end
 
 local function drawCup(state: Calendar.State)
 	local tables = Calendar.groupTables(state)
-	local half = (WIDTH - 52) / 2
+	local half = (PAGE - U.gap) / 2
 	local y = 0
 	local used = 0
 	for i, name in { "A", "B" } do
-		local x = 4 + (i - 1) * (half + 12)
-		local head = text(page, string.format(T.group, name), 12, MUTED, Enum.Font.GothamBlack)
-		head.Size = UDim2.fromOffset(half, 20)
-		head.Position = UDim2.fromOffset(x, y)
-		head.TextXAlignment = Enum.TextXAlignment.Left
-		used = math.max(used, drawTable(tables[name], x, y + 22, half, nil, 2))
+		local x = (i - 1) * (half + U.gap)
+		text(page, string.format(T.group, name), "small", true, x, y, half, U.small + 6, Enum.TextXAlignment.Left)
+		used = math.max(used, drawTable(tables[name], x, y + U.small + 6, half, nil, 2))
 	end
-	y = y + 22 + used + 10
+	y = y + U.small + 6 + used + U.gap
 	y = section(y, T.knockout)
 	local semis = Calendar.semis(state)
 	for i, fixture in semis do
@@ -401,23 +428,22 @@ local function drawCup(state: Calendar.State)
 	if final then
 		y = matchLine(y, final, state.results.F, T.final)
 	else
-		local l = text(page, T.finalWait, 12, MUTED, Enum.Font.Gotham)
-		l.Size = UDim2.fromOffset(WIDTH - 40, 26)
-		l.Position = UDim2.fromOffset(4, y)
+		text(page, T.finalWait, "small", true, 0, y, PAGE, ROW)
 	end
 end
 
 local function drawSupercup(state: Calendar.State)
 	local at = Schedule.weekStart(state.week) + 6 * 24 * 3600 + (Config.Competitions.superHour - Config.Schedule.firstHour) * 3600
 	local left = at - Schedule.gameTime()
-	local y = section(0, if left > 0 then string.format(T.superIn, Schedule.countdown(left)) else T.superPlayed)
+	local head = text(page, if left > 0 then string.format(T.superIn, Schedule.countdown(left)) else T.superPlayed, "title", false, 0, 0, PAGE, U.title + 6, Enum.TextXAlignment.Left)
+	head.AutoLocalize = false
+	local y = U.title + 6 + U.gap
 	local fixture = Calendar.supercup(state)
 	if fixture then
 		y = matchLine(y, fixture, state.results.S, if state.super then T.superSet else T.superAsItStands)
 	end
-	local note = text(page, T.superNote, 12, MUTED, Enum.Font.Gotham)
-	note.Size = UDim2.fromOffset(WIDTH - 40, 40)
-	note.Position = UDim2.fromOffset(4, y + 6)
+	local note = text(page, T.superNote, "small", true, 0, y + HALF, PAGE, (U.small + 6) * 2, Enum.TextXAlignment.Left)
+	note.TextScaled = false
 	note.TextWrapped = true
 end
 
@@ -427,14 +453,11 @@ local function drawHonour(state: Calendar.State)
 	local byCompetition = if type(data.months) == "table" and type(data.months[month]) == "table" then data.months[month] else {}
 	local y = section(0, T.honourMonth)
 	local total: { [string]: number } = {}
-	local third = (WIDTH - 64) / 3
+	local third = (PAGE - U.gap * 2) / 3
 	local lists = { { "liga", T.honourLeague }, { "taca", T.honourCup }, { "supertaca", T.honourSuper } }
 	local tallest = 0
-	local function list(x: number, top: number, head: string, counts: { [string]: number }): number
-		local h = text(page, head, 11, GOLD, Enum.Font.GothamBlack)
-		h.Size = UDim2.fromOffset(third, 20)
-		h.Position = UDim2.fromOffset(x, top)
-		h.TextXAlignment = Enum.TextXAlignment.Left
+	local function list(x: number, top: number, head: string, counts: { [string]: number }, width: number): number
+		text(page, head, "small", false, x, top, width, U.small + 6, Enum.TextXAlignment.Left)
 		local order = {}
 		for clubId, n in counts do
 			if (Config.Clubs :: any)[clubId] then
@@ -444,24 +467,19 @@ local function drawHonour(state: Calendar.State)
 		table.sort(order, function(a, b)
 			return a[2] > b[2]
 		end)
-		local line = top + 22
+		local line = top + U.small + 6 + HALF
 		if #order == 0 then
-			local none = text(page, T.honourNone, 11, MUTED, Enum.Font.Gotham)
-			none.Size = UDim2.fromOffset(third, 20)
-			none.Position = UDim2.fromOffset(x, line)
-			none.TextXAlignment = Enum.TextXAlignment.Left
-			return 44
+			text(page, T.honourNone, "small", true, x, line, width, U.small + 6, Enum.TextXAlignment.Left)
+			return (U.small + 6) * 2 + HALF
 		end
 		for i, entry in order do
-			local row = frame(page, ROW, UDim2.fromOffset(third, 26), UDim2.fromOffset(x, line), if entry[1] == myClub() then 0 else 0.45)
-			corner(row, 6)
-			clubCell(row, entry[1], 4, 26, false, third - 40)
-			local n = text(row, tostring(entry[2]), 13, GOLD, Enum.Font.GothamBlack)
+			local r = row(page, x, line, width, ROW, entry[1] == myClub(), (Config.Clubs :: any)[entry[1]])
+			clubCell(r, entry[1], HALF, ROW, false, width - 70)
+			local n = text(r, tostring(entry[2]), "normal", false, width - 60, 0, 50, ROW)
+			n.Font = Enum.Font.GothamBlack
 			n.AutoLocalize = false
-			n.Size = UDim2.fromOffset(30, 26)
-			n.Position = UDim2.fromOffset(third - 34, 0)
-			line += 30
-			if i >= 6 then
+			line += STEP
+			if i >= 5 then
 				break
 			end
 		end
@@ -472,10 +490,10 @@ local function drawHonour(state: Calendar.State)
 		for clubId, n in counts do
 			total[clubId] = (total[clubId] or 0) + n
 		end
-		tallest = math.max(tallest, list(4 + (i - 1) * (third + 12), y, entry[2] :: string, counts))
+		tallest = math.max(tallest, list((i - 1) * (third + U.gap), y, entry[2] :: string, counts, third))
 	end
-	y += tallest + 12
-	list(4, y, T.honourOverall, total)
+	y += tallest + U.gap
+	list(0, y, T.honourOverall, total, PAGE)
 end
 
 local DRAW: { [string]: (Calendar.State) -> () } = {
@@ -487,31 +505,38 @@ local DRAW: { [string]: (Calendar.State) -> () } = {
 }
 
 local function draw()
+	measure()
 	for _, child in page:GetChildren() do
-		child:Destroy()
+		if not child:IsA("UIPadding") then
+			child:Destroy()
+		end
 	end
 	page.CanvasPosition = Vector2.zero
-	for name, b in tabButtons do
-		b.BackgroundColor3 = if name == current then GOLD else Color3.fromRGB(58, 62, 72)
-		b.TextColor3 = if name == current then PANEL else TEXT
+	local clubId = myClub()
+	local club = clubId and (Config.Clubs :: any)[clubId]
+	-- The tab that is open: a line round it (in my club's colour, if I have one).
+	for name, line in tabLines do
+		line.Enabled = name == current
+		line.Color = if club then club.color else U.text
+		tabButtons[name].BackgroundColor3 = if name == current then MINE else U.panel
 	end
 	local state = season()
 	if not state then
 		return
 	end
 	-- When my club plays next (from the plan of the next 24 hours).
-	local clubId = myClub()
-	local club = clubId and (Config.Clubs :: any)[clubId]
-	mine.Text = ""
+	answerCrest:ClearAllChildren()
+	answerWords.Text = ""
 	if club then
-		mine.Text = string.format(T.noMatch, club.nameUpper)
+		Emblem.draw(answerCrest, club, { year = false })
+		answerWords.Text = string.format(T.noMatch, club.nameUpper)
 		local game = Schedule.gameTime()
 		local first = if Schedule.at(game).night then Schedule.slotOf(game) else Schedule.at(game).slot
 		for _, entry in plan(state, first, math.floor(24 * 3600 / Schedule.SLOT)) do
 			local fixture = entry.fixture
 			local over = Schedule.slotStart(entry.slot) + Schedule.MATCH < game
 			if fixture and not over and (fixture.home == clubId or fixture.away == clubId) then
-				mine.Text = string.format(T.yourClub, Schedule.clock(Schedule.slotStart(entry.slot)), compText(fixture))
+				answerWords.Text = string.format(T.yourClub, Schedule.clock(Schedule.slotStart(entry.slot)), compText(fixture))
 				break
 			end
 		end
@@ -519,10 +544,11 @@ local function draw()
 	DRAW[current](state)
 end
 
-for i, name in TABS do
-	local b = button(panel, (T :: any)[name], UDim2.fromOffset(144, 30), UDim2.fromOffset(12 + (i - 1) * 150, 44))
+for _, name in TABS do
+	local b = UI.button(panel, (T :: any)[name])
 	b.Name = "Tab_" .. name
 	tabButtons[name] = b
+	tabLines[name] = UI.outline(b, U.text)
 	b.Activated:Connect(function()
 		current = name
 		draw()
@@ -530,21 +556,30 @@ for i, name in TABS do
 end
 
 open.Activated:Connect(function()
-	panel.Visible = not panel.Visible
-	if panel.Visible then
+	screen.Enabled = not screen.Enabled
+	panel.Visible = screen.Enabled
+	if screen.Enabled then
 		draw()
 	end
 end)
 close.Activated:Connect(function()
+	screen.Enabled = false
 	panel.Visible = false
 end)
 workspace:GetAttributeChangedSignal("Epoca"):Connect(function()
-	if panel.Visible then
+	if screen.Enabled then
 		draw()
 	end
 end)
 workspace:GetAttributeChangedSignal("Jogo"):Connect(function()
-	if panel.Visible and current == "schedule" then
+	if screen.Enabled and current == "schedule" then
 		draw()
 	end
 end)
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		if screen.Enabled then
+			task.defer(draw)
+		end
+	end)
+end

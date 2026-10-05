@@ -24,7 +24,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- The screens that take the selection when they are open: the gui, and the frame to look at.
 local SCREENS = {
 	{ "UltrasEscolha", "Escolha" }, -- the club and role menu
-	{ "UltrasLiga", "Painel" },
+	{ "UltrasMenu", "Painel" },
 	{ "UltrasAdmin", "Bar" },
 }
 
