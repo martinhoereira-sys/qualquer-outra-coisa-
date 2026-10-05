@@ -201,9 +201,8 @@ local function award(competition: string, week: number, club: string)
 		update("titles", function(old)
 			local t = cleanTitles(old)
 			local changed = apply(t)
-			if changed then
-				titles = changed
-			end
+			-- (Already given by another server: what it wrote is what counts here too.)
+			titles = changed or t
 			return changed
 		end)
 	end
@@ -504,6 +503,26 @@ function Competition.record(homeGoals: number, awayGoals: number, penalties: str
 		end
 	end
 	publish()
+end
+
+--[[
+	SATURDAY NIGHT, the last official match over: the league closes and has a
+	champion, whoever is on top at this moment. Every server calls this at the
+	same time; it reads what the others have just written, and the title is
+	given once (the first server to get there writes it, the others read it),
+	so every server celebrates the same club. Returns the champion (nil if no
+	league match was played this week).
+]]
+function Competition.closeLeague(): string?
+	refresh()
+	if not Calendar.leaguePlayed(season) then
+		return nil
+	end
+	local week = season.week
+	award("liga", week, Calendar.leagueTable(season)[1].club)
+	local given = titles.awarded["liga:" .. week]
+	publish()
+	return if type(given) == "string" then given else nil
 end
 
 -- Is the match on now one that cannot end level (semi-final, final, supercup)?

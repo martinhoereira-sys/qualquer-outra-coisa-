@@ -844,7 +844,6 @@ MatchLoop.onChange(function(snapshot)
 				if Competition.knockout() and snapshot.score.home == snapshot.score.away then
 					penalties = shootOut()
 				end
-				local leagueMatch = now.fixture.kind == "liga"
 				local fixture = now.fixture
 				Competition.record(snapshot.score.home, snapshot.score.away, penalties)
 				-- The cup final and the supercup end with a trophy.
@@ -854,20 +853,30 @@ MatchLoop.onChange(function(snapshot)
 						ceremony(if fixture.id == "F" then "taca" else "supertaca", winner)
 					end
 				end
-				-- Champions: with the league all played, the claque of the club on top may invade.
-				if leagueMatch then
-					local state = Competition.state()
-					if Calendar.leagueOver(state) then
-						local champion = Calendar.leagueTable(state)[1].club
-						ceremony("liga", champion)
-						for _, teamId in Config.TeamOrder do
-							if Config.Teams[teamId].club == champion then
-								offerInvasion(teamId)
-							end
+			end
+		end
+		--[[
+			SATURDAY NIGHT: the last official match of the week has just ended.
+			The league closes there, in every server at the same moment, and
+			there is a CHAMPION: the trophy on the pitch, the captain lifting it,
+			confetti, and the champion's claque may invade the pitch if its capo
+			wants. (In "tudoConta" nothing has to be "all played": whoever is in
+			front at this moment wins.)
+		]]
+		if Calendar.closesLeague(snapshot.slot) then
+			local last = Competition.playing()
+			local wait = if last and last.fixture.id == "F" then Config.Trophy.seconds else Config.Competitions.closeWait
+			task.delay(wait, function()
+				local champion = Competition.closeLeague()
+				if champion then
+					ceremony("liga", champion)
+					for _, teamId in Config.TeamOrder do
+						if Config.Teams[teamId].club == champion then
+							offerInvasion(teamId)
 						end
 					end
 				end
-			end
+			end)
 		end
 		local winner = MatchLoop.winner()
 		for _, teamId in Config.TeamOrder do

@@ -565,6 +565,11 @@ local function leagueDue(w: Window, state: State): { Fixture }
 	return list
 end
 
+-- Is `slot` the last official one of Saturday? When its match ends, the league closes.
+function Calendar.closesLeague(slot: number): boolean
+	return Schedule.isOfficial(slot) and not Schedule.isOfficial(slot + 1) and Schedule.weekday(Schedule.slotStart(slot)) == 5
+end
+
 --[[
 	Is `slot` a league slot of "tudoConta"? (There the league has no list of
 	matches: the server plays whoever brings most people.) A cup slot with

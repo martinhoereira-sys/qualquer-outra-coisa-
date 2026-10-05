@@ -928,6 +928,7 @@ Config.Competitions = {
 	penalty = 0.75,
 	store = "UltrasFC_Epoca_v1",
 	refreshSeconds = 60,
+	closeWait = 4, -- seconds after the last match of Saturday before the champion is read (the other servers are writing their results)
 }
 
 --[[
