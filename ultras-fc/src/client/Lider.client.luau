@@ -19,6 +19,8 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local TXT = Config.Text.liderHud
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 local Plan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
+local UI = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UI"))
+local Schedule = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Schedule"))
 
 local L = Config.Lider
 local me = Players.LocalPlayer
@@ -34,6 +36,7 @@ gui.Name = "Lider"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = me:WaitForChild("PlayerGui")
+UI.scale(gui, true)
 
 local function corner(parent: Instance, r: number)
 	local c = Instance.new("UICorner")
@@ -203,157 +206,152 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --------------------------------------------------------------------------------
--- O painel do lider
+-- The capo's panel
 --------------------------------------------------------------------------------
 
-local toggle = button(gui, TXT.orders, Color3.fromRGB(200, 60, 50))
-toggle.AnchorPoint = Vector2.new(1, 0.5)
-toggle.Position = UDim2.new(1, -14, 0.5, -170)
-toggle.Size = UDim2.fromOffset(150, 44)
-toggle.TextSize = 16
+--[[
+	One button on the right edge, under the clock, opens it. Inside, three
+	sections, ONE at a time:
+
+	  SING     the chants of my club
+	  GIVE     gear to someone in the curva
+	  ORDERS   the seven orders, by the moment they are for:
+	             BEFORE THE MATCH   form up · march · uniform
+	             DURING THE MATCH   jump · arms · crouch · light up
+	           The moment it is now comes first.
+]]
+local U = Config.UI
+local HALF = U.gap / 2
+local PANEL_W = 460
+local TOGGLE_W = 200
+
+local toggle = UI.button(gui, TXT.orders)
+toggle.Name = "Abrir"
+toggle.AnchorPoint = Vector2.new(1, 0)
+toggle.Position = UDim2.new(1, -U.gap, 0, HALF + U.button + HALF)
+toggle.Size = UDim2.fromOffset(TOGGLE_W, U.button)
 toggle.Visible = false
+local toggleLine = UI.outline(toggle, U.text)
 
 local panel = Instance.new("Frame")
 panel.Name = "Ordens"
-panel.AnchorPoint = Vector2.new(1, 0.5)
-panel.Position = UDim2.new(1, -14, 0.5, 62)
-panel.Size = UDim2.fromOffset(300, 404)
-panel.BackgroundColor3 = BG
-panel.BackgroundTransparency = 0.05
+panel.BackgroundColor3 = U.ground
+panel.BackgroundTransparency = U.groundTransparency
+panel.BorderSizePixel = 0
+panel.AnchorPoint = Vector2.new(1, 0)
+panel.Position = UDim2.new(1, -(U.gap + TOGGLE_W + HALF), 0, HALF + U.button + HALF)
+panel.Size = UDim2.fromOffset(PANEL_W + U.gap * 2, 0)
+panel.AutomaticSize = Enum.AutomaticSize.Y
 panel.Visible = false
 panel.Parent = gui
-corner(panel, 14)
+UI.corner(panel)
+local panelPad = Instance.new("UIPadding")
+panelPad.PaddingLeft = UDim.new(0, U.gap)
+panelPad.PaddingRight = UDim.new(0, U.gap)
+panelPad.PaddingTop = UDim.new(0, U.gap)
+panelPad.PaddingBottom = UDim.new(0, U.gap)
+panelPad.Parent = panel
 
-local header = label(panel, TXT.capoYourOrders, 16, GOLD)
-header.Font = Enum.Font.GothamBlack
-header.Position = UDim2.fromOffset(14, 8)
-header.Size = UDim2.new(1, -28, 0, 22)
-header.TextXAlignment = Enum.TextXAlignment.Left
+local SECTIONS = { "sing", "give", "command" }
+local tabs: { [string]: TextButton } = {}
+local tabLines: { [string]: UIStroke } = {}
+local body = Instance.new("Frame")
+body.Name = "Seccao"
+body.BackgroundTransparency = 1
+body.Position = UDim2.fromOffset(0, U.button + U.gap)
+body.Size = UDim2.fromOffset(PANEL_W, 0)
+body.AutomaticSize = Enum.AutomaticSize.Y
+body.Parent = panel
 
-local sub = label(panel, TXT.nobodyIsForcedTheUltras, 12, MUTED)
-sub.Position = UDim2.fromOffset(14, 30)
-sub.Size = UDim2.new(1, -28, 0, 30)
-sub.TextXAlignment = Enum.TextXAlignment.Left
-sub.TextYAlignment = Enum.TextYAlignment.Top
+local section = "command"
+local budgetText = "?"
+local giveInfo: TextLabel? = nil
+local chosenTarget: Player? = nil
 
-local grid = Instance.new("Frame")
-grid.BackgroundTransparency = 1
-grid.Position = UDim2.fromOffset(12, 64)
-grid.Size = UDim2.new(1, -24, 0, 330)
-grid.Parent = panel
-local layout = Instance.new("UIGridLayout")
-layout.CellSize = UDim2.new(0.5, -5, 0, 56)
-layout.CellPadding = UDim2.fromOffset(10, 8)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = grid
-
--- As duas listas que se abrem (musica e dar material), no lugar das ordens.
-local subPanel = Instance.new("Frame")
-subPanel.BackgroundTransparency = 1
-subPanel.Position = UDim2.fromOffset(12, 64)
-subPanel.Size = UDim2.new(1, -24, 1, -76)
-subPanel.Visible = false
-subPanel.Parent = panel
-
-local function clearSub()
-	for _, child in subPanel:GetChildren() do
-		child:Destroy()
-	end
+local function small(parent: Instance, text: string, y: number, lines: number): TextLabel
+	local l = UI.label(parent, text, "small", true)
+	l.TextXAlignment = Enum.TextXAlignment.Left
+	l.TextYAlignment = Enum.TextYAlignment.Top
+	l.TextWrapped = true
+	l.Position = UDim2.fromOffset(0, y)
+	l.Size = UDim2.new(1, 0, 0, lines * (U.small + 6))
+	return l
 end
 
-local function showOrders()
-	subPanel.Visible = false
-	grid.Visible = true
-	clearSub()
-end
-
-local function backButton()
-	local back = button(subPanel, TXT.back, CARD)
-	back.Size = UDim2.new(1, 0, 0, 30)
-	back.TextSize = 13
-	back.Activated:Connect(showOrders)
-end
-
-local function showMusic()
-	grid.Visible = false
-	clearSub()
-	subPanel.Visible = true
-	backButton()
-	local list = Instance.new("UIListLayout")
-	list.Padding = UDim.new(0, 6)
-	list.Parent = subPanel
-	-- The chants of my club, and only those. None: the list is empty.
+-- SING: the chants of my club, and only those.
+local function drawSing()
 	local myTeam = Config.Teams[me:GetAttribute("Team") or ""]
 	local songs = Config.chantsOf(myTeam and myTeam.club)
+	local y = 0
 	if #songs == 0 then
-		local none = label(subPanel, TXT.noChants, 13, MUTED)
-		none.Name = "SemCanticos"
-		none.Size = UDim2.new(1, 0, 0, 36)
-		none.LayoutOrder = 1
+		small(body, TXT.noChants, 0, 1).Name = "SemCanticos"
+		y = U.small + 6 + HALF
 	end
 	for i, song in songs do
-		local b = button(subPanel, "♪ " .. song.name, Color3.fromRGB(120, 70, 200))
-		b.Size = UDim2.new(1, 0, 0, 36)
-		b.LayoutOrder = i
+		local b = UI.button(body, song.name, "♪")
+		b.Name = "Cantico_" .. i
+		b.AutoLocalize = false
+		b.Position = UDim2.fromOffset(0, y)
+		local word = b:FindFirstChild("Palavra") :: TextLabel?
+		if word then
+			word.TextXAlignment = Enum.TextXAlignment.Left
+		end
 		b.Activated:Connect(function()
 			Remotes.Lider:FireServer("musica", i)
 		end)
+		y += U.button + HALF
 	end
-	local stop = button(subPanel, TXT.stop, Color3.fromRGB(90, 90, 100))
-	stop.Size = UDim2.new(1, 0, 0, 32)
-	stop.LayoutOrder = 99
+	local stop = UI.button(body, TXT.stop)
+	stop.Name = "Parar"
+	stop.Position = UDim2.fromOffset(0, y)
 	stop.Activated:Connect(function()
 		Remotes.Lider:FireServer("musica", 0)
 	end)
 end
 
-local budgetText = "?"
-local giveInfo: TextLabel? = nil
-local chosenTarget: Player? = nil
-
+-- GIVE: who, then what.
 local ITEM_LABEL = { tocha = TXT.flare, fumo = TXT.smoke, bandeira = TXT.flag, faixa = TXT.banner, mastro = TXT.poleFlagOnly1 }
-
-local function showGive()
-	grid.Visible = false
-	clearSub()
-	subPanel.Visible = true
-	backButton()
-
-	local info = label(subPanel, TXT.youCanGive .. budgetText .. TXT.thisMatchPickThePerson, 12, MUTED)
+local function drawGive()
+	Remotes.Lider:FireServer("pedir")
+	local info = small(body, TXT.youCanGive .. budgetText .. TXT.thisMatchPickThePerson, 0, 2)
 	giveInfo = info
-	info.Position = UDim2.fromOffset(0, 34)
-	info.Size = UDim2.new(1, 0, 0, 30)
-	info.TextXAlignment = Enum.TextXAlignment.Left
+	local y = (U.small + 6) * 2 + HALF
 
 	local people = Instance.new("ScrollingFrame")
-	people.BackgroundColor3 = CARD
+	people.Name = "Pessoas"
+	people.BackgroundTransparency = 1
 	people.BorderSizePixel = 0
-	people.Position = UDim2.fromOffset(0, 66)
-	people.Size = UDim2.new(1, 0, 0, 116)
+	people.Position = UDim2.fromOffset(0, y)
+	people.Size = UDim2.new(1, 0, 0, U.row * 2 + HALF + U.line * 2)
 	people.CanvasSize = UDim2.new()
 	people.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	people.ScrollBarThickness = 6
-	people.Parent = subPanel
-	corner(people, 8)
+	people.ScrollBarThickness = U.line
+	people.Parent = body
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, U.line)
+	pad.PaddingLeft = UDim.new(0, U.line)
+	pad.PaddingRight = UDim.new(0, U.line + 4)
+	pad.Parent = people
 	local list = Instance.new("UIListLayout")
-	list.Padding = UDim.new(0, 4)
+	list.Padding = UDim.new(0, HALF)
 	list.Parent = people
+	y += U.row * 2 + HALF + U.line * 2 + U.gap
 
-	local rows: { [Player]: TextButton } = {}
+	local lines: { [Player]: UIStroke } = {}
 	local function paint()
-		for player, row in rows do
-			row.BackgroundColor3 = if player == chosenTarget then teamColour() else Color3.fromRGB(48, 52, 66)
+		for player, line in lines do
+			line.Enabled = player == chosenTarget
 		end
 	end
 	local anyone = false
 	for _, player in Players:GetPlayers() do
-		-- O proprio lider tambem aparece: pode ficar ele com a bandeira do mastro.
+		-- The capo is in the list too: the pole flag can stay with him.
 		if player:GetAttribute("Team") == me:GetAttribute("Team") then
 			anyone = true
-			local row = button(people, if player == me then TXT.meCapo else player.DisplayName, Color3.fromRGB(48, 52, 66))
-			row.Size = UDim2.new(1, -8, 0, 28)
-			row.TextSize = 13
-			rows[player] = row
+			local row = UI.button(people, if player == me then TXT.meCapo else player.DisplayName)
+			row.AutoLocalize = player == me
+			row.Size = UDim2.new(1, 0, 0, U.row)
+			lines[player] = UI.outline(row, teamColour())
 			row.Activated:Connect(function()
 				chosenTarget = player
 				paint()
@@ -361,23 +359,16 @@ local function showGive()
 		end
 	end
 	if not anyone then
-		local none = label(people, TXT.nobodyElseInTheUltras, 13, MUTED)
-		none.Size = UDim2.new(1, 0, 0, 40)
+		small(people, TXT.nobodyElseInTheUltras, 0, 1)
 	end
 	paint()
 
-	local items = Instance.new("Frame")
-	items.BackgroundTransparency = 1
-	items.Position = UDim2.fromOffset(0, 188)
-	items.Size = UDim2.new(1, 0, 0, 76)
-	items.Parent = subPanel
-	local itemGrid = Instance.new("UIGridLayout")
-	itemGrid.CellSize = UDim2.new(0.5, -4, 0, 34)
-	itemGrid.CellPadding = UDim2.fromOffset(8, 6)
-	itemGrid.Parent = items
-	for _, kind in L.giveKinds do
-		local b = button(items, ITEM_LABEL[kind] or kind, Color3.fromRGB(210, 120, 40))
-		b.TextSize = 14
+	for i, kind in L.giveKinds do
+		local b = UI.button(body, ITEM_LABEL[kind] or kind)
+		b.Name = "Dar_" .. kind
+		local column, line = (i - 1) % 2, (i - 1) // 2
+		b.Position = UDim2.new(column * 0.5, column * HALF / 2, 0, y + line * (U.button + HALF))
+		b.Size = UDim2.new(0.5, -HALF / 2, 0, U.button)
 		b.Activated:Connect(function()
 			local target = chosenTarget
 			if not target or not target.Parent then
@@ -389,37 +380,72 @@ local function showGive()
 	end
 end
 
-local ORDERS = {
-	{ id = "formar", text = TXT.formUp, colour = Color3.fromRGB(60, 110, 200) },
-	{ id = "marchar", text = TXT.march, colour = Color3.fromRGB(40, 150, 90) },
-	{ id = "saltar", text = TXT.jump, colour = Color3.fromRGB(230, 140, 30) },
-	{ id = "agachar", text = TXT.crouch, colour = Color3.fromRGB(200, 160, 40) },
-	{ id = "bracos", text = TXT.arms, colour = Color3.fromRGB(40, 150, 170) },
-	{ id = "acender", text = TXT.lightUp, colour = Color3.fromRGB(210, 50, 40) },
-	{ id = "musica", text = TXT.music, colour = Color3.fromRGB(120, 70, 200) },
-	{ id = "dar", text = TXT.giveGear, colour = Color3.fromRGB(210, 120, 40) },
-	{ id = "farda", text = TXT.uniform, colour = Color3.fromRGB(50, 50, 60) },
+-- ORDERS: by the moment they are for; the moment it is now comes first.
+local MOMENTS = {
+	{ id = "before", title = TXT.before, orders = { { "formar", TXT.formUp }, { "marchar", TXT.march }, { "farda", TXT.uniform } } },
+	{ id = "during", title = TXT.during, orders = { { "saltar", TXT.jump }, { "bracos", TXT.arms }, { "agachar", TXT.crouch }, { "acender", TXT.lightUp } } },
 }
-
-for i, order in ORDERS do
-	local b = button(grid, order.text, order.colour)
-	b.LayoutOrder = i
-	b.Activated:Connect(function()
-		if order.id == "musica" then
-			showMusic()
-		elseif order.id == "dar" then
-			Remotes.Lider:FireServer("pedir")
-			showGive()
-		else
-			Remotes.Lider:FireServer(order.id)
+local function momentNow(): string
+	local moment = Schedule.at(Schedule.gameTime())
+	return if moment.night or moment.phase == "clubhouse" or moment.phase == "corteo" then "before" else "during"
+end
+local function drawCommand()
+	local now = momentNow()
+	local order = if now == "before" then { MOMENTS[1], MOMENTS[2] } else { MOMENTS[2], MOMENTS[1] }
+	local y = 0
+	for _, moment in order do
+		local head = UI.label(body, moment.title, "small", moment.id ~= now)
+		head.TextXAlignment = Enum.TextXAlignment.Left
+		head.Position = UDim2.fromOffset(0, y)
+		y += U.small + 6 + HALF
+		for i, entry in moment.orders do
+			local b = UI.button(body, entry[2] :: string)
+			b.Name = "Ordem_" .. entry[1]
+			local column, line = (i - 1) % 2, (i - 1) // 2
+			b.Position = UDim2.new(column * 0.5, column * HALF / 2, 0, y + line * (U.button + HALF))
+			b.Size = UDim2.new(0.5, -HALF / 2, 0, U.button)
+			if moment.id == now then
+				UI.outline(b, teamColour())
+			end
+			b.Activated:Connect(function()
+				Remotes.Lider:FireServer(entry[1])
+			end)
 		end
+		y += math.ceil(#moment.orders / 2) * (U.button + HALF) + HALF
+	end
+end
+
+local DRAW = { sing = drawSing, give = drawGive, command = drawCommand }
+
+local function show()
+	body:ClearAllChildren()
+	giveInfo = nil
+	for name, line in tabLines do
+		line.Enabled = name == section
+		line.Color = teamColour()
+	end
+	DRAW[section]()
+end
+
+local TAB_TEXT = { sing = TXT.sing, give = TXT.give, command = TXT.command }
+for i, name in SECTIONS do
+	local b = UI.button(panel, TAB_TEXT[name])
+	b.Name = "Tab_" .. name
+	local width = (PANEL_W - HALF * (#SECTIONS - 1)) / #SECTIONS
+	b.Position = UDim2.fromOffset((i - 1) * (width + HALF), 0)
+	b.Size = UDim2.fromOffset(width, U.button)
+	tabs[name] = b
+	tabLines[name] = UI.outline(b, U.text)
+	b.Activated:Connect(function()
+		section = name
+		show()
 	end)
 end
 
 toggle.Activated:Connect(function()
 	panel.Visible = not panel.Visible
 	if panel.Visible then
-		showOrders()
+		show()
 		Remotes.Lider:FireServer("pedir")
 	end
 end)
@@ -430,7 +456,7 @@ local function refreshLeader()
 	if not leader then
 		panel.Visible = false
 	end
-	toggle.BackgroundColor3 = teamColour()
+	toggleLine.Color = teamColour()
 end
 me:GetAttributeChangedSignal("Leader"):Connect(refreshLeader)
 me:GetAttributeChangedSignal("Team"):Connect(refreshLeader)

@@ -145,6 +145,7 @@ end
 local open = button(gui, TXT.profile, 13, GOLD, BG, 10)
 open.Size = UDim2.fromOffset(110, 28)
 open.Position = UDim2.fromOffset(16, 204)
+open.Name = "Abrir" -- (the HUD takes it into its MENU)
 
 local panel = box(gui, UDim2.fromOffset(820, 500), UDim2.fromScale(0.5, 0.5), BG, 30)
 panel.AnchorPoint = Vector2.new(0.5, 0.5)

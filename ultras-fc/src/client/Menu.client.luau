@@ -80,15 +80,18 @@ screen.IgnoreGuiInset = true
 screen.DisplayOrder = 90
 screen.Enabled = false
 screen.Parent = player:WaitForChild("PlayerGui")
-local scale = UI.scale(screen)
+local scale = UI.scale(screen, false, true)
 
 local ground = Instance.new("Frame")
-ground.Size = UDim2.fromScale(1, 1)
+ground.AnchorPoint = Vector2.new(0.5, 0.5)
+ground.Position = UDim2.fromScale(0.5, 0.5)
+ground.Size = UDim2.fromOffset(W, H)
 ground.BackgroundColor3 = U.ground
 ground.BackgroundTransparency = U.groundTransparency
 ground.BorderSizePixel = 0
 ground.Active = true
 ground.Parent = screen
+UI.corner(ground)
 
 local panel = Instance.new("Frame")
 panel.Name = "Painel"
@@ -176,8 +179,12 @@ local function measure()
 	local camera = workspace.CurrentCamera
 	local wide = if camera then camera.ViewportSize.X / scale.Scale else U.canvas.X
 	W = math.clamp(math.floor(wide), U.canvas.X, U.canvas.X * 1.25)
+	if scale.Scale >= U.panelMaxScale then
+		W = U.canvas.X -- a big screen: a panel in the middle
+	end
 	PAGE = W - EDGE * 2 - U.line * 2 - 6
 	panel.Size = UDim2.fromOffset(W, H)
+	ground.Size = UDim2.fromOffset(W, H)
 	answer.Size = UDim2.fromOffset(W - EDGE * 2 - U.button - U.gap, U.button)
 	close.Position = UDim2.fromOffset(W - EDGE - U.button, 20)
 	local tabW = (W - EDGE * 2 - HALF * (#TABS - 1)) / #TABS

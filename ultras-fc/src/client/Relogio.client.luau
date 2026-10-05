@@ -21,6 +21,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Schedule = require(Shared:WaitForChild("Schedule"))
 local Calendar = require(Shared:WaitForChild("Calendar"))
+local UI = require(Shared:WaitForChild("UI"))
 local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
@@ -36,25 +37,33 @@ gui.Name = "UltrasRelogio"
 gui.ResetOnSpawn = false
 gui.DisplayOrder = 11
 gui.Parent = player:WaitForChild("PlayerGui")
+UI.scale(gui, true)
+local U = Config.UI
 
 local box = Instance.new("Frame")
 box.Name = "Relogio"
-box.AnchorPoint = Vector2.new(0, 0)
-box.Position = UDim2.fromOffset(326, 60)
-box.Size = UDim2.fromOffset(236, 70)
-box.BackgroundColor3 = PANEL
-box.BackgroundTransparency = 0.2
+-- In the top right corner: how long until the next match.
+box.AnchorPoint = Vector2.new(1, 0)
+box.Position = UDim2.new(1, -U.gap, 0, U.gap / 2)
+box.Size = UDim2.fromOffset(380, U.button)
+box.BackgroundColor3 = U.panel
+box.BackgroundTransparency = U.panelTransparency
 box.BorderSizePixel = 0
 box.Parent = gui
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
+corner.CornerRadius = UDim.new(0, U.corner)
 corner.Parent = box
 
 local function label(parent: Instance, size: number, colour: Color3, y: number, font: Enum.Font): TextLabel
 	local l = Instance.new("TextLabel")
 	l.BackgroundTransparency = 1
-	l.Size = UDim2.new(1, -16, 0, size + 6)
-	l.Position = UDim2.fromOffset(8, y)
+	l.Size = UDim2.new(1, -U.gap * 2, 0, size + 4)
+	l.Position = UDim2.fromOffset(U.gap, y)
+	l.TextScaled = true
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = size
+	limit.MinTextSize = 10
+	limit.Parent = l
 	l.Font = font
 	l.TextSize = size
 	l.TextColor3 = colour
@@ -64,44 +73,48 @@ local function label(parent: Instance, size: number, colour: Color3, y: number, 
 	return l
 end
 
-local timeLine = label(box, 13, MUTED, 4, Enum.Font.GothamBold)
-local nextLine = label(box, 15, GOLD, 24, Enum.Font.GothamBlack)
+local nextLine = label(box, U.normal, U.text, 2, Enum.Font.GothamBlack)
+local timeLine = label(box, U.small - 4, U.text, 34, Enum.Font.GothamMedium)
+timeLine.TextTransparency = U.dim
 -- Which competition the match on now is of (and NO FANS when it is played between bots).
-local compLine = label(box, 12, TEXT, 46, Enum.Font.GothamBold)
+local compLine = label(box, U.small - 4, U.text, 58, Enum.Font.GothamMedium)
 
 -- The notice two minutes before a match, and the button for the two clubs.
 local notice = Instance.new("TextLabel")
 notice.Visible = false
-notice.AnchorPoint = Vector2.new(0.5, 0)
-notice.Position = UDim2.new(0.5, 0, 0, 120)
-notice.Size = UDim2.fromOffset(420, 40)
-notice.BackgroundColor3 = PANEL
-notice.BackgroundTransparency = 0.15
+-- Under the clock, on the same edge: the middle of the screen stays free.
+notice.AnchorPoint = Vector2.new(1, 0)
+notice.Position = UDim2.new(1, -U.gap, 0, U.gap / 2 + (U.button + U.gap / 2) * 3)
+notice.Size = UDim2.fromOffset(380, U.small + 16)
+notice.BackgroundColor3 = U.panel
+notice.BackgroundTransparency = U.panelTransparency
 notice.BorderSizePixel = 0
 notice.Font = Enum.Font.GothamBlack
-notice.TextSize = 18
-notice.TextColor3 = GOLD
+notice.TextSize = U.small
+notice.TextColor3 = U.text
 notice.Text = T.notice
 notice.Parent = gui
 local noticeCorner = Instance.new("UICorner")
-noticeCorner.CornerRadius = UDim.new(0, 8)
+noticeCorner.CornerRadius = UDim.new(0, U.corner)
 noticeCorner.Parent = notice
 
 local go = Instance.new("TextButton")
 go.Visible = false
-go.AnchorPoint = Vector2.new(0.5, 0)
-go.Position = UDim2.new(0.5, 0, 0, 168)
-go.Size = UDim2.fromOffset(300, 48)
-go.BackgroundColor3 = Color3.fromRGB(40, 150, 90)
+go.AnchorPoint = Vector2.new(1, 0)
+go.Position = UDim2.new(1, -U.gap, 0, U.gap / 2 + (U.button + U.gap / 2) * 2) -- (under the capo's button)
+go.Size = UDim2.fromOffset(380, U.button)
+go.BackgroundColor3 = U.panel
+go.BackgroundTransparency = 0
 go.BorderSizePixel = 0
 go.Font = Enum.Font.GothamBlack
-go.TextSize = 17
-go.TextColor3 = TEXT
+go.TextSize = U.normal
+go.TextColor3 = U.text
 go.Text = T.go
 go.Parent = gui
 local goCorner = Instance.new("UICorner")
-goCorner.CornerRadius = UDim.new(0, 8)
+goCorner.CornerRadius = UDim.new(0, U.corner)
 goCorner.Parent = go
+UI.outline(go, U.text)
 
 local usedFor = -1 -- the slot the button was already used for
 go.Activated:Connect(function()

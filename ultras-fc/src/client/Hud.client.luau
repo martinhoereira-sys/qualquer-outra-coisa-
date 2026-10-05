@@ -56,7 +56,7 @@ uiScale.Parent = gui
 local function rescale()
 	local camera = workspace.CurrentCamera
 	local size = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-	uiScale.Scale = math.clamp(math.min(size.X / 1280, size.Y / 720), 0.5, 1)
+	uiScale.Scale = math.clamp(math.min(size.X / 1280, size.Y / 720), U.minScale, 1)
 end
 rescale()
 if workspace.CurrentCamera then
@@ -590,6 +590,7 @@ local roleLabel = label(gui, "", 14, MUTED)
 roleLabel.Font = Enum.Font.Gotham
 roleLabel.Size = UDim2.new(1, 0, 0, 20)
 roleLabel.Position = UDim2.new(0, 0, 1, -166)
+roleLabel.Visible = false -- during the match the screen is for the match: who I am is on my profile
 
 local function refreshRole()
 	local role = myRole()
@@ -658,34 +659,16 @@ refreshRole()
 	O jogo acontece com ou sem quem o ve, e toda a gente quer saber como vai.
 	Em cima o resultado e o relogio; em baixo a fase e o que vem a seguir.
 ]]
-local phaseBox = Instance.new("Frame")
-phaseBox.Size = UDim2.fromOffset(300, 70)
-phaseBox.Position = UDim2.fromOffset(16, 60)
-phaseBox.BackgroundColor3 = INK
-phaseBox.BackgroundTransparency = 0.2
-phaseBox.BorderSizePixel = 0
+local phaseBox = UI.panel(gui)
+phaseBox.Name = "Marcador"
+phaseBox.Size = UDim2.fromOffset(440, U.button)
+phaseBox.Position = UDim2.fromOffset(U.gap, 60)
 phaseBox.ZIndex = 5
-phaseBox.Parent = gui
 
-local phaseBoxCorner = Instance.new("UICorner")
-phaseBoxCorner.CornerRadius = UDim.new(0, 8)
-phaseBoxCorner.Parent = phaseBox
-
--- As cores das duas equipas, uma risca de cada lado do marcador.
-for index, teamId in Config.TeamOrder do
-	local stripe = Instance.new("Frame")
-	stripe.Size = UDim2.fromOffset(4, 26)
-	stripe.Position = if index == 1 then UDim2.fromOffset(6, 7) else UDim2.fromOffset(204, 7)
-	stripe.BackgroundColor3 = Config.Teams[teamId].color
-	stripe.BorderSizePixel = 0
-	stripe.ZIndex = 6
-	stripe.Parent = phaseBox
-end
-
-local scoreLabel = label(phaseBox, "", 18, TEXT)
+local scoreLabel = label(phaseBox, "", U.normal, U.text)
 scoreLabel.Font = Enum.Font.GothamBlack
-scoreLabel.Size = UDim2.fromOffset(136, 30)
-scoreLabel.Position = UDim2.fromOffset(40, 5)
+scoreLabel.Size = UDim2.fromOffset(210, U.normal + 6)
+scoreLabel.Position = UDim2.fromOffset(60, 8)
 scoreLabel.ZIndex = 6
 
 -- The two club emblems, either side of the score; redrawn when the derby changes.
@@ -694,8 +677,8 @@ for index, teamId in Config.TeamOrder do
 	local crest = Instance.new("Frame")
 	crest.Name = "Crest"
 	crest.BackgroundTransparency = 1
-	crest.Size = UDim2.fromOffset(28, 28)
-	crest.Position = if index == 1 then UDim2.fromOffset(12, 6) else UDim2.fromOffset(176, 6)
+	crest.Size = UDim2.fromOffset(44, 44)
+	crest.Position = if index == 1 then UDim2.fromOffset(12, 4) else UDim2.fromOffset(274, 4)
 	crest.ZIndex = 7
 	crest.Parent = phaseBox
 	crests[teamId] = crest
@@ -704,54 +687,31 @@ local function drawCrests()
 	for teamId, crest in crests do
 		crest:ClearAllChildren()
 		Emblem.draw(crest, Config.Teams[teamId], { year = false })
-		-- The country, small, on the corner of the emblem.
-		local corner = Instance.new("Frame")
-		corner.BackgroundTransparency = 1
-		corner.Size = UDim2.fromOffset(15, 10)
-		corner.Position = UDim2.fromOffset(17, 20)
-		corner.ZIndex = 40
-		corner.Parent = crest
-		Emblem.flag(corner, Config.Teams[teamId].country)
 	end
 end
 drawCrests()
 Derby.onChanged(drawCrests)
 
-local phaseClock = label(phaseBox, "", 22, TEXT)
+local phaseClock = label(phaseBox, "", U.normal, U.text)
 phaseClock.Font = Enum.Font.GothamBlack
 phaseClock.TextXAlignment = Enum.TextXAlignment.Right
-phaseClock.Size = UDim2.fromOffset(80, 30)
-phaseClock.Position = UDim2.new(1, -90, 0, 5)
+phaseClock.Size = UDim2.fromOffset(106, U.normal + 6)
+phaseClock.Position = UDim2.fromOffset(322, 8)
 phaseClock.ZIndex = 6
 
-local phaseLabel = label(phaseBox, "", 12, BRASS)
+local phaseLabel = label(phaseBox, "", U.small, U.text)
+phaseLabel.Font = Enum.Font.GothamMedium
+phaseLabel.TextTransparency = U.dim
 phaseLabel.TextXAlignment = Enum.TextXAlignment.Left
-phaseLabel.Size = UDim2.new(1, -24, 0, 14)
-phaseLabel.Position = UDim2.fromOffset(12, 37)
+phaseLabel.Size = UDim2.new(1, -24, 0, U.small + 6)
+phaseLabel.Position = UDim2.fromOffset(12, 50)
 phaseLabel.ZIndex = 6
 
-local phaseNote = label(phaseBox, "", 12, MUTED)
-phaseNote.Font = Enum.Font.Gotham
-phaseNote.TextXAlignment = Enum.TextXAlignment.Left
-phaseNote.Size = UDim2.new(1, -24, 0, 14)
-phaseNote.Position = UDim2.fromOffset(12, 52)
-phaseNote.ZIndex = 6
-
--- A hora do dia no jogo, ao canto: de noite acendem-se as luzes.
-local dayClock = label(phaseBox, "", 12, MUTED)
-dayClock.TextXAlignment = Enum.TextXAlignment.Right
-dayClock.Size = UDim2.fromOffset(60, 14)
-dayClock.Position = UDim2.new(1, -72, 0, 37)
-dayClock.ZIndex = 6
-
-task.spawn(function()
-	local Lighting = game:GetService("Lighting")
-	while true do
-		-- One clock only: the real time of the game (shared/Schedule), not the hour of the sky.
-		dayClock.Text = ScheduleClock.clock(ScheduleClock.gameTime())
-		task.wait(1)
-	end
-end)
+-- (What comes next, and the hour, are no longer written here: the corner clock has them.)
+local phaseNote = label(phaseBox, "", U.small, U.text)
+phaseNote.Visible = false
+local dayClock = label(phaseBox, "", U.small, U.text)
+dayClock.Visible = false
 
 --[[
 	Voltar a sede quando se quer. Ninguem e mandado para casa a forca: o dia de
@@ -2226,6 +2186,7 @@ if table.find(Config.Admins, player.UserId) then
 	skip.TextSize = 12
 	skip.TextColor3 = TEXT
 	skip.Text = TXT.skipPhase
+	skip.Name = "Saltar"
 	skip.Parent = gui
 
 	local skipCorner = Instance.new("UICorner")
@@ -2601,3 +2562,104 @@ Remotes.Academia.OnClientEvent:Connect(function(info)
 		end
 	end)
 end)
+
+--------------------------------------------------------------------------------
+-- The corner: the scoreboard, and ONE button for everything else
+--------------------------------------------------------------------------------
+
+--[[
+	During the match the screen is for the match. In the top corner there is
+	the scoreboard and, under it, one MENU button: home, switch, profile,
+	competitions and emotes are behind it (the same buttons as before, in one
+	list), never spread over the screen.
+]]
+;(function()
+	local GuiService = game:GetService("GuiService")
+	local HALF = U.gap / 2
+	local menuButton = UI.button(gui, TXT.menu, "≡")
+	menuButton.Name = "Menu"
+	menuButton.Size = UDim2.fromOffset(200, U.button)
+	local column = Instance.new("Frame")
+	column.Name = "MenuLista"
+	column.BackgroundTransparency = 1
+	column.Size = UDim2.fromOffset(300 * 2 + HALF, 0)
+	column.AutomaticSize = Enum.AutomaticSize.Y
+	column.Visible = false
+	column.ZIndex = 20
+	-- (In a holder of its own: whatever shows the HUD again after a film does not open the list.)
+	local holder = Instance.new("Frame")
+	holder.Name = "MenuCaixa"
+	holder.BackgroundTransparency = 1
+	holder.Size = UDim2.fromOffset(0, 0)
+	holder.Parent = gui
+	column.Parent = holder
+	-- Kept small on a big screen (Config.UI.hudMaxScale), like the corner clock.
+	local shrinks: { UIScale } = {}
+	for _, thing in { phaseBox, menuButton, column } do
+		local s = Instance.new("UIScale")
+		s.Parent = thing
+		table.insert(shrinks, s)
+	end
+	-- Two side by side: the list stays above the gear, whatever the screen.
+	local list = Instance.new("UIGridLayout")
+	list.CellSize = UDim2.fromOffset(300, U.button)
+	list.CellPadding = UDim2.fromOffset(HALF, HALF)
+	list.FillDirectionMaxCells = 2
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = column
+
+	-- Under Roblox's own buttons, whatever the size of the screen.
+	local function place()
+		local top = GuiService:GetGuiInset().Y / uiScale.Scale + HALF
+		local k = math.clamp(uiScale.Scale, U.minScale, U.hudMaxScale) / uiScale.Scale
+		for _, s in shrinks do
+			s.Scale = k
+		end
+		phaseBox.Position = UDim2.fromOffset(U.gap, top)
+		menuButton.Position = UDim2.fromOffset(U.gap, top + U.button * k + HALF)
+		holder.Position = UDim2.fromOffset(U.gap, top + (U.button * k + HALF) * 2)
+	end
+	place()
+	uiScale:GetPropertyChangedSignal("Scale"):Connect(place)
+	menuButton.Activated:Connect(function()
+		column.Visible = not column.Visible
+	end)
+
+	local function adopt(b: Instance?, position: number)
+		if not b or not b:IsA("TextButton") then
+			return
+		end
+		b.Parent = column
+		b.LayoutOrder = position
+		b.AnchorPoint = Vector2.zero
+		b.Size = UDim2.new(1, 0, 0, U.button)
+		b.BackgroundColor3 = U.panel
+		b.BackgroundTransparency = U.panelTransparency
+		b.Font = Enum.Font.GothamBlack
+		b.TextSize = U.normal
+		b.TextColor3 = U.text
+		b.ZIndex = 21
+		for _, child in b:GetChildren() do
+			if child:IsA("UICorner") then
+				child.CornerRadius = UDim.new(0, U.corner)
+			elseif child:IsA("UIStroke") then
+				child:Destroy()
+			end
+		end
+		b.Activated:Connect(function()
+			column.Visible = false
+		end)
+	end
+	adopt(homeButton, 1)
+	adopt(swapButton, 2)
+	adopt(emoteButton, 5)
+	adopt(gui:FindFirstChild("Saltar"), 6)
+	-- The profile and the competitions have their own scripts: their buttons come here too.
+	task.spawn(function()
+		local playerGui = player:WaitForChild("PlayerGui")
+		local perfil = playerGui:WaitForChild("Perfil", 15)
+		adopt(perfil and perfil:WaitForChild("Abrir", 15), 3)
+		local liga = playerGui:WaitForChild("UltrasLiga", 15)
+		adopt(liga and liga:WaitForChild("Abrir", 15), 4)
+	end)
+end)()

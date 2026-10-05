@@ -28,13 +28,15 @@ local FONTS: { [string]: Enum.Font } = {
 }
 
 -- The screen is drawn on the canvas and shrinks with the screen.
-function UI.scale(gui: Instance): UIScale
+-- `hud`: something that stays on the screen during the match (it does not grow on a big screen).
+-- `panel`: a window opened during the game (it does not take the whole of a big screen).
+function UI.scale(gui: Instance, hud: boolean?, panel: boolean?): UIScale
 	local scale = Instance.new("UIScale")
 	scale.Parent = gui
 	local function fit()
 		local camera = workspace.CurrentCamera
 		local size = if camera then camera.ViewportSize else U.canvas
-		scale.Scale = math.clamp(math.min(size.X / U.canvas.X, size.Y / U.canvas.Y), U.minScale, U.maxScale)
+		scale.Scale = math.clamp(math.min(size.X / U.canvas.X, size.Y / U.canvas.Y), U.minScale, if hud then U.hudMaxScale elseif panel then U.panelMaxScale else U.maxScale)
 	end
 	fit()
 	if workspace.CurrentCamera then
