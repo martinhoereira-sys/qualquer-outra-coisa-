@@ -1169,6 +1169,7 @@ Config.Text = {
 		theCapoPutOn = "The capo put on: ",
 		playing = "Playing: ",
 		musicStopped = "Music stopped.",
+		chantStillOn = "A chant is still on. Wait for it to end.",
 		youHaveCalledLightUp = "You have called LIGHT UP ",
 		timesThisMatchLevelUp = " times this match. Level up to call it more.",
 		theFlaresAreStillBurning = "The flares are still burning. Wait a little.",
@@ -1516,6 +1517,7 @@ Config.Text = {
 		nobodyIsForcedTheUltras = "Nobody is forced: the ultras get a notice and decide.",
 		back = "◀ back",
 		stop = "■ STOP",
+		noChants = "No chants yet.",
 		flare = "🔥 Flare",
 		smoke = "💨 Smoke",
 		flag = "🚩 Flag",
@@ -1875,18 +1877,6 @@ Config.Lider = {
 	jumpSeconds = 12, -- SALTAR: quanto tempo se salta
 	lightSeconds = 22, -- ACENDER: quanto tempo os bonecos ficam de tocha acesa
 	lightBots = 14, -- quantos bonecos da bancada acendem
-	musicSeconds = 120, -- MUSICA: quanto tempo toca o cantico
-	-- Os canticos: so audio que o Roblox deixa usar em qualquer jogo (APM,
-	-- Pro Sound Effects). Para trocar, muda-se o numero aqui.
-	canticos = {
-		{ name = "Tambores da curva", id = 84302571478690 },
-		{ name = "Marcha dos tambores", id = 1836342097 },
-		{ name = "Tambor sozinho", id = 140393706670152 },
-		{ name = "A bancada a cantar", id = 9112766203 },
-		{ name = "Festa com buzinas", id = 9112779173 },
-		-- `club`: only that club's leader sees it.
-		{ name = "Sporting o meu Lugar", id = 117260593732846, club = "alvalade" },
-	},
 	farda = Color3.fromRGB(20, 20, 24), -- o casaco da farda (o cachecol e da cor da claque)
 	--[[
 		O BANDEIRAO: o pano gigante enrolado no cimo da curva que desce por cima
@@ -1896,6 +1886,99 @@ Config.Lider = {
 	]]
 	bandeirao = { unroll = 4, hold = 25, rollup = 3, headroom = 8.5, columns = 28, rows = 16, t0 = 0.04, t1 = 0.96 },
 }
+
+--[[
+	THE CHANTS. A chant is something the capo decides: never a background sound.
+	The capo opens the list of the chants of his club, picks one, and the whole
+	curva sings it. While one is on, another cannot be started.
+
+	Every sound belongs to ONE club: it is in that club's list, and a club's
+	sound never plays in another club's curva (the server only takes a chant
+	from the list of the capo's own club). A club with no list, or an empty
+	one, has no chants: the capo's list opens empty.
+
+	One line per sound:
+	  name     what the capo reads in the list (in the club's language)
+	  id       the audio (rbxassetid://<id>)
+	  seconds  how long the sound is (the server counts with it to know when it ends)
+	  repeats  how many times it is sung in a row; change it by hand.
+	           Left out: by the length (`byLength`); length unknown: `repeatsUnknown`.
+
+	  pause          seconds of silence between two repetitions
+	  volume         for the claque that sings it
+	  farVolume      for everyone else (it is also a sound in the world: further is lower)
+	  minDistance, maxDistance   how far it carries
+	  shared         the old drum loops, of no club: only offered to a club that has
+	                 no chants of its own. Empty this list to take them away.
+]]
+Config.Chants = {
+	pause = 1.5,
+	volume = 1,
+	farVolume = 0.4,
+	minDistance = 40,
+	maxDistance = 420,
+	repeatsUnknown = 2,
+	secondsUnknown = 30,
+	-- Longer than `over` seconds: `repeats` times (the first line that fits).
+	byLength = {
+		{ over = 40, repeats = 1 },
+		{ over = 20, repeats = 2 },
+		{ over = 5, repeats = 3 },
+		{ over = 0, repeats = 8 },
+	},
+	clubs = {
+		luz = {},
+		alvalade = {
+			{ name = "Leões do Sul cântico", id = 117456424031203, seconds = 6.6, repeats = 3 },
+			{ name = "Nunca vais acabar", id = 121342319651900, seconds = 31, repeats = 2 },
+			{ name = "Onde tu fores jogar eu vou lá estar", id = 83139203994263, seconds = 88.8, repeats = 1 },
+		},
+		nervion = {},
+		triana = {},
+		testaccio = {},
+		flaminio = {},
+		athinaikos = {},
+		pireus = {},
+		galata = {},
+		kadikoy = {},
+	},
+	shared = {
+		{ name = "Tambores da curva", id = 84302571478690, seconds = 70.5, repeats = 1 },
+		{ name = "Marcha dos tambores", id = 1836342097, seconds = 69.6, repeats = 1 },
+		{ name = "Tambor sozinho", id = 140393706670152, seconds = 40, repeats = 2 },
+		{ name = "A bancada a cantar", id = 9112766203, seconds = 79.6, repeats = 1 },
+		{ name = "Festa com buzinas", id = 9112779173, seconds = 35.2, repeats = 2 },
+	},
+}
+
+-- The chants the capo of `clubId` can start.
+function Config.chantsOf(clubId: string?): { any }
+	local own = clubId and (Config.Chants.clubs :: any)[clubId]
+	if own and #own > 0 then
+		return own
+	end
+	return Config.Chants.shared
+end
+
+-- How long a chant is, how many times it is sung, and how long that takes in all.
+function Config.chantTiming(song: any): (number, number, number)
+	local C = Config.Chants
+	local seconds = if type(song.seconds) == "number" then song.seconds else C.secondsUnknown
+	local repeats = song.repeats
+	if type(repeats) ~= "number" then
+		repeats = C.repeatsUnknown
+		if type(song.seconds) == "number" then
+			for _, rule in C.byLength do
+				if seconds > rule.over then
+					repeats = rule.repeats
+					break
+				end
+			end
+		end
+	end
+	repeats = math.max(1, math.floor(repeats))
+	return seconds, repeats, repeats * seconds + (repeats - 1) * C.pause
+end
 
 --[[
 	O material da claque.

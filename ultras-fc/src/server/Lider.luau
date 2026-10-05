@@ -332,6 +332,28 @@ local function ready(teamId: string, order: string): boolean
 	return true
 end
 
+-- The chant of each claque: until when it is on, and the capo who started it.
+local chantUntil: { [string]: number } = {}
+local chantBy: { [string]: Player } = {}
+
+local function stopChant(teamId: string)
+	chantUntil[teamId] = nil
+	chantBy[teamId] = nil
+	local folder = stadium()
+	if folder then
+		folder:SetAttribute("Musica_" .. teamId, nil)
+	end
+end
+
+-- No capo, no chant: it stops when the one who started it is no longer the capo.
+local function chantNeedsCapo(player: Player)
+	for teamId, by in chantBy do
+		if by == player and (player.Parent == nil or not Teams.isLeader(player) or Teams.get(player) ~= teamId) then
+			stopChant(teamId)
+		end
+	end
+end
+
 local function give(leader: Player, teamId: string, targetId: any, kind: any)
 	if type(targetId) ~= "number" or type(kind) ~= "string" or not table.find(L.giveKinds, kind) then
 		return
@@ -392,13 +414,30 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 		local index = if type(a) == "number" then math.floor(a) else 0
 		local folder = stadium()
 		if folder then
-			local song = L.canticos[index] :: any
-			if index >= 1 and song and (song.club == nil or song.club == Config.Teams[teamId].club) then
-				folder:SetAttribute("Musica_" .. teamId, index .. ":" .. workspace:GetServerTimeNow())
-				notice(teamId, TXT.theCapoPutOn .. L.canticos[index].name, nil)
-				tell(player, TXT.playing .. L.canticos[index].name)
+			-- Only from the list of the capo's own club: a club's chant never
+			-- plays in another club's curva.
+			local clubId = Config.Teams[teamId].club
+			local song = Config.chantsOf(clubId)[index]
+			if index >= 1 and song then
+				-- One at a time: while a chant is on, another cannot be started.
+				if os.clock() < (chantUntil[teamId] or 0) then
+					tell(player, TXT.chantStillOn)
+					return
+				end
+				local _, _, total = Config.chantTiming(song)
+				local value = clubId .. ":" .. index .. ":" .. workspace:GetServerTimeNow()
+				chantUntil[teamId] = os.clock() + total
+				chantBy[teamId] = player
+				folder:SetAttribute("Musica_" .. teamId, value)
+				task.delay(total, function()
+					if folder:GetAttribute("Musica_" .. teamId) == value then
+						folder:SetAttribute("Musica_" .. teamId, nil)
+					end
+				end)
+				notice(teamId, TXT.theCapoPutOn .. song.name, nil)
+				tell(player, TXT.playing .. song.name)
 			else
-				folder:SetAttribute("Musica_" .. teamId, nil)
+				stopChant(teamId)
 				tell(player, TXT.musicStopped)
 			end
 		end
@@ -480,8 +519,10 @@ function Lider.newMatch()
 	if folder then
 		for _, teamId in Config.TeamOrder do
 			folder:SetAttribute("Farda_" .. teamId, nil)
-			folder:SetAttribute("Musica_" .. teamId, nil)
 		end
+	end
+	for _, teamId in Config.TeamOrder do
+		stopChant(teamId)
 	end
 end
 
@@ -502,9 +543,11 @@ function Lider.start(d: Deps)
 		end)
 		player:GetAttributeChangedSignal("Leader"):Connect(function()
 			sign(player)
+			chantNeedsCapo(player)
 		end)
 		player:GetAttributeChangedSignal("Team"):Connect(function()
 			sign(player)
+			chantNeedsCapo(player)
 		end)
 		sign(player)
 	end
@@ -515,6 +558,7 @@ function Lider.start(d: Deps)
 	Players.PlayerRemoving:Connect(function(player)
 		given[player] = nil
 		lit[player] = nil
+		task.defer(chantNeedsCapo, player)
 	end)
 
 	-- Os avisos velhos saem.

@@ -282,12 +282,16 @@ local function showMusic()
 	local list = Instance.new("UIListLayout")
 	list.Padding = UDim.new(0, 6)
 	list.Parent = subPanel
-	for i, song in L.canticos do
-		-- Os canticos de uma claque so aparecem ao lider dela.
-		local myTeam = Config.Teams[me:GetAttribute("Team") or ""]
-		if (song :: any).club and (not myTeam or (song :: any).club ~= myTeam.club) then
-			continue
-		end
+	-- The chants of my club, and only those. None: the list is empty.
+	local myTeam = Config.Teams[me:GetAttribute("Team") or ""]
+	local songs = Config.chantsOf(myTeam and myTeam.club)
+	if #songs == 0 then
+		local none = label(subPanel, TXT.noChants, 13, MUTED)
+		none.Name = "SemCanticos"
+		none.Size = UDim2.new(1, 0, 0, 36)
+		none.LayoutOrder = 1
+	end
+	for i, song in songs do
 		local b = button(subPanel, "♪ " .. song.name, Color3.fromRGB(120, 70, 200))
 		b.Size = UDim2.new(1, 0, 0, 36)
 		b.LayoutOrder = i
@@ -479,7 +483,8 @@ end)
 -- A musica do lider, a sair da claque (ou da faixa, no corteo)
 --------------------------------------------------------------------------------
 
-type Playing = { key: string, sound: Sound, anchor: Part, startedAt: number }
+local C = Config.Chants
+type Playing = { key: string, sound: Sound, anchor: Part, startedAt: number, total: number }
 local playing: { [string]: Playing } = {}
 
 local function anchorFor(teamId: string): (Vector3, BasePart?)
@@ -507,10 +512,15 @@ local function update(teamId: string)
 		stop(teamId)
 		return
 	end
-	local index, started = string.match(value, "^(%d+):([%d%.]+)$")
-	local song = index and L.canticos[tonumber(index) :: number]
+	local clubId, index, started = string.match(value, "^(%w+):(%d+):([%d%.]+)$")
+	local song = clubId and Config.chantsOf(clubId)[tonumber(index) :: number]
 	local startedAt = tonumber(started)
-	if not song or not startedAt or workspace:GetServerTimeNow() - startedAt > L.musicSeconds then
+	if not song or not startedAt then
+		stop(teamId)
+		return
+	end
+	local seconds, repeats, total = Config.chantTiming(song)
+	if workspace:GetServerTimeNow() - startedAt > total then
 		stop(teamId)
 		return
 	end
@@ -531,14 +541,33 @@ local function update(teamId: string)
 	anchor.Parent = workspace
 	local sound = Instance.new("Sound")
 	sound.SoundId = "rbxassetid://" .. song.id
-	sound.Looped = true
-	sound.Volume = 1
+	sound.Looped = false
 	sound.RollOffMode = Enum.RollOffMode.InverseTapered
-	sound.RollOffMinDistance = 40
-	sound.RollOffMaxDistance = 420
+	sound.RollOffMinDistance = C.minDistance
+	sound.RollOffMaxDistance = C.maxDistance
 	sound.Parent = anchor
-	sound:Play()
-	playing[teamId] = { key = value, sound = sound, anchor = anchor, startedAt = startedAt }
+	local entry: Playing = { key = value, sound = sound, anchor = anchor, startedAt = startedAt, total = total }
+	playing[teamId] = entry
+	-- Sung `repeats` times, with a short silence between two: never glued.
+	task.spawn(function()
+		local cycle = seconds + C.pause
+		while playing[teamId] == entry do
+			local elapsed = workspace:GetServerTimeNow() - startedAt
+			local turn = math.floor(elapsed / cycle)
+			if turn >= repeats then
+				stop(teamId)
+				break
+			end
+			local into = elapsed - turn * cycle
+			if into < seconds - 0.5 then
+				-- Loud for the claque that sings it, lower for everyone else.
+				sound.Volume = if me:GetAttribute("Team") == teamId then C.volume else C.farVolume
+				sound.TimePosition = if into > 0.3 then into else 0
+				sound:Play()
+			end
+			task.wait(cycle - into)
+		end
+	end)
 end
 
 local function watchStadium(stadium: Instance)
@@ -558,7 +587,7 @@ task.spawn(function()
 	while true do
 		task.wait(0.5)
 		for teamId, p in playing do
-			if workspace:GetServerTimeNow() - p.startedAt > L.musicSeconds then
+			if workspace:GetServerTimeNow() - p.startedAt > p.total then
 				stop(teamId)
 			else
 				p.anchor.Position = anchorFor(teamId)
