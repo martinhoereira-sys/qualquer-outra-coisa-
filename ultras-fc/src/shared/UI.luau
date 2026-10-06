@@ -36,7 +36,12 @@ function UI.scale(gui: Instance, hud: boolean?, panel: boolean?): UIScale
 	local function fit()
 		local camera = workspace.CurrentCamera
 		local size = if camera then camera.ViewportSize else U.canvas
-		scale.Scale = math.clamp(math.min(size.X / U.canvas.X, size.Y / U.canvas.Y), U.minScale, if hud then U.hudMaxScale elseif panel then U.panelMaxScale else U.maxScale)
+		local fit = math.min(size.X / U.canvas.X, size.Y / U.canvas.Y)
+		if panel then
+			scale.Scale = math.clamp(fit * U.panelFill, U.minScale * U.panelFill, U.panelMaxScale)
+		else
+			scale.Scale = math.clamp(fit, U.minScale, if hud then U.hudMaxScale else U.maxScale)
+		end
 	end
 	fit()
 	if workspace.CurrentCamera then

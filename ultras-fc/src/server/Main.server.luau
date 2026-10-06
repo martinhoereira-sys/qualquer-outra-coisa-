@@ -316,8 +316,19 @@ end
 	  of the claque comes from it. Changing it is deliberate ("mudar:<club>",
 	  after the screen asked "do you really want to leave X?").
 	- A second club can be followed ("seguir:<club>"): no claque, no curva, no
-	  gear. It can be played for, as a substitute, when it is short of players.
+	  gear. It can be played for, as a starter, in the places its own people
+	  left free.
+
+	WHO GETS A PLACE IN THE TEAM, in this order:
+	  1st  the players of the club itself (they go in as they ask, before kick-off);
+	  2nd  the people who have it as their SECOND club: at kick-off (the
+	       entrance), in the places still free;
+	  3rd  bots, only in what is left after that.
+	A bot never keeps a place a real person could have. But nobody walks into
+	a match that is being played: whoever asks then goes in at the next match
+	of that club, in the place of a bot.
 ]]
+local seating = false -- the entrance: the second-club people are being given their places
 local function pickClub(player: Player, clubId: string, role: string)
 	if not (Config.Clubs :: any)[clubId] or not canSwitch(player) then
 		return
@@ -338,6 +349,21 @@ local function pickClub(player: Player, clubId: string, role: string)
 		-- Not playing now: the choice is kept for the club's next match.
 		toWait(player, clubId, role)
 		return
+	end
+	if role == "jogador" or role == "baliza" then
+		local f = Squad.byPlayer(player)
+		local already = f ~= nil and f.teamId == slot
+		local phase = MatchLoop.phase()
+		local running = phase == "first" or phase == "halftime" or phase == "second" or phase == "fulltime"
+		if not already and (running or (clubId ~= mine and not seating)) then
+			wish[player] = { club = clubId, role = role }
+			player:SetAttribute("UpNext", clubId)
+			Remotes.Npc:FireClient(player, {
+				title = (Config.Clubs :: any)[clubId].name,
+				lines = { if running then Config.Text.hud.pitchNextMatch else Config.Text.hud.pitchAtKickOff },
+			})
+			return
+		end
 	end
 	wish[player] = { club = clubId, role = role }
 	player:SetAttribute("UpNext", nil)
@@ -483,6 +509,26 @@ local function derbyTurn()
 			end
 		end
 	end
+end
+
+--[[
+	Whoever is waiting for a place on the pitch gets it now: the club's own
+	players when the day starts (`second` false), the second-club people at
+	the entrance (`second` true), in what is still free.
+]]
+local function seatWaiting(second: boolean)
+	seating = second
+	for _, player in Players:GetPlayers() do
+		local w = wish[player]
+		if w and player:GetAttribute("UpNext") and (w.role == "jogador" or w.role == "baliza") and clubPlace(w.club) then
+			local mine = Money.clubOf(player)
+			if (w.club ~= mine) == second then
+				switchedAt[player] = nil
+				pickClub(player, w.club, w.role)
+			end
+		end
+	end
+	seating = false
 end
 
 Gear.onDrumHit(function(player)
@@ -784,7 +830,11 @@ MatchLoop.onChange(function(snapshot)
 		A entrada em campo. Quem ainda esta na rua fica na rua: o jogo acontece
 		com ou sem ele, e o botao "SEDE" ou as pernas levam-no quando quiser.
 	]]
+	if entered and snapshot.phase == "clubhouse" then
+		task.defer(seatWaiting, false)
+	end
 	if entered and snapshot.phase == "entrada" then
+		seatWaiting(true)
 		March.stop()
 		-- O autocarro ainda nao chegou (ou a fase foi saltada): ja ninguem espera.
 		if Academy.anyOpen() then

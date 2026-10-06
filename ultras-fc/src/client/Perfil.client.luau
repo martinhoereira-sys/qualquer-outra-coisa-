@@ -170,11 +170,11 @@ close.Position = UDim2.new(1, -14, 0.5, 0)
 
 -- Os separadores.
 local tabs: { [string]: { button: TextButton, page: Frame } } = {}
-local TAB_ORDER = { { id = "niveis", label = TXT.levels }, { id = "dinheiro", label = TXT.money }, { id = "equipamento", label = TXT.kit } }
+local TAB_ORDER = { { id = "clube", label = TXT.myClubTab }, { id = "niveis", label = TXT.levels }, { id = "dinheiro", label = TXT.money }, { id = "equipamento", label = TXT.kit } }
 for i, t in TAB_ORDER do
 	local b = button(panel, t.label, 15, CARD)
-	b.Size = UDim2.fromOffset(200, 38)
-	b.Position = UDim2.fromOffset(20 + (i - 1) * 210, 76)
+	b.Size = UDim2.fromOffset(188, 38)
+	b.Position = UDim2.fromOffset(20 + (i - 1) * 197, 76)
 	local page = box(panel, UDim2.new(1, -40, 1, -134), UDim2.fromOffset(20, 122), BG, 31)
 	page.BackgroundTransparency = 1
 	page.Visible = false
@@ -517,7 +517,136 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		toggle()
 	end
 end)
-showTab("niveis")
+--------------------------------------------------------------------------------
+-- MY CLUB: the page where one sees oneself
+--------------------------------------------------------------------------------
+
+--[[
+	On top and big, MY CLUB: emblem, name, the claque's name, since when I am
+	of it. Smaller, the SECOND CLUB (or a button to choose one). Then the
+	levels, the titles my club has won, and the claque I belong to.
+]]
+;(function()
+	local Emblem = require(Shared:WaitForChild("Emblem"))
+	local HttpService = game:GetService("HttpService")
+	local page = tabs.clube.page
+
+	local function crest(club: any, size: number, x: number, y: number)
+		local holder = box(page, UDim2.fromOffset(size, size), UDim2.fromOffset(x, y), BG, 32)
+		holder.BackgroundTransparency = 1
+		Emblem.draw(holder, club, { year = false })
+		-- (Over the panel: the shapes of an emblem are numbered from 1.)
+		for _, d in holder:GetDescendants() do
+			if d:IsA("GuiObject") then
+				d.ZIndex += 32
+			end
+		end
+	end
+	local function line(value: string, size: number, colour: Color3, x: number, y: number, width: number, font: Enum.Font?, proper: boolean?): TextLabel
+		local l = text(page, value, size, colour, font)
+		l.Position = UDim2.fromOffset(x, y)
+		l.Size = UDim2.fromOffset(width, size + 8)
+		l.TextScaled = true
+		local limit = Instance.new("UITextSizeConstraint")
+		limit.MaxTextSize = size
+		limit.MinTextSize = 10
+		limit.Parent = l
+		if proper then
+			l.AutoLocalize = false
+		end
+		return l
+	end
+	local function levelOf(path: string): number
+		local level = player:GetAttribute("Nivel_" .. path)
+		return if type(level) == "number" then level else 1
+	end
+	local function titles(clubId: string): { number }
+		local won = { 0, 0, 0 }
+		local ok, data = pcall(function()
+			return HttpService:JSONDecode(workspace:GetAttribute("Epoca") :: string)
+		end)
+		if ok and type(data) == "table" and type(data.titles) == "table" then
+			for i, competition in { "liga", "taca", "supertaca" } do
+				local list = data.titles[competition]
+				if type(list) == "table" and type(list[clubId]) == "number" then
+					won[i] = list[clubId]
+				end
+			end
+		end
+		return won
+	end
+
+	local function draw()
+		page:ClearAllChildren()
+		local mine = (Config.Clubs :: any)[player:GetAttribute("Clube") or ""]
+		local second = (Config.Clubs :: any)[player:GetAttribute("Clube2") or ""]
+
+		line(TXT.myClub, 13, MUTED, 0, 0, 440, Enum.Font.GothamBlack)
+		if mine then
+			crest(mine, 170, 0, 28)
+			line(mine.name, 40, TEXT, 190, 44, 270, Enum.Font.GothamBlack, true)
+			line(mine.claque, 22, TEXT, 190, 98, 270, Enum.Font.GothamBlack, true)
+			local since = player:GetAttribute("ClubeDesde")
+			if type(since) == "number" then
+				line(string.format(TXT.since, os.date("%d %B %Y", since)), 15, MUTED, 190, 134, 270, Enum.Font.GothamMedium)
+			end
+			-- The club's colour: a line, no more.
+			box(page, UDim2.fromOffset(780, 3), UDim2.fromOffset(0, 212), mine.color, 32)
+		else
+			line(TXT.noClub, 18, MUTED, 0, 40, 440, Enum.Font.GothamMedium)
+		end
+
+		line(TXT.secondClub, 13, MUTED, 500, 0, 280, Enum.Font.GothamBlack)
+		if second then
+			crest(second, 72, 500, 28)
+			line(second.name, 22, TEXT, 584, 46, 196, Enum.Font.GothamBlack, true)
+		else
+			line(TXT.noSecond, 15, MUTED, 500, 30, 280, Enum.Font.GothamMedium)
+			local choose = button(page, TXT.choose, 15, CARD)
+			choose.Name = "Escolher"
+			choose.Size = UDim2.fromOffset(200, 44)
+			choose.Position = UDim2.fromOffset(500, 62)
+			choose.Activated:Connect(function()
+				-- The screen of the clubs (client/Hud): pick one, then FOLLOW THIS CLUB.
+				local choice = player:WaitForChild("PlayerGui"):FindFirstChild("UltrasEscolha")
+				local event = choice and choice:FindFirstChild("Abrir")
+				if event and event:IsA("BindableEvent") then
+					toggle(false)
+					event:Fire()
+				end
+			end)
+		end
+
+		local won = if mine then titles(mine.club) else { 0, 0, 0 }
+		local blocks = {
+			{ TXT.levelHead, string.format(TXT.levelsLine, levelOf("adepto"), levelOf("jogador"), levelOf("arbitro")) },
+			{ TXT.titlesHead, string.format(TXT.titlesLine, won[1], won[2], won[3]) },
+			{ TXT.ultrasHead, if mine then mine.claque else "-" },
+		}
+		for i, entry in blocks do
+			local y = 232 + (i - 1) * 46
+			line(entry[1], 13, MUTED, 0, y + 6, 150, Enum.Font.GothamBlack)
+			line(entry[2], 20, TEXT, 160, y, 620, Enum.Font.GothamBold, i == 3)
+		end
+	end
+
+	for _, name in { "Clube", "Clube2", "ClubeDesde", "Nivel_adepto", "Nivel_jogador", "Nivel_arbitro" } do
+		player:GetAttributeChangedSignal(name):Connect(draw)
+	end
+	workspace:GetAttributeChangedSignal("Epoca"):Connect(function()
+		if panel.Visible then
+			draw()
+		end
+	end)
+	panel:GetPropertyChangedSignal("Visible"):Connect(function()
+		if panel.Visible then
+			draw()
+		end
+	end)
+	draw()
+end)()
+
+showTab("clube")
 
 --------------------------------------------------------------------------------
 -- A carteira: os Escudos sempre a vista, la em cima

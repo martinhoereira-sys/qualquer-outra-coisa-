@@ -179,9 +179,7 @@ local function measure()
 	local camera = workspace.CurrentCamera
 	local wide = if camera then camera.ViewportSize.X / scale.Scale else U.canvas.X
 	W = math.clamp(math.floor(wide), U.canvas.X, U.canvas.X * 1.25)
-	if scale.Scale >= U.panelMaxScale then
-		W = U.canvas.X -- a big screen: a panel in the middle
-	end
+	W = U.canvas.X -- a panel in the middle, on every screen
 	PAGE = W - EDGE * 2 - U.line * 2 - 6
 	panel.Size = UDim2.fromOffset(W, H)
 	ground.Size = UDim2.fromOffset(W, H)

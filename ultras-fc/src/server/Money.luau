@@ -36,6 +36,7 @@ export type Profile = {
 	daily: { day: number, streak: number },
 	club: string?, -- MY club: one only, kept between sessions
 	second: string?, -- a second club I follow (no claque rights)
+	since: number?, -- when I joined my club (os.time)
 	version: number,
 }
 
@@ -80,6 +81,7 @@ local function publish(player: Player)
 	player:SetAttribute("MoedasInfinitas", if unlimited(player) then true else nil)
 	player:SetAttribute("Clube", if p then p.club else nil)
 	player:SetAttribute("Clube2", if p then p.second else nil)
+	player:SetAttribute("ClubeDesde", if p then p.since else nil)
 	if onChanged then
 		onChanged(player)
 	end
@@ -126,6 +128,9 @@ local function fromSaved(value: any): Profile?
 	end
 	if type(value.second) == "string" and (Config.Clubs :: any)[value.second] and value.second ~= p.club then
 		p.second = value.second
+	end
+	if p.club and type(value.since) == "number" then
+		p.since = value.since
 	end
 	if type(value.daily) == "table" and type(value.daily.day) == "number" and type(value.daily.streak) == "number" then
 		p.daily = { day = value.daily.day, streak = value.daily.streak }
@@ -210,6 +215,10 @@ local function save(player: Player)
 		xp = { adepto = p.xp.adepto, jogador = p.xp.jogador, arbitro = p.xp.arbitro },
 		prefs = { number = p.prefs.number, position = p.prefs.position, boots = p.prefs.boots },
 		daily = { day = p.daily.day, streak = p.daily.streak },
+		-- My club, the one I follow, and since when: kept between sessions.
+		club = p.club,
+		second = p.second,
+		since = p.since,
 		version = p.version,
 	}
 	local ok = retry(function()
@@ -330,6 +339,9 @@ function Money.setClub(player: Player, clubId: string)
 	local p = profiles[player]
 	if not p or not (Config.Clubs :: any)[clubId] then
 		return
+	end
+	if p.club ~= clubId or not p.since then
+		p.since = os.time()
 	end
 	p.club = clubId
 	if p.second == clubId then

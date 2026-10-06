@@ -85,8 +85,11 @@ end
 	O balcao da sede continua a funcionar para trocar de lado depois — o menu e
 	para nao se ficar parado na rua a adivinhar, nao para substituir o mundo.
 ]]
+-- A panel in the middle of the screen, never the whole of it.
 local menu = Instance.new("Frame")
-menu.Size = UDim2.fromScale(1, 1)
+menu.AnchorPoint = Vector2.new(0.5, 0.5)
+menu.Position = UDim2.fromScale(0.5, 0.5)
+menu.Size = UDim2.fromOffset(U.canvas.X, U.canvas.Y)
 menu.BackgroundColor3 = U.ground
 menu.BackgroundTransparency = U.groundTransparency
 -- Its own screen, over everything else: while a club is being chosen, nothing else is on.
@@ -96,10 +99,17 @@ menuGui.ResetOnSpawn = false
 menuGui.IgnoreGuiInset = true
 menuGui.DisplayOrder = 100
 menuGui.Parent = player:WaitForChild("PlayerGui")
-local menuScale = UI.scale(menuGui)
+local menuScale = UI.scale(menuGui, false, true)
+-- The club screen can be asked for from elsewhere (the profile: choose a second club).
+do
+	local openChoice = Instance.new("BindableEvent")
+	openChoice.Name = "Abrir"
+	openChoice.Parent = menuGui
+end
 menu.BorderSizePixel = 0
 menu.Active = true
 menu.Parent = menuGui
+UI.corner(menu)
 
 --[[
 	CHOOSING A CLUB: the first screen anyone sees, and a big decision.
@@ -134,7 +144,7 @@ do
 	local function measure()
 		local camera = workspace.CurrentCamera
 		local wide = if camera then camera.ViewportSize.X / menuScale.Scale else U.canvas.X
-		W = math.clamp(math.floor(wide), U.canvas.X, U.canvas.X * 1.25)
+		W = math.clamp(math.floor(wide), U.canvas.X, U.canvas.X)
 		stage.Size = UDim2.fromOffset(W, H)
 	end
 
@@ -577,6 +587,10 @@ do
 	-- A new derby: the clubs on offer today are others.
 	Derby.onChanged(showClubs)
 end
+;(menuGui:FindFirstChild("Abrir") :: BindableEvent).Event:Connect(function()
+	showClubs()
+	menu.Visible = true
+end)
 
 --------------------------------------------------------------------------------
 -- Quem sou

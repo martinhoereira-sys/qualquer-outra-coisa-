@@ -855,6 +855,7 @@ Config.UI = {
 	canvas = Vector2.new(1280, 720),
 	minScale = 0.5,
 	maxScale = 2,
+	panelFill = 0.9, -- ...and on a small one it leaves a little of the game in sight round it
 	panelMaxScale = 0.8, -- a window opened during the game (competitions, profile): a panel in the middle, not the whole screen
 	hudMaxScale = 0.75, -- what stays on the screen during the match is kept small on a big screen: the screen is for the match
 	title = 44,
@@ -882,6 +883,23 @@ Config.UI = {
 		follow = "★",
 		change = "⇄",
 	},
+}
+
+--[[
+	LIGHT ON THE ULTRAS (client/LuzClaque): lights with nothing to see over each
+	claque's corner of the stadium, so the block is read from the other end.
+	  count       how many over each claque, spread along the curve
+	  row         over which row of the stand
+	  height      studs over the heads
+	  range, brightness, colour   of each light (no shadows)
+]]
+Config.ClaqueLights = {
+	count = 3,
+	row = 6,
+	height = 16,
+	range = 60,
+	brightness = 0.3,
+	colour = Color3.fromRGB(255, 244, 226),
 }
 
 --[[
@@ -1378,6 +1396,8 @@ Config.Text = {
 	hud = {
 		chooseYourClub = "Choose your club",
 		beAnUltra = "BE AN ULTRA",
+		pitchNextMatch = "The match is on: you go on the pitch at this club's next match.",
+		pitchAtKickOff = "Second club: you get a place at kick-off, if its own players leave one free.",
 		menu = "MENU",
 		forGood = "choose your club  ·  it stays with you",
 		derbyOf = "DERBY  ·  %s",
@@ -1393,7 +1413,7 @@ Config.Text = {
 		follow = "FOLLOW THIS CLUB",
 		unfollow = "STOP FOLLOWING",
 		followNote = "your second club: its matches, no ultras, no curva, no gear",
-		substitute = "PLAY AS A SUBSTITUTE",
+		substitute = "PLAY FOR THIS CLUB",
 		substituteNote = "in its shirt, for this match only",
 		change = "CHANGE TO THIS CLUB",
 		changeNote = "go to its clubhouse, in person, to change",
@@ -1517,6 +1537,18 @@ Config.Text = {
 		donTGetCaughtBeing = "Don't get caught being bent",
 		profile = "⭐ PROFILE",
 		yourProfile = "YOUR PROFILE",
+		myClubTab = "MY CLUB",
+		myClub = "MY CLUB",
+		since = "since %s",
+		noClub = "no club yet",
+		secondClub = "SECOND CLUB",
+		noSecond = "no second club",
+		choose = "CHOOSE",
+		levelHead = "LEVEL",
+		levelsLine = "SUPPORTER %d   ·   PLAYER %d   ·   REFEREE %d",
+		titlesHead = "TITLES",
+		titlesLine = "LEAGUE %d   ·   CUP %d   ·   SUPERCUP %d",
+		ultrasHead = "ULTRAS",
 		levels = "⭐ LEVELS",
 		money = "💰 MONEY",
 		kit = "👕 KIT",
