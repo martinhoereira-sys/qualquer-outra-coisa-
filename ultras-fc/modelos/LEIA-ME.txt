@@ -1,0 +1,2 @@
+Modelos 3D exportados do Blender (.fbx) para importar no Studio (Model > Import 3D).
+Regras: menos de 3000 triangulos, formas simples, virado para a frente, assente no chao, centro na base.

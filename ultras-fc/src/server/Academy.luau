@@ -106,14 +106,21 @@ end
 	clube, cada um no seu sitio (pelo numero do lugar).
 ]]
 function Academy.spotFor(teamId: string, slot: number): Vector3?
-	local site = sites[teamId]
-	if not site then
+	if not sites[teamId] then
 		return nil
 	end
-	local c = site.centre
+	-- On the training pitch of the club that has this place today (its ground: SedeBuilder).
+	local club = Config.Teams[teamId].club
+	local grounds = workspace:FindFirstChild("Recintos")
+	local ground = grounds and grounds:FindFirstChild("Recinto_" .. club)
+	local grass = ground and ground:FindFirstChild("Relva", true)
+	if not grass or not grass:IsA("BasePart") then
+		return nil
+	end
 	local column = (slot - 1) % 5
 	local line = (slot - 1) // 5
-	return Vector3.new(c.X - 14 + column * 7, A.groundY + 3.2, c.Z + site.entrySide * (A.pitchWidth / 2 - 8 - line * 6))
+	local across = math.max(grass.Size.Z / 2 - 6 - line * 5, 2)
+	return (grass.CFrame * CFrame.new(-14 + column * 7, grass.Size.Y / 2 + 3.2, across)).Position
 end
 
 --------------------------------------------------------------------------------
@@ -484,19 +491,37 @@ function Academy.start()
 		PhysicsService:CollisionGroupSetCollidable(GROUP, "Footballers", false)
 	end)
 
+	-- (The old academy buildings are gone: before the match, whoever plays is at
+	-- the training pitch of their club's ground, where the training ball is
+	-- (server/Friendly). Here only who is still "at the academy" is kept.)
 	for _, teamId in Config.TeamOrder do
-		local folder = workspace:FindFirstChild("Academia_" .. teamId)
-		if folder then
-			setupSite(teamId, folder)
-		else
-			warn("[Ultras FC] Sem Workspace.Academia_" .. teamId .. ": esse clube aparece no estadio.")
-		end
+		sites[teamId] = {
+			teamId = teamId,
+			folder = workspace,
+			centre = Vector3.zero,
+			entrySide = -1,
+			keeperSide = 1,
+			open = true,
+			ball = nil,
+			carrier = nil,
+			carriedSince = 0,
+			flightUntil = 0,
+			noClaim = {},
+			curve = 0,
+			curveUntil = 0,
+			lastKicker = nil,
+			scoredAt = 0,
+			keeper = nil,
+			keeperHolding = 0,
+			spots = {},
+			watchers = {},
+		}
 	end
 
 	RunService.Heartbeat:Connect(function(dt)
 		local now = os.clock()
 		for _, site in sites do
-			if site.open then
+			if site.open and site.ball then
 				stepBall(site, dt, now)
 				checkGoal(site, now)
 				stepKeeper(site, dt, now)

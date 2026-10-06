@@ -201,6 +201,52 @@ local function autoRoute(door: Vector3, teamId: string): { Vector3 }
 	return list
 end
 
+--[[
+	The way round for the bus of the club in this place: a loop of streets (the
+	points are in the middle of them) by its ground and by the stadium's
+	players' stop `stop`. Returns the points and where the bus waits (on the
+	street nearest the ground).
+]]
+function City.busLoop(teamId: string, stop: Vector3): ({ Vector3 }, Vector3?)
+	local xs, zs = streets()
+	-- The bus waits by the training pitch (that is where the players are), or by the door.
+	local door = spawnPoints[teamId]
+	local grounds = workspace:FindFirstChild("Recintos")
+	local ground = grounds and grounds:FindFirstChild("Recinto_" .. Config.Teams[teamId].club)
+	local grass = ground and ground:FindFirstChild("Relva", true)
+	if grass and grass:IsA("BasePart") then
+		door = grass.Position
+	end
+	if #xs < 2 or #zs < 2 or not door then
+		return {}, nil
+	end
+	local zStadium = nearest(zs, stop.Z)
+	-- The street along the ground (not the stadium's own).
+	local zGround, best = zStadium, math.huge
+	for _, z in zs do
+		if z ~= zStadium and math.abs(z - door.Z) < best then
+			zGround, best = z, math.abs(z - door.Z)
+		end
+	end
+	-- Two streets across: the one nearest the ground, and the one nearest the stop (another one).
+	local xGround = nearest(xs, door.X)
+	local xStop, bestX = xGround, math.huge
+	-- (The one just PAST the stop, coming from the ground: the bus has to go by it.)
+	for _, x in xs do
+		local past = if xGround > stop.X then x < stop.X - 20 else x > stop.X + 20
+		if x ~= xGround and past and math.abs(x - stop.X) < bestX then
+			xStop, bestX = x, math.abs(x - stop.X)
+		end
+	end
+	local nodes = {
+		Vector3.new(xGround, 0, zGround),
+		Vector3.new(xGround, 0, zStadium),
+		Vector3.new(xStop, 0, zStadium),
+		Vector3.new(xStop, 0, zGround),
+	}
+	return nodes, door
+end
+
 function City.place(teamId: string)
 	for _, inst in placed[teamId] or {} do
 		inst:Destroy()

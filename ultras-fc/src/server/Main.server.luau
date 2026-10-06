@@ -45,7 +45,6 @@ local Friendly = require(script.Parent:WaitForChild("Friendly"))
 local Bikes = require(script.Parent:WaitForChild("Bikes"))
 local Shops = require(script.Parent:WaitForChild("Shops"))
 local Academy = require(script.Parent:WaitForChild("Academy"))
-local AcademyBuilder = require(script.Parent:WaitForChild("AcademyBuilder"))
 local Transit = require(script.Parent:WaitForChild("Transit"))
 local TransitBuilder = require(script.Parent:WaitForChild("TransitBuilder"))
 local Progress = require(script.Parent:WaitForChild("Progress"))
@@ -155,6 +154,7 @@ end
 local matchDays = 0
 
 local offerInvasion: (string) -> ()
+local placeTeamBuses: () -> ()
 
 local function isAdmin(player: Player): boolean
 	return table.find(Config.Admins, player.UserId) ~= nil
@@ -1101,11 +1101,6 @@ print(string.format("[Ultras FC] Cenario preso ao chao: %d pecas soltas prendida
 
 Stadium.build()
 -- A academia e os transportes estao no mapa; se faltarem, fazem-se agora.
-for _, teamId in Config.TeamOrder do
-	if Config.Academies[teamId] and not workspace:FindFirstChild("Academia_" .. teamId) then
-		AcademyBuilder.build(workspace, teamId)
-	end
-end
 if not workspace:FindFirstChild("Transportes") then
 	TransitBuilder.build(workspace)
 end
@@ -1118,6 +1113,27 @@ Squad.setStartOverride(function(f)
 	end
 	return nil
 end)
+-- Each club's bus goes from its own ground (the place's club changes with the match).
+function placeTeamBuses()
+	local stops = workspace:FindFirstChild("Transportes") and workspace.Transportes:FindFirstChild("Paragens")
+	for _, teamId in Config.TeamOrder do
+		local line = if teamId == "home" then "EN" else "ES"
+		local stop: Vector3? = nil
+		for _, m in (if stops then stops:GetChildren() else {}) do
+			local name = m:GetAttribute("Nome")
+			if m:IsA("Model") and m:GetAttribute("Linhas") == line and type(name) == "string" and name:find("Estadio") then
+				stop = m:GetPivot().Position
+			end
+		end
+		if stop then
+			local nodes, wait = City.busLoop(teamId, stop)
+			if wait then
+				Transit.setTeamRoute(teamId, nodes, wait, stop)
+			end
+		end
+	end
+end
+placeTeamBuses()
 -- O autocarro de um clube chegou ao estadio: a gente dele para o balneario.
 -- Quando ja nao ha nenhum a caminho, 30 s depois entra-se em campo.
 Transit.onTeamArrived(function(teamId)
@@ -1991,6 +2007,7 @@ Derby.onChanged(function(n)
 	for _, teamId in Config.TeamOrder do
 		City.place(teamId)
 	end
+	placeTeamBuses()
 	-- Only now the people: they go to where their club's place is today.
 	derbyTurn()
 end)

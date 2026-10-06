@@ -520,6 +520,42 @@ function Transit.teamTripTime(teamId: string): number
 	return distance / (T.cruise * 0.7) + 6
 end
 
+--[[
+	THE TEAM BUS GOES FROM ITS CLUB'S GROUND. The place (home or away) is of a
+	different club in each match: its bus is given a new way round, a loop of
+	streets (`nodes`, in the middle of them) that passes by the ground
+	(`from`) and by the players' stop at the stadium (`to`), and is put at the
+	ground, waiting with its doors shut.
+]]
+function Transit.setTeamRoute(teamId: string, nodes: { Vector3 }, from: Vector3, to: Vector3)
+	local bus = teamBuses[teamId]
+	if not bus or #nodes < 3 then
+		return
+	end
+	local path = buildPath(nodes)
+	local s0 = project(path, from)
+	local s1 = project(path, to)
+	bus.path = path
+	bus.stops = { { s = s0, name = "Academia" }, { s = s1, name = "Estadio" } }
+	table.sort(bus.stops, function(a, b)
+		return a.s < b.s
+	end)
+	bus.nextStop = if bus.stops[1].name == "Estadio" then 1 else 2
+	bus.s = s0
+	bus.v = 0
+	bus.holding = true
+	bus.dwellUntil = 0
+	setDoors(bus, false)
+	unseatAll(bus)
+	-- There at once (it is out of sight between matches).
+	local at = pointAt(path, s0)
+	local heading = headingAt(path, s0)
+	local up = bus.chassis.Position.Y
+	bus.model:PivotTo(CFrame.lookAt(Vector3.new(at.X, up, at.Z), Vector3.new(at.X, up, at.Z) + heading))
+	bus.chassis.AssemblyLinearVelocity = Vector3.zero
+	bus.chassis.AssemblyAngularVelocity = Vector3.zero
+end
+
 -- Chama-se quando o autocarro da equipa chega ao estadio.
 function Transit.onTeamArrived(fn: (string) -> ())
 	onTeamArrived = fn
