@@ -399,10 +399,24 @@ do
 				{ text = TXT.substitute, icon = I.player, main = true, level = levelOf("jogador"), send = "clube:" .. club.club .. ":jogador" },
 				{ text = TXT.unfollow, icon = I.follow, send = "seguir:", stay = true },
 			}
+		elseif Config.isRival(mine, club.club) then
+			-- The rival is never a second club: locked, and it says why.
+			roles = {}
 		else
 			roles = { { text = TXT.follow, icon = I.follow, main = true, send = "seguir:" .. club.club, stay = true } }
 		end
 		local y = 0
+		if #roles == 0 then
+			local locked = UI.button(side, TXT.follow, "🔒")
+			locked.Name = "Bloqueado"
+			locked.AutoButtonColor = false
+			locked.BackgroundTransparency = 0.6
+			local word = locked:FindFirstChild("Palavra") :: TextLabel?
+			if word then
+				word.TextTransparency = 0.6
+			end
+			y = words(side, TXT.rivalLocked, "normal", false, U.button + U.gap, 2) + HALF
+		end
 		for _, role in roles do
 			local b = UI.button(side, role.text, role.icon, if role.level then string.format(TXT.level, role.level) else nil)
 			b.Position = UDim2.fromOffset(0, y)
@@ -747,9 +761,37 @@ local homeCorner = Instance.new("UICorner")
 homeCorner.CornerRadius = UDim.new(0, 6)
 homeCorner.Parent = homeButton
 
-homeButton.Activated:Connect(function()
-	Remotes.Home:FireServer()
-end)
+--[[
+	One spawns at home, always. While a match is on, this button is the way
+	straight to the stadium; having gone, one stays there until it ends.
+]]
+do
+	local function state(): string
+		local moment = ScheduleClock.at(ScheduleClock.gameTime())
+		local teamId = player:GetAttribute("Team")
+		local claque = type(teamId) == "string" and Config.Teams[teamId] ~= nil
+		if not claque or moment.night or moment.phase == "clubhouse" or moment.phase == "corteo" then
+			return "home"
+		end
+		return if player:GetAttribute("NoEstadio") == moment.slot then "there" else "stadium"
+	end
+	homeButton.Activated:Connect(function()
+		local now = state()
+		if now == "stadium" then
+			Remotes.Home:FireServer("estadio")
+		elseif now == "home" then
+			Remotes.Home:FireServer()
+		end
+	end)
+	task.spawn(function()
+		while true do
+			local now = state()
+			homeButton.Text = if now == "stadium" then TXT.stadium elseif now == "there" then TXT.atStadium else TXT.home
+			homeButton.TextTransparency = if now == "there" then 0.5 else 0
+			task.wait(0.5)
+		end
+	end)
+end
 
 --[[
 	Trocar de equipa ou de papel a qualquer altura: claque, jogador, baliza ou
@@ -1128,7 +1170,6 @@ local STOCK_LABEL = {
 	{ "fumo", TXT.smokes },
 	{ "vela", TXT.candles },
 	{ "estrobo", TXT.strobes },
-	{ "bandeira", TXT.bigFlag },
 }
 
 -- As moedas do jogo (atributo "Moedas", posto pelo servidor).
@@ -2623,6 +2664,28 @@ end)
 	list.Parent = column
 
 	-- Under Roblox's own buttons, whatever the size of the screen.
+	-- A traitor sees how long it still lasts, beside the MENU button.
+	local traitor = UI.label(gui, "", "small", false, true)
+	traitor.Name = "Traidor"
+	traitor.BackgroundTransparency = 0
+	traitor.BackgroundColor3 = U.bad
+	traitor.Font = Enum.Font.GothamBlack
+	traitor.Size = UDim2.fromOffset(330, U.button)
+	traitor.Visible = false
+	UI.corner(traitor)
+	local traitorScale = Instance.new("UIScale")
+	traitorScale.Parent = traitor
+	table.insert(shrinks, traitorScale)
+	local function paintTraitor()
+		local left = player:GetAttribute("Traidor")
+		traitor.Visible = type(left) == "number"
+		if type(left) == "number" then
+			traitor.Text = if left == 1 then TXT.traitorLeftOne else string.format(TXT.traitorLeft, left)
+		end
+	end
+	player:GetAttributeChangedSignal("Traidor"):Connect(paintTraitor)
+	paintTraitor()
+
 	local function place()
 		local top = GuiService:GetGuiInset().Y / uiScale.Scale + HALF
 		local k = math.clamp(uiScale.Scale, U.minScale, U.hudMaxScale) / uiScale.Scale
@@ -2631,6 +2694,7 @@ end)
 		end
 		phaseBox.Position = UDim2.fromOffset(U.gap, top)
 		menuButton.Position = UDim2.fromOffset(U.gap, top + U.button * k + HALF)
+		traitor.Position = UDim2.fromOffset(U.gap + 200 * k + HALF, top + U.button * k + HALF)
 		holder.Position = UDim2.fromOffset(U.gap, top + (U.button * k + HALF) * 2)
 	end
 	place()
@@ -2675,5 +2739,7 @@ end)
 		adopt(perfil and perfil:WaitForChild("Abrir", 15), 3)
 		local liga = playerGui:WaitForChild("UltrasLiga", 15)
 		adopt(liga and liga:WaitForChild("Abrir", 15), 4)
+		local regras = playerGui:WaitForChild("UltrasRegras", 15)
+		adopt(regras and regras:WaitForChild("Abrir", 15), 7)
 	end)
 end)()

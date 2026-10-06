@@ -590,6 +590,11 @@ end)
 			if type(since) == "number" then
 				line(string.format(TXT.since, os.date("%d %B %Y", since)), 15, MUTED, 190, 134, 270, Enum.Font.GothamMedium)
 			end
+			-- A traitor's profile keeps, for ever, the club he came from.
+			local from = (Config.Clubs :: any)[player:GetAttribute("VeioDe") or ""]
+			if from then
+				line(string.format(TXT.cameFrom, from.name), 15, MUTED, 190, 158, 270, Enum.Font.GothamMedium, true)
+			end
 			-- The club's colour: a line, no more.
 			box(page, UDim2.fromOffset(780, 3), UDim2.fromOffset(0, 212), mine.color, 32)
 		else
@@ -630,7 +635,7 @@ end)
 		end
 	end
 
-	for _, name in { "Clube", "Clube2", "ClubeDesde", "Nivel_adepto", "Nivel_jogador", "Nivel_arbitro" } do
+	for _, name in { "Clube", "Clube2", "ClubeDesde", "VeioDe", "Nivel_adepto", "Nivel_jogador", "Nivel_arbitro" } do
 		player:GetAttributeChangedSignal(name):Connect(draw)
 	end
 	workspace:GetAttributeChangedSignal("Epoca"):Connect(function()

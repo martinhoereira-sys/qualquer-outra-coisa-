@@ -123,10 +123,24 @@ end
 	la que sai o corteo. Com o jogo ja comecado, direto para a bancada da sua
 	claque — quem chega tarde nao fica de fora.
 ]]
-local function sendToClaque(player: Player, teamId: string)
-	local phase = MatchLoop.phase()
-	local beforeMatch = phase == "clubhouse" or phase == "corteo"
-	local point = if beforeMatch then City.spawnPoint(teamId) or Stadium.spawnPoint(teamId) else Stadium.spawnPoint(teamId)
+--[[
+	Where a supporter is put. ALWAYS AT HOME (the club's ground), whatever the
+	phase. While a match is on one can go straight to the stadium (`toStadium`:
+	the STADIUM button, or GO TO THE MATCH); having gone, one stays there until
+	that match ends: coming back to life is at the stadium, and there is no way
+	back home.
+]]
+local atStadium: { [Player]: number } = {} -- the slot in which each one went to the stadium
+local function slotNow(): number
+	return Schedule.at(Schedule.gameTime()).slot
+end
+local function sendToClaque(player: Player, teamId: string, toStadium: boolean?)
+	if toStadium then
+		atStadium[player] = slotNow()
+		player:SetAttribute("NoEstadio", atStadium[player])
+	end
+	local there = atStadium[player] == slotNow()
+	local point = if there then Stadium.spawnPoint(teamId) else City.spawnPoint(teamId) or Stadium.spawnPoint(teamId)
 	if point then
 		placeAt(player, point, Vector3.new(0, point.Y - 8, 0))
 	end
@@ -384,7 +398,18 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 			Remotes.Npc:FireClient(player, { title = (Config.Clubs :: any)[newClub].name, lines = { Config.Text.sede.tooFar } })
 			return
 		end
+		local old = Money.clubOf(player)
 		Money.setClub(player, newClub)
+		if old and Config.isRival(old, newClub) then
+			-- To the rival: a traitor, and the new claque is told who he is.
+			Money.markTraitor(player, old)
+			local line = string.format(Config.Text.hud.traitorJoined, player.DisplayName, (Config.Clubs :: any)[old].name)
+			for _, other in Players:GetPlayers() do
+				if other ~= player and Money.clubOf(other) == newClub then
+					Remotes.Npc:FireClient(other, { title = Config.Text.hud.traitor, lines = { line } })
+				end
+			end
+		end
 		pickClub(player, newClub, "adepto")
 		return
 	end
@@ -913,6 +938,12 @@ MatchLoop.onChange(function(snapshot)
 			wants. (In "tudoConta" nothing has to be "all played": whoever is in
 			front at this moment wins.)
 		]]
+		-- One match less for the traitors who were at it.
+		for _, player in Players:GetPlayers() do
+			if player:GetAttribute("Traidor") ~= nil and (Teams.get(player) or Squad.byPlayer(player)) then
+				Money.traitorTick(player)
+			end
+		end
 		if Calendar.closesLeague(snapshot.slot) then
 			local last = Competition.playing()
 			local wait = if last and last.fixture.id == "F" then Config.Trophy.seconds else Config.Competitions.closeWait
@@ -1474,6 +1505,8 @@ local function adminBar(player: Player, action: any, value: any)
 			Derby.set(value)
 		end
 	elseif action == "team" and club then
+		-- (The admin's own club too: "I support this one". No traitor's banner for this.)
+		Money.setClub(player, value)
 		local n, slot = slotOf(value)
 		if n and slot then
 			Derby.set(n)
@@ -1621,7 +1654,7 @@ Remotes.Home.OnServerEvent:Connect(function(player, where)
 			if MatchLoop.phase() == "corteo" and banner then
 				placeAt(player, banner + Vector3.new(0, 1, 6), banner)
 			else
-				task.spawn(sendToClaque, player, mine)
+				task.spawn(sendToClaque, player, mine, true)
 			end
 		end
 		return
@@ -1630,15 +1663,81 @@ Remotes.Home.OnServerEvent:Connect(function(player, where)
 	-- (nobody is stuck in a corteo that left late).
 	local teamId = Teams.get(player)
 	local phase = MatchLoop.phase()
-	if where == "estadio" and teamId and phase ~= "clubhouse" and phase ~= "corteo" then
-		task.spawn(sendToClaque, player, teamId)
+	local matchOn = phase ~= "clubhouse" and phase ~= "corteo" and not MatchLoop.snapshot().night
+	if where == "estadio" then
+		if teamId and matchOn then
+			task.spawn(sendToClaque, player, teamId, true)
+		else
+			Remotes.Npc:FireClient(player, { title = Config.Text.hud.stadium, lines = { Config.Text.hud.noMatchOn } })
+		end
+		return
+	end
+	-- Whoever went to the stadium stays for the match.
+	if matchOn and atStadium[player] == slotNow() then
+		Remotes.Npc:FireClient(player, { title = Config.Text.hud.atStadium, lines = { Config.Text.hud.noWayHome } })
 		return
 	end
 	task.spawn(sendHome, player)
 end)
 Players.PlayerRemoving:Connect(function(player)
 	lastHome[player] = nil
+	atStadium[player] = nil
 end)
+
+--[[
+	THE TRAITOR'S BANNER: over the head of whoever left a club for its rival,
+	for everyone to see, while it lasts (the attribute "Traidor": matches left).
+]]
+do
+	local function banner(player: Player)
+		local character = player.Character
+		local head = character and character:FindFirstChild("Head")
+		if not head then
+			return
+		end
+		local old = head:FindFirstChild("Traidor")
+		if player:GetAttribute("Traidor") == nil then
+			if old then
+				old:Destroy()
+			end
+			return
+		end
+		if old then
+			return
+		end
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "Traidor"
+		gui.Size = UDim2.fromScale(Config.Labels.width, Config.Labels.height)
+		gui.StudsOffset = Vector3.new(0, 4.6, 0)
+		gui.MaxDistance = Config.Traitor.labelDistance
+		gui.LightInfluence = 0
+		local words = Instance.new("TextLabel")
+		words.Size = UDim2.fromScale(1, 1)
+		words.BackgroundColor3 = Config.UI.bad
+		words.BorderSizePixel = 0
+		words.Font = Enum.Font.GothamBlack
+		words.TextScaled = true
+		words.TextColor3 = Config.UI.text
+		words.Text = Config.Text.hud.traitor
+		words.Parent = gui
+		gui.Parent = head
+	end
+	local function watch(player: Player)
+		player:GetAttributeChangedSignal("Traidor"):Connect(function()
+			banner(player)
+		end)
+		player.CharacterAdded:Connect(function(character)
+			character:WaitForChild("Head", 5)
+			task.wait(0.5)
+			banner(player)
+		end)
+		banner(player)
+	end
+	for _, player in Players:GetPlayers() do
+		watch(player)
+	end
+	Players.PlayerAdded:Connect(watch)
+end
 
 Gear.start()
 -- O lider: o letreiro, as ordens (a claque decide sempre) e o material que da.

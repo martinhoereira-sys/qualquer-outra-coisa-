@@ -22,6 +22,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local TifoDesigns = require(Shared:WaitForChild("TifoDesigns"))
+local Emblem = require(Shared:WaitForChild("Emblem"))
 local Teams = require(script.Parent:WaitForChild("Teams"))
 local Crowd = require(script.Parent:WaitForChild("Crowd"))
 
@@ -47,6 +48,7 @@ type Active = {
 	lifted: { [Player]: boolean },
 	folder: Folder?,
 	message: string?, -- uma frase por cima do mosaico, em letras gigantes
+	emblem: boolean?, -- the club's own emblem, drawn whole on the sheet
 }
 
 local active: { [string]: Active } = {}
@@ -192,13 +194,13 @@ local function raise(a: Active)
 	a.folder = folder
 
 	--[[
-		A tela: um papel pintado estendido por cima da claque, de ponta a ponta
-		da curva, que ondula ao vento (cada ecra fa-la ondular: TifoWave.client).
-
-		Na curva nao ha um plano so: a tela e feita de tiras ao alto, uma por
-		coluna, cada uma virada para o relvado com o "cima" pela bancada acima.
-		O desenho e a frase pintam-se por cima de todas, cada tira com o seu
-		pedaco, e de la de baixo leem-se como uma tela so.
+		THE SHEET: one big smooth cloth over the claque, from end to end of
+		its block, with the club's drawing on it. ONE surface, not strips: a
+		single flat sheet held up over the heads, facing the pitch, lying
+		along the slope of the stand. (The stand curves and the sheet does
+		not: its ends sit over the ends of the block, its middle hangs a
+		little towards the pitch.) Each screen makes it breathe a little
+		(TifoWave.client).
 	]]
 	local team = Config.Teams[a.teamId]
 	local lines = a.lines
@@ -206,87 +208,96 @@ local function raise(a: Active)
 	local designCols = if designRows > 0 then #lines[1] else 0
 	local text = if a.message then string.gsub(a.message, "%%TEAM%%", team.nameUpper) else nil
 	local height = RAKE * T.rows + 0.6
-	local PW = 100 -- pixeis de cada tira na largura
 	local STRIPS = T.columns
 
 	Budget.run("Tifo", function()
-		for strip = 1, STRIPS do
-			Budget.take("Tifo")
-			local top = cellCFrame(a.teamId, { col = strip, row = 1 })
-			local bottom = cellCFrame(a.teamId, { col = strip, row = T.rows })
-			local width = cardWidth(T.firstRow + T.rows // 2) + 0.35 -- um pouco sobrepostas
-			local normal = top.UpVector -- para fora da bancada, para o campo
-			local upslope = top.LookVector -- pela bancada acima
-			local viewerRight = upslope:Cross(normal)
+		Budget.take("Tifo")
+		-- Where the two ends of the block are, and how the middle of it faces.
+		local function middleOf(col: number): Vector3
+			local top = cellCFrame(a.teamId, { col = col, row = 1 })
+			local bottom = cellCFrame(a.teamId, { col = col, row = T.rows })
+			return (top.Position + bottom.Position) / 2
+		end
+		local first, last = middleOf(1), middleOf(STRIPS)
+		local centreCol = math.max(1, (STRIPS + 1) // 2)
+		local top = cellCFrame(a.teamId, { col = centreCol, row = 1 })
+		local normal = top.UpVector -- out of the stand, to the pitch
+		local upslope = top.LookVector -- up the stand
+		local viewerRight = upslope:Cross(normal)
+		local width = (last - first).Magnitude + cardWidth(T.firstRow + T.rows // 2) + 0.35
 
-			local tela = Instance.new("Part")
-			tela.Name = "Tela"
-			tela.Size = Vector3.new(width, height, 0.08)
-			tela.CFrame = CFrame.fromMatrix((top.Position + bottom.Position) / 2 + normal * 0.3, -viewerRight, upslope, -normal)
-			tela.Color = team.color
-			tela.Material = Enum.Material.Fabric
-			tela.Anchored = true
-			tela.CanCollide = false
-			tela.CanQuery = false
-			tela.CastShadow = false
-			tela:SetAttribute("Strip", strip)
-			tela.Parent = folder
+		local tela = Instance.new("Part")
+		tela.Name = "Tela"
+		tela.Size = Vector3.new(width, height, 0.08)
+		tela.CFrame = CFrame.fromMatrix((first + last) / 2 + normal * 0.3, -viewerRight, upslope, -normal)
+		tela.Color = team.color
+		tela.Material = Enum.Material.Fabric
+		tela.Anchored = true
+		tela.CanCollide = false
+		tela.CanQuery = false
+		tela.CastShadow = false
+		tela:SetAttribute("Strip", 0)
+		tela.Parent = folder
 
-			local PH = math.floor(PW * height / width)
-			local gui = Instance.new("SurfaceGui")
-			gui.Face = Enum.NormalId.Front
-			gui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
-			gui.CanvasSize = Vector2.new(PW, PH)
-			gui.LightInfluence = 0.4
-			gui.ClipsDescendants = true
-			gui.Parent = tela
+		local PW = 1400 -- pixels across the whole sheet
+		local PH = math.floor(PW * height / width)
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Front
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+		gui.CanvasSize = Vector2.new(PW, PH)
+		gui.LightInfluence = 0.4
+		gui.ClipsDescendants = true
+		gui.Parent = tela
 
-			-- O desenho: as colunas do desenho que caem nesta tira, em riscos
-			-- verticais da mesma cor (menos pecas do que um quadrado por pixel).
-			if designCols > 0 then
-				local total = PW * STRIPS
-				local colW = total / designCols
-				local rowH = PH / designRows
-				local fromCol = math.floor((strip - 1) * designCols / STRIPS) + 1
-				local toCol = math.ceil(strip * designCols / STRIPS)
-				for c = fromCol, toCol do
-					local r = 1
-					while r <= designRows do
-						local code = string.sub(lines[r], c, c)
-						local run = 1
-						while r + run <= designRows and string.sub(lines[r + run], c, c) == code do
-							run += 1
-						end
-						if code ~= "E" and code ~= "" then
-							local cell = Instance.new("Frame")
-							cell.BorderSizePixel = 0
-							cell.BackgroundColor3 = TifoDesigns.colour(code, a.teamId)
-							cell.Position = UDim2.fromOffset((c - 1) * colW - (strip - 1) * PW, (r - 1) * rowH)
-							cell.Size = UDim2.fromOffset(colW + 1, run * rowH + 1)
-							cell.Parent = gui
-						end
-						r += run
+		-- The drawing: each column in runs of the same colour (fewer pieces than one square a pixel).
+		if a.emblem and (team :: any).emblem then
+			-- The club's emblem itself, whole, in the middle of the sheet.
+			local holder = Instance.new("Frame")
+			holder.BackgroundTransparency = 1
+			holder.AnchorPoint = Vector2.new(0.5, 0.5)
+			holder.Position = UDim2.fromScale(0.5, 0.5)
+			holder.Size = UDim2.fromOffset(PH * 0.9, PH * 0.9)
+			holder.Parent = gui
+			Emblem.draw(holder, team, { year = false })
+		elseif designCols > 0 then
+			local colW = PW / designCols
+			local rowH = PH / designRows
+			for c = 1, designCols do
+				local r = 1
+				while r <= designRows do
+					local code = string.sub(lines[r], c, c)
+					local run = 1
+					while r + run <= designRows and string.sub(lines[r + run], c, c) == code do
+						run += 1
 					end
+					if code ~= "E" and code ~= "" then
+						local cell = Instance.new("Frame")
+						cell.BorderSizePixel = 0
+						cell.BackgroundColor3 = TifoDesigns.colour(code, a.teamId)
+						cell.Position = UDim2.fromOffset((c - 1) * colW, (r - 1) * rowH)
+						cell.Size = UDim2.fromOffset(colW + 1, run * rowH + 1)
+						cell.Parent = gui
+					end
+					r += run
 				end
 			end
+		end
 
-			-- A frase, em letras gigantes por cima do desenho.
-			if text then
-				local total = PW * STRIPS
-				local label = Instance.new("TextLabel")
-				label.Size = UDim2.fromOffset(total * 0.94, PH * 0.9)
-				label.Position = UDim2.fromOffset(-(strip - 1) * PW + total * 0.03, PH * 0.05)
-				label.BackgroundTransparency = 1
-				label.Font = Enum.Font.GothamBlack
-				label.TextScaled = true
-				label.TextWrapped = true
-				label.TextColor3 = Color3.fromRGB(245, 245, 240)
-				label.TextStrokeTransparency = 0.2
-				label.TextStrokeColor3 = Color3.fromRGB(20, 20, 24)
-				label.Text = text
-				label.ZIndex = 2
-				label.Parent = gui
-			end
+		-- The words, in giant letters over the drawing.
+		if text then
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.fromOffset(PW * 0.94, PH * 0.9)
+			label.Position = UDim2.fromOffset(PW * 0.03, PH * 0.05)
+			label.BackgroundTransparency = 1
+			label.Font = Enum.Font.GothamBlack
+			label.TextScaled = true
+			label.TextWrapped = true
+			label.TextColor3 = Color3.fromRGB(245, 245, 240)
+			label.TextStrokeTransparency = 0.2
+			label.TextStrokeColor3 = Color3.fromRGB(20, 20, 24)
+			label.Text = text
+			label.ZIndex = 2
+			label.Parent = gui
 		end
 	end)
 
@@ -337,6 +348,7 @@ function Tifo.launch(player: Player, designId: string): boolean
 		lifted = {},
 		folder = nil,
 		message = design.message,
+		emblem = design.emblem == true,
 	}
 
 	local taken: { [string]: boolean } = {}

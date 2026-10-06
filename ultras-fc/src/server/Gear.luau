@@ -815,7 +815,7 @@ function Gear.sync(player: Player)
 		-- A bandeira grande so aparece a quem tem uma (dealer ou lider).
 		local wanted = teamId ~= nil
 			and (kind ~= "tambor" or Gear.hasDrum(player))
-			and (kind ~= "bandeira" or Gear.remaining(player, kind) ~= 0)
+			and kind ~= "bandeira" -- the big flag (the one that is not on a pole) is out of the game
 			and (kind ~= "mastro" or (teamId ~= nil and mastroHolder[teamId] == player))
 		local tool = mine[kind]
 

@@ -1081,6 +1081,18 @@ Config.Admins = {
 	Config.Clubs. To change a word on the screen, change it here.
 ]]
 Config.Text = {
+	-- HOW IT WORKS (client/Regras): what one has to know and the game does not say by itself. An icon and a line each.
+	rules = {
+		{ "🛡", "Your club is kept. To change, go to the other club's clubhouse, in person." },
+		{ "🚫", "Your rival can never be your second club." },
+		{ "🩸", "Changing to your rival makes you a TRAITOR for a few matches." },
+		{ "⏱", "Official matches every 20 minutes, from 09:00 to 01:00." },
+		{ "🌙", "At night there are only friendlies, at the training pitches." },
+		{ "📣", "The capo runs the chants and the orders. Nobody is forced." },
+		{ "🟨", "Nobody referees a match of their own club." },
+		{ "⭐", "XP: be in the stand, march in the corteo, light up after a goal, play, referee." },
+		{ "💰", "Escudos: wages at full time, your team's goals, the daily reward." },
+	},
 	menu = {
 		open = "COMPETITIONS",
 		schedule = "SCHEDULE",
@@ -1396,6 +1408,16 @@ Config.Text = {
 	hud = {
 		chooseYourClub = "Choose your club",
 		beAnUltra = "BE AN ULTRA",
+		howItWorks = "HOW IT WORKS",
+		rivalLocked = "He's your rival. You can't follow both.",
+		traitor = "TRAITOR",
+		traitorLeft = "TRAITOR  ·  %d MATCHES LEFT",
+		traitorLeftOne = "TRAITOR  ·  1 MATCH LEFT",
+		traitorJoined = "%s came from %s. A traitor is among you.",
+		stadium = "STADIUM",
+		atStadium = "AT THE STADIUM",
+		noWayHome = "You went to the stadium: no way back home until the match ends.",
+		noMatchOn = "There is no match on at the stadium now.",
 		pitchNextMatch = "The match is on: you go on the pitch at this club's next match.",
 		pitchAtKickOff = "Second club: you get a place at kick-off, if its own players leave one free.",
 		menu = "MENU",
@@ -1543,6 +1565,7 @@ Config.Text = {
 		noClub = "no club yet",
 		secondClub = "SECOND CLUB",
 		noSecond = "no second club",
+		cameFrom = "came from %s",
 		choose = "CHOOSE",
 		levelHead = "LEVEL",
 		levelsLine = "SUPPORTER %d   ·   PLAYER %d   ·   REFEREE %d",
@@ -1983,7 +2006,7 @@ Config.Entrance = {
 ]]
 Config.Lider = {
 	give = { base = 3, max = 15 },
-	giveKinds = { "tocha", "fumo", "bandeira", "faixa", "mastro" }, -- o que pode dar (o mastro nao gasta: e so um, muda de mao)
+	giveKinds = { "tocha", "fumo", "faixa", "mastro" }, -- o que pode dar (o mastro nao gasta: e so um, muda de mao)
 	cooldown = 6, -- segundos entre duas ordens iguais
 	-- ACENDER: quantas vezes por jogo (do nivel 1 ao maximo) e o intervalo minimo.
 	lights = { base = 2, max = 8 },
@@ -2474,7 +2497,6 @@ Config.Shop = {
 	{ kind = "fumo", label = "Smoke bomb", price = 15, about = "A thick cloud seen from the other end." },
 	{ kind = "estrobo", label = "Strobe", price = 12, about = "Flashing white, it dazzles the stand." },
 	{ kind = "vela", label = "Roman candle", price = 25, about = "Ten fireballs, one per click." },
-	{ kind = "bandeira", label = "Big flag", price = 40, about = "Two poles, over the fence. Yours for the whole match; whoever waves it stays in place." },
 }
 
 -- Quantas de uma vez: o pack de 5 sai mais barato (paga-se 4).
@@ -2739,6 +2761,29 @@ Config.Tifo = {
 	THE FUTURE: switches only, all off. Nothing is built behind them yet; they
 	are here so that nothing in the code gets in their way.
 ]]
+--[[
+	RIVALS. Two clubs of the same city are each other's rival (the derbies).
+	- The rival can never be my SECOND club.
+	- Changing my club to the rival (at its clubhouse, as for any club) makes me
+	  a TRAITOR: a banner over my head that everyone sees, my shots are weaker,
+	  and it lasts `matches` matches (counted at full time of each match I am
+	  at). After that everything is back to normal; only the profile keeps,
+	  for ever, the club I came from.
+	  matches        how many matches it lasts
+	  shotPower      what my shots are worth meanwhile (1 = normal)
+	  labelDistance  from how far the banner over the head is read
+]]
+Config.Traitor = {
+	matches = 5,
+	shotPower = 0.75,
+	labelDistance = 120,
+}
+
+function Config.isRival(a: string?, b: string?): boolean
+	local x, y = (Config.Clubs :: any)[a or ""], (Config.Clubs :: any)[b or ""]
+	return x ~= nil and y ~= nil and a ~= b and x.city ~= nil and x.city == y.city
+end
+
 Config.Futuro = {
 	presidente = false,
 	atributos = false,

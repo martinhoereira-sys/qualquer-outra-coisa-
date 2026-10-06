@@ -37,6 +37,8 @@ export type Profile = {
 	club: string?, -- MY club: one only, kept between sessions
 	second: string?, -- a second club I follow (no claque rights)
 	since: number?, -- when I joined my club (os.time)
+	cameFrom: string?, -- the rival I left for this club (kept for ever)
+	traitor: number?, -- matches left as a traitor (Config.Traitor)
 	version: number,
 }
 
@@ -82,6 +84,8 @@ local function publish(player: Player)
 	player:SetAttribute("Clube", if p then p.club else nil)
 	player:SetAttribute("Clube2", if p then p.second else nil)
 	player:SetAttribute("ClubeDesde", if p then p.since else nil)
+	player:SetAttribute("VeioDe", if p then p.cameFrom else nil)
+	player:SetAttribute("Traidor", if p then p.traitor else nil)
 	if onChanged then
 		onChanged(player)
 	end
@@ -131,6 +135,16 @@ local function fromSaved(value: any): Profile?
 	end
 	if p.club and type(value.since) == "number" then
 		p.since = value.since
+	end
+	if type(value.cameFrom) == "string" and (Config.Clubs :: any)[value.cameFrom] then
+		p.cameFrom = value.cameFrom
+	end
+	if type(value.traitor) == "number" and value.traitor > 0 then
+		p.traitor = math.floor(value.traitor)
+	end
+	-- The rival is never the second club.
+	if Config.isRival(p.club, p.second) then
+		p.second = nil
 	end
 	if type(value.daily) == "table" and type(value.daily.day) == "number" and type(value.daily.streak) == "number" then
 		p.daily = { day = value.daily.day, streak = value.daily.streak }
@@ -219,6 +233,8 @@ local function save(player: Player)
 		club = p.club,
 		second = p.second,
 		since = p.since,
+		cameFrom = p.cameFrom,
+		traitor = p.traitor,
 		version = p.version,
 	}
 	local ok = retry(function()
@@ -344,7 +360,7 @@ function Money.setClub(player: Player, clubId: string)
 		p.since = os.time()
 	end
 	p.club = clubId
-	if p.second == clubId then
+	if p.second == clubId or Config.isRival(clubId, p.second) then
 		p.second = nil
 	end
 	dirty[player] = true
@@ -353,10 +369,33 @@ end
 
 function Money.setSecond(player: Player, clubId: string?)
 	local p = profiles[player]
-	if not p or (clubId ~= nil and (not (Config.Clubs :: any)[clubId] or clubId == p.club)) then
+	if not p or (clubId ~= nil and (not (Config.Clubs :: any)[clubId] or clubId == p.club or Config.isRival(clubId, p.club))) then
 		return
 	end
 	p.second = clubId
+	dirty[player] = true
+	publish(player)
+end
+
+-- I have just left `from` for its rival: a traitor for Config.Traitor.matches matches.
+function Money.markTraitor(player: Player, from: string)
+	local p = profiles[player]
+	if not p then
+		return
+	end
+	p.cameFrom = from
+	p.traitor = Config.Traitor.matches
+	dirty[player] = true
+	publish(player)
+end
+
+-- A match I was at has ended: one less as a traitor.
+function Money.traitorTick(player: Player)
+	local p = profiles[player]
+	if not p or not p.traitor then
+		return
+	end
+	p.traitor = if p.traitor > 1 then p.traitor - 1 else nil
 	dirty[player] = true
 	publish(player)
 end

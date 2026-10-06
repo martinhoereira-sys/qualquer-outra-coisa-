@@ -376,6 +376,10 @@ function Football.kick(f: Footballer, power: number, curve: number, height: numb
 	if not root then
 		return false
 	end
+	-- A traitor's shots are weaker while it lasts (Config.Traitor).
+	if f.player and f.player:GetAttribute("Traidor") ~= nil then
+		power *= Config.Traitor.shotPower
+	end
 	local firstTime = false
 	if state.carrier ~= f then
 		if not canStrikeLoose(f, root) then
