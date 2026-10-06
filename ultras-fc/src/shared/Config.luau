@@ -2016,6 +2016,8 @@ Config.Lider = {
 	  name     what the capo reads in the list (in the club's language)
 	  id       the audio (rbxassetid://<id>)
 	  seconds  how long the sound is (the server counts with it to know when it ends)
+	  bpm      (optional) the beats a minute of the chant: with it, whoever is jumping
+	           (the "salto" animation) jumps to its beat, `beatsPerJump` beats a jump
 	  repeats  how many times it is sung in a row; change it by hand.
 	           Left out: by the length (`byLength`); length unknown: `repeatsUnknown`.
 
@@ -2032,6 +2034,7 @@ Config.Chants = {
 	farVolume = 0.4,
 	minDistance = 40,
 	maxDistance = 420,
+	beatsPerJump = 1,
 	repeatsUnknown = 2,
 	secondsUnknown = 30,
 	-- Longer than `over` seconds: `repeats` times (the first line that fits).
@@ -2220,7 +2223,8 @@ Config.Performance = {
 	  tocha        com a tocha acesa na mao
 	  fumo         com a bomba de fumo acesa na mao
 	  velaromana   com a vela romana acesa na mao
-	  salto        a saltar (emote e ordem SALTAR do lider)
+	  salto        a saltar (emote e ordem SALTAR do lider); pode-se andar para todos os
+	               lados sem parar de saltar
 	  bandeira     com a bandeira grande (a do mastro) na mao; mexe tambem o
 	               mastro e o pano (as juntas Bandeira_*)
 	  bandeirinha  com a bandeirinha na mao; mexe o pau e o pano (Bandeirinha_*)
@@ -2238,7 +2242,7 @@ Config.Animations = {
 	tocha = "101977181059854",
 	fumo = "113905861032838",
 	velaromana = "134149231915828",
-	salto = "",
+	salto = "79828279624044",
 	bandeira = "", -- agitada pelo jogo, com as duas maos (a animacao 107165199750926 fica guardada aqui)
 	bandeirinha = "122243468746097",
 	tambor = "",
@@ -2259,6 +2263,7 @@ Config.Animations = {
 ]]
 Config.AnimationSpeed = {
 	todas = 0.7,
+	salto = 1, -- (with a chant on that has `bpm`, the jump goes to its beat instead: Config.Chants)
 	bandeirinha = 0.5, -- mais lenta do que as outras
 	bandeira = 0.5,
 }

@@ -67,7 +67,8 @@ local function wanted(character: Model, root: BasePart): string?
 		and (banner.Position - root.Position).Magnitude < 14 then
 		return "faixa"
 	end
-	if me:GetAttribute("Emote") == "saltar" and not walking then
+	-- Jumping goes on while one moves, in any direction.
+	if me:GetAttribute("Emote") == "saltar" then
 		return "salto"
 	end
 	local teamId = me:GetAttribute("Team")
@@ -80,6 +81,19 @@ local function wanted(character: Model, root: BasePart): string?
 		return "marcha"
 	end
 	return nil
+end
+
+-- The beats a minute of the chant my claque is singing now, if it says so (Config.Chants).
+local function chantBpm(): number?
+	local teamId = me:GetAttribute("Team")
+	local stadium = workspace:FindFirstChild("Stadium")
+	local value = if stadium and type(teamId) == "string" then stadium:GetAttribute("Musica_" .. teamId) else nil
+	if type(value) ~= "string" then
+		return nil
+	end
+	local clubId, index = string.match(value, "^(%w+):(%d+):")
+	local song = if clubId then Config.chantsOf(clubId)[tonumber(index) :: number] else nil
+	return if song and type(song.bpm) == "number" and song.bpm > 0 then song.bpm else nil
 end
 
 local ONCE: { [string]: boolean } = { joelho = true, mbappe = true }
@@ -116,6 +130,13 @@ RunService.Heartbeat:Connect(function()
 		name = nil
 	end
 	if name == playingName then
+		-- The jump goes to the beat of the chant that is on (one jump every
+		-- Config.Chants.beatsPerJump beats); with no chant, at its own speed.
+		local track = playing
+		if name == "salto" and track and track.Length > 0 then
+			local bpm = chantBpm()
+			track:AdjustSpeed(if bpm then track.Length * bpm / 60 / Config.Chants.beatsPerJump else Animacoes.speed("salto"))
+		end
 		return
 	end
 	stop()

@@ -787,12 +787,13 @@ RunService.Stepped:Connect(function()
 		-- A andar, a animacao de adepto para; a tocha continua no ar.
 		local v = rig.root.AssemblyLinearVelocity
 		local walking = Vector3.new(v.X, 0, v.Z).Magnitude > 2
-		local play = if type(emote) == "string" and not walking then EMOTES[emote] else nil
+		-- (Jumping does not stop for walking: one moves about while jumping.)
+		local play = if type(emote) == "string" and (not walking or emote == "saltar") then EMOTES[emote] else nil
 		-- Quem se mexe acaba a sua animacao (so o proprio a pode parar).
 		-- (Uma ordem do lider aceite nao acaba por se andar: pausa e volta ao parar.)
 		local ordered = player:GetAttribute("EmoteUntil")
 		local byOrder = type(ordered) == "number" and workspace:GetServerTimeNow() < ordered
-		if player == me and walking and emote ~= nil and not riding and not byOrder and now - lastStop > 1 then
+		if player == me and walking and emote ~= nil and emote ~= "saltar" and not riding and not byOrder and now - lastStop > 1 then
 			lastStop = now
 			Remotes.Emote:FireServer("")
 		end
