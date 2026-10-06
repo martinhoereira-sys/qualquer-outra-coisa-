@@ -618,20 +618,23 @@ end)
 		local rows = {
 			{ role = "adepto", word = TXT.roleUltra, club = mine, change = false },
 			{ role = "jogador", word = TXT.rolePlayer, club = second, change = true },
+			{ role = "jogador2", word = TXT.rolePlayer2, club = (Config.Clubs :: any)[player:GetAttribute("Clube3") or ""], change = true, after = "jogador" },
 			{ role = "arbitro", word = TXT.roleReferee, club = (Config.Clubs :: any)[player:GetAttribute("ClubeArbitro") or ""], change = true },
 		}
 		for i, entry in rows do
-			local y = (i - 1) * 68
-			line(entry.word, 13, MUTED, 500, y, 120, Enum.Font.GothamBlack)
+			local y = (i - 1) * 52
+			line(entry.word, 12, MUTED, 500, y, 190, Enum.Font.GothamBlack)
 			if entry.club then
-				crest(entry.club, 40, 500, y + 20)
-				line(entry.club.name, 18, TEXT, 548, y + 24, 140, Enum.Font.GothamBlack, true)
+				crest(entry.club, 30, 500, y + 17)
+				line(entry.club.name, 16, TEXT, 538, y + 18, 150, Enum.Font.GothamBlack, true)
 			end
-			if not entry.club or entry.change then
-				local b = button(page, if entry.club then TXT.change else TXT.add, 14, if entry.club then CARD else GOLD, if entry.club then TEXT else BG)
+			-- (The second club to play for only after there is a first.)
+			local ready = (entry :: any).after == nil or second ~= nil
+			if ready and (not entry.club or entry.change) then
+				local b = button(page, if entry.club then TXT.change else TXT.add, 13, if entry.club then CARD else GOLD, if entry.club then TEXT else BG)
 				b.Name = "Papel_" .. entry.role
-				b.Size = UDim2.fromOffset(88, 36)
-				b.Position = UDim2.fromOffset(692, y + 22)
+				b.Size = UDim2.fromOffset(86, 30)
+				b.Position = UDim2.fromOffset(694, y + 17)
 				b.Activated:Connect(function()
 					choose(entry.role)
 				end)
@@ -651,7 +654,7 @@ end)
 		end
 	end
 
-	for _, name in { "Clube", "Clube2", "ClubeArbitro", "ClubeDesde", "VeioDe", "Nivel_adepto", "Nivel_jogador", "Nivel_arbitro" } do
+	for _, name in { "Clube", "Clube2", "Clube3", "ClubeArbitro", "ClubeDesde", "VeioDe", "Nivel_adepto", "Nivel_jogador", "Nivel_arbitro" } do
 		player:GetAttributeChangedSignal(name):Connect(draw)
 	end
 	workspace:GetAttributeChangedSignal("Epoca"):Connect(function()

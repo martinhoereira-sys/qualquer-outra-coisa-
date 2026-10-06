@@ -242,9 +242,10 @@ local function pickTeam(player: Player, teamId: any)
 		-- Nobody referees a match with any of their clubs in it (ultra, player or referee).
 		local mine, second = Money.clubOf(player)
 		local third = Money.refereeOf(player)
+		local other = Money.second2Of(player)
 		for _, slot in Config.TeamOrder do
 			local playing = Config.Teams[slot].club
-			if playing == mine or playing == second or playing == third then
+			if playing == mine or playing == second or playing == third or playing == other then
 				return
 			end
 		end
@@ -395,7 +396,8 @@ local function pickClub(player: Player, clubId: string, role: string)
 			Money.setSecond(player, clubId)
 			second = select(2, Money.clubOf(player))
 		end
-		if clubId ~= second then
+		-- One plays for two clubs at most: the first, and a second one.
+		if clubId ~= second and clubId ~= Money.second2Of(player) then
 			return
 		end
 	else
@@ -424,8 +426,9 @@ local function pickClub(player: Player, clubId: string, role: string)
 		local already = f ~= nil and f.teamId == slot
 		local phase = MatchLoop.phase()
 		local running = phase == "first" or phase == "halftime" or phase == "second" or phase == "fulltime"
-		-- ("Its own": whoever is an ultra of this club too, or of no club yet.)
-		local own = mine == nil or mine == clubId
+		-- ("Its own": whoever has it as the FIRST club they play for. Whoever has
+		-- it as the second gets a place at kick-off, in what is still free.)
+		local own = clubId == second
 		if not already and (running or (not own and not seating)) then
 			wish[player] = { club = clubId, role = role }
 			player:SetAttribute("UpNext", clubId)
@@ -479,6 +482,8 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 		if which == "jogador" then
 			-- The club one plays for changes here, whenever one wants.
 			Money.setSecond(player, forClub)
+		elseif which == "jogador2" then
+			Money.setSecond2(player, forClub)
 		elseif which == "arbitro" then
 			Money.setReferee(player, forClub)
 		elseif which == "adepto" and Money.clubOf(player) == nil then
@@ -619,7 +624,8 @@ local function seatWaiting(second: boolean)
 		local w = wish[player]
 		if w and player:GetAttribute("UpNext") and (w.role == "jogador" or w.role == "baliza") and clubPlace(w.club) then
 			local mine = Money.clubOf(player)
-			local own = mine == nil or mine == w.club
+			local _, firstClub = Money.clubOf(player)
+			local own = firstClub == w.club
 			if own ~= second then
 				switchedAt[player] = nil
 				pickClub(player, w.club, w.role)
@@ -732,6 +738,10 @@ local function chooseMatch(slot: number, late: boolean)
 		end
 		if plays and plays ~= mine then
 			people[plays] = (people[plays] or 0) + 1
+		end
+		local also = Money.second2Of(player)
+		if also and also ~= mine and also ~= plays then
+			people[also] = (people[also] or 0) + 1
 		end
 	end
 	local match = Competition.pick(slot, people, late)

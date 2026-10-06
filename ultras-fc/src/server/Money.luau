@@ -36,7 +36,8 @@ export type Profile = {
 	daily: { day: number, streak: number },
 	-- A club for each thing I am (each one kept between sessions; they may be the same club):
 	club: string?, -- the club I am an ULTRA of (its claque is mine)
-	second: string?, -- the club I PLAY for
+	second: string?, -- the FIRST club I play for (it comes first for a place in its team)
+	second2: string?, -- the SECOND club I play for (a place at kick-off, if one is free)
 	referee: string?, -- my club as a REFEREE (I never referee its matches)
 	since: number?, -- when I joined my club (os.time)
 	cameFrom: string?, -- the rival I left for this club (kept for ever)
@@ -85,6 +86,7 @@ local function publish(player: Player)
 	player:SetAttribute("MoedasInfinitas", if unlimited(player) then true else nil)
 	player:SetAttribute("Clube", if p then p.club else nil)
 	player:SetAttribute("Clube2", if p then p.second else nil)
+	player:SetAttribute("Clube3", if p then p.second2 else nil)
 	player:SetAttribute("ClubeArbitro", if p then p.referee else nil)
 	player:SetAttribute("ClubeDesde", if p then p.since else nil)
 	player:SetAttribute("VeioDe", if p then p.cameFrom else nil)
@@ -136,6 +138,9 @@ local function fromSaved(value: any): Profile?
 	if type(value.second) == "string" and (Config.Clubs :: any)[value.second] then
 		p.second = value.second
 	end
+	if type(value.second2) == "string" and (Config.Clubs :: any)[value.second2] and value.second2 ~= p.second then
+		p.second2 = value.second2
+	end
 	if type(value.referee) == "string" and (Config.Clubs :: any)[value.referee] then
 		p.referee = value.referee
 	end
@@ -152,7 +157,10 @@ local function fromSaved(value: any): Profile?
 	if Config.isRival(p.club, p.second) then
 		p.second = nil
 	end
-	if Config.isRival(p.club, p.referee) or Config.isRival(p.second, p.referee) then
+	if Config.isRival(p.club, p.second2) or Config.isRival(p.second, p.second2) then
+		p.second2 = nil
+	end
+	if Config.isRival(p.club, p.referee) or Config.isRival(p.second, p.referee) or Config.isRival(p.second2, p.referee) then
 		p.referee = nil
 	end
 	if type(value.daily) == "table" and type(value.daily.day) == "number" and type(value.daily.streak) == "number" then
@@ -223,6 +231,10 @@ local function load(player: Player)
 					real.second = temp.second
 					dirty[player] = true
 				end
+				if temp.second2 and not real.second2 and temp.second2 ~= real.second and not Config.isRival(temp.second2, real.club) and not Config.isRival(temp.second2, real.second) then
+					real.second2 = temp.second2
+					dirty[player] = true
+				end
 				if temp.referee and not real.referee and not Config.isRival(temp.referee, real.club) and not Config.isRival(temp.referee, real.second) then
 					real.referee = temp.referee
 					dirty[player] = true
@@ -256,6 +268,7 @@ local function save(player: Player)
 		-- My club, the one I follow, and since when: kept between sessions.
 		club = p.club,
 		second = p.second,
+		second2 = p.second2,
 		referee = p.referee,
 		since = p.since,
 		cameFrom = p.cameFrom,
@@ -392,6 +405,9 @@ function Money.setClub(player: Player, clubId: string)
 	if Config.isRival(clubId, p.second) then
 		p.second = nil
 	end
+	if Config.isRival(clubId, p.second2) then
+		p.second2 = nil
+	end
 	if Config.isRival(clubId, p.referee) then
 		p.referee = nil
 	end
@@ -401,10 +417,13 @@ end
 
 function Money.setSecond(player: Player, clubId: string?)
 	local p = profiles[player]
-	if not p or (clubId ~= nil and (not (Config.Clubs :: any)[clubId] or Config.isRival(clubId, p.club) or Config.isRival(clubId, p.referee))) then
+	if not p or (clubId ~= nil and (not (Config.Clubs :: any)[clubId] or Config.isRival(clubId, p.club) or Config.isRival(clubId, p.referee) or Config.isRival(clubId, p.second2))) then
 		return
 	end
 	p.second = clubId
+	if p.second2 == clubId then
+		p.second2 = nil -- (it has become the first)
+	end
 	dirty[player] = true
 	publish(player)
 end
@@ -432,10 +451,29 @@ function Money.traitorTick(player: Player)
 	publish(player)
 end
 
+-- The second club I play for (nil takes it away). Never the same as the first, never a rival of one of mine.
+function Money.setSecond2(player: Player, clubId: string?)
+	local p = profiles[player]
+	if not p then
+		return
+	end
+	if clubId ~= nil and (not (Config.Clubs :: any)[clubId] or clubId == p.second or Config.isRival(clubId, p.club) or Config.isRival(clubId, p.second) or Config.isRival(clubId, p.referee)) then
+		return
+	end
+	p.second2 = clubId
+	dirty[player] = true
+	publish(player)
+end
+
+function Money.second2Of(player: Player): string?
+	local p = profiles[player]
+	return if p then p.second2 else nil
+end
+
 -- My club as a referee.
 function Money.setReferee(player: Player, clubId: string)
 	local p = profiles[player]
-	if not p or not (Config.Clubs :: any)[clubId] or Config.isRival(clubId, p.club) or Config.isRival(clubId, p.second) then
+	if not p or not (Config.Clubs :: any)[clubId] or Config.isRival(clubId, p.club) or Config.isRival(clubId, p.second) or Config.isRival(clubId, p.second2) then
 		return
 	end
 	p.referee = clubId

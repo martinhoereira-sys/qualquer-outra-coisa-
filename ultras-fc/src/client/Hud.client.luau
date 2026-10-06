@@ -366,14 +366,14 @@ do
 	local gridRole = "adepto"
 	local gridAdding = false
 	local showGrid: () -> ()
-	local ROLE_ATTRIBUTE = { adepto = "Clube", jogador = "Clube2", arbitro = "ClubeArbitro" }
+	local ROLE_ATTRIBUTE = { adepto = "Clube", jogador = "Clube2", jogador2 = "Clube3", arbitro = "ClubeArbitro" }
 	local function clubOfRole(role: string): string?
 		local value = player:GetAttribute(ROLE_ATTRIBUTE[role])
 		return if type(value) == "string" then value else nil
 	end
 	-- Is `clubId` the rival of one of my clubs? (Then it can never be another of them.)
 	local function isMyRival(clubId: string): boolean
-		for _, role in { "adepto", "jogador", "arbitro" } do
+		for _, role in { "adepto", "jogador", "jogador2", "arbitro" } do
 			if Config.isRival(clubId, clubOfRole(role)) then
 				return true
 			end
@@ -381,7 +381,7 @@ do
 		return false
 	end
 	local function isMine(clubId: string): boolean
-		return clubOfRole("adepto") == clubId or clubOfRole("jogador") == clubId or clubOfRole("arbitro") == clubId
+		return clubOfRole("adepto") == clubId or clubOfRole("jogador") == clubId or clubOfRole("jogador2") == clubId or clubOfRole("arbitro") == clubId
 	end
 
 	-- The club's card, open, to say yes to: the role is already chosen.
@@ -405,6 +405,11 @@ do
 		local role = gridRole
 		local y = 0
 		local yesText: string
+		if role == "jogador2" and club.club == clubOfRole("jogador") then
+			-- Already the first club I play for: the second has to be another.
+			words(side, TXT.alreadyFirst, "normal", false, 0, 3)
+			return
+		end
 		if role == "adepto" then
 			-- The ultras' club is kept: nobody chooses it without knowing.
 			y = words(side, string.format(TXT.warnJoin, club.nameUpper), "normal", false, 0, 2)
@@ -412,8 +417,8 @@ do
 			y = words(side, TXT.warnChange, "small", true, y, 3)
 			y = words(side, TXT.warnSure, "normal", false, y + HALF, 1) + HALF
 			yesText = string.format(TXT.warnYes, club.nameUpper)
-		elseif role == "jogador" then
-			y = words(side, string.format(TXT.playForClub, club.nameUpper), "normal", false, 0, 2)
+		elseif role == "jogador" or role == "jogador2" then
+			y = words(side, string.format(if role == "jogador" then TXT.playForClub else TXT.playForSecond, club.nameUpper), "normal", false, 0, 3)
 			y = words(side, TXT.playChange, "small", true, y, 2) + HALF
 			yesText = string.format(TXT.playYes, club.nameUpper)
 		else
@@ -684,17 +689,31 @@ do
 			b.Name = "Papel_adepto"
 			UI.outline(b, (Config.Clubs :: any)[ultra].color)
 		end
-		if plays then
-			local name = (Config.Clubs :: any)[plays].nameUpper
-			row(TXT.playerRole, U.icons.player, string.format(TXT.forClub, name), false, function()
-				pick("clube:" .. plays .. ":jogador")
-			end).Name = "Papel_jogador"
-			row(TXT.goalkeeper, U.icons.keeper, string.format(TXT.forClub, name), false, function()
-				pick("clube:" .. plays .. ":baliza")
-			end).Name = "Papel_baliza"
+		--[[
+			The clubs I play for (two at most: the first, and a second one), one
+			line each: on the left PLAYER, on the right GOALKEEPER.
+		]]
+		local playsToo = clubOfRole("jogador2")
+		for n, clubId in { plays or "", playsToo or "" } do
+			if clubId ~= "" then
+				local name = (Config.Clubs :: any)[clubId].nameUpper
+				local half = (width - HALF) / 2
+				local outfield = row(TXT.playerRole, U.icons.player, string.format(TXT.forClub, name), false, function()
+					pick("clube:" .. clubId .. ":jogador")
+				end)
+				outfield.Name = "Papel_jogador" .. n
+				outfield.Size = UDim2.fromOffset(half, U.button)
+				y -= U.button + HALF -- the goalkeeper goes on the same line
+				local keeper = row(TXT.goalkeeper, U.icons.keeper, " ", false, function()
+					pick("clube:" .. clubId .. ":baliza")
+				end)
+				keeper.Name = "Papel_baliza" .. n
+				keeper.Position = UDim2.fromOffset(x + half + HALF, keeper.Position.Y.Offset)
+				keeper.Size = UDim2.fromOffset(half, U.button)
+			end
 		end
 		-- Nobody referees a match with one of their clubs in it: then the whistle is not offered.
-		if whistle and not (playing(ultra) or playing(plays) or playing(whistle)) then
+		if whistle and not (playing(ultra) or playing(plays) or playing(playsToo) or playing(whistle)) then
 			row(TXT.refereeRole, U.icons.referee, TXT.withWhistle, false, function()
 				pick("arbitro")
 			end).Name = "Papel_arbitro"
@@ -708,6 +727,14 @@ do
 					showGrid()
 				end).Name = "Juntar_" .. role.id
 			end
+		end
+		-- A second club to play for, once there is a first.
+		if plays and not playsToo then
+			row(TXT.addSecond, U.icons.player, " ", true, function()
+				gridRole = "jogador2"
+				gridAdding = true
+				showGrid()
+			end).Name = "Juntar_jogador2"
 		end
 	end
 
@@ -741,7 +768,7 @@ do
 		end
 	end
 	-- On coming in, the list of what I am is what one sees: it is drawn again as my clubs arrive from the server.
-	for _, name in { "Clube", "Clube2", "ClubeArbitro" } do
+	for _, name in { "Clube", "Clube2", "Clube3", "ClubeArbitro" } do
 		player:GetAttributeChangedSignal(name):Connect(function()
 			if not menuGui:GetAttribute("Picked") or menu.Visible then
 				showClubs()
