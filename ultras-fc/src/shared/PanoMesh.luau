@@ -147,7 +147,7 @@ end
 	Cria o pano liso para uma simulacao de `cols` x `rows` quadrados, de
 	`width` x `height` studs. Devolve nil se nao se puder (e fica o rig).
 ]]
-function PanoMesh.new(cols: number, rows: number, width: number, height: number, design: Design, parent: Instance): Cloth?
+local function build(cols: number, rows: number, width: number, height: number, image: () -> EditableImage, parent: Instance): Cloth?
 	local ok, result = pcall(function(): Cloth
 		local mesh = AssetService:CreateEditableMesh()
 		local front: { number } = {}
@@ -203,7 +203,7 @@ function PanoMesh.new(cols: number, rows: number, width: number, height: number,
 		part.CanTouch = false
 		part.CastShadow = false
 		part.Material = Enum.Material.Fabric
-		part.TextureContent = Content.fromObject(paint(design))
+		part.TextureContent = Content.fromObject(image())
 		part.Parent = parent
 		return {
 			part = part,
@@ -240,6 +240,22 @@ function PanoMesh.update(cloth: Cloth, corner: CFrame, points: { Vector3 })
 		end
 	end
 end
+
+function PanoMesh.new(cols: number, rows: number, width: number, height: number, design: Design, parent: Instance): Cloth?
+	return build(cols, rows, width, height, function()
+		return paint(design)
+	end, parent)
+end
+
+-- The same cloth with any image on it (the tifo's sheet: client/TifoWave paints it).
+function PanoMesh.sheet(cols: number, rows: number, width: number, height: number, image: EditableImage, parent: Instance): Cloth?
+	return build(cols, rows, width, height, function()
+		return image
+	end, parent)
+end
+
+-- What an image is painted with: a rectangle, a word in block letters, a club's emblem.
+PanoMesh.tools = { rect = rect, word = word, stamp = stamp }
 
 function PanoMesh.destroy(cloth: Cloth)
 	cloth.part:Destroy()

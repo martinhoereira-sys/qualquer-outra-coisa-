@@ -886,6 +886,25 @@ Config.UI = {
 }
 
 --[[
+	THE TIFO'S SHEET AS CLOTH (client/TifoWave): one smooth cloth, rippling.
+	  columns, rows   the points of the cloth (more: smoother, heavier)
+	  pixels          how wide the painted drawing is
+	  rate            how many times a second it moves
+	  amplitude       how far the waves go, in studs; waves: how many along the sheet; speed
+	  flip            which face the drawing reads right on
+]]
+Config.TifoCloth = {
+	columns = 22,
+	rows = 12,
+	pixels = 512,
+	rate = 30,
+	amplitude = 0.55,
+	waves = 2.5,
+	speed = 2.2,
+	flip = true,
+}
+
+--[[
 	LIGHT ON THE ULTRAS (client/LuzClaque): lights with nothing to see over each
 	claque's corner of the stadium, so the block is read from the other end.
 	  count       how many over each claque, spread along the curve
@@ -2058,6 +2077,7 @@ Config.Chants = {
 	minDistance = 40,
 	maxDistance = 420,
 	beatsPerJump = 1,
+	beatsPerClap = 1, -- the clapping animation, once every this many beats
 	repeatsUnknown = 2,
 	secondsUnknown = 30,
 	-- Longer than `over` seconds: `repeats` times (the first line that fits).
@@ -2266,6 +2286,7 @@ Config.Animations = {
 	fumo = "113905861032838",
 	velaromana = "134149231915828",
 	salto = "79828279624044",
+	palmas = "91778762244662", -- clapping (the emote APPLAUD), on the beat
 	bandeira = "", -- agitada pelo jogo, com as duas maos (a animacao 107165199750926 fica guardada aqui)
 	bandeirinha = "122243468746097",
 	tambor = "",
@@ -2286,7 +2307,8 @@ Config.Animations = {
 ]]
 Config.AnimationSpeed = {
 	todas = 0.7,
-	salto = 1, -- (with a chant on that has `bpm`, the jump goes to its beat instead: Config.Chants)
+	salto = 1, -- (jumping and clapping go to the beat: of the chant that is on if it says its `bpm`, or of the claque's drum)
+	palmas = 1,
 	bandeirinha = 0.5, -- mais lenta do que as outras
 	bandeira = 0.5,
 }
@@ -2766,8 +2788,8 @@ Config.Tifo = {
 	- The rival can never be my SECOND club.
 	- Changing my club to the rival (at its clubhouse, as for any club) makes me
 	  a TRAITOR: a banner over my head that everyone sees, my shots are weaker,
-	  and it lasts `matches` matches (counted at full time of each match I am
-	  at). After that everything is back to normal; only the profile keeps,
+	  and it lasts `matches` matches (counted at full time of each match I PLAY, on the pitch;
+	  matches in the claque do not count). After that everything is back to normal; only the profile keeps,
 	  for ever, the club I came from.
 	  matches        how many matches it lasts
 	  shotPower      what my shots are worth meanwhile (1 = normal)

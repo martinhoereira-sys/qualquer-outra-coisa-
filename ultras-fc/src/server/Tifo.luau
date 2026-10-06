@@ -237,6 +237,11 @@ local function raise(a: Active)
 		tela.CanQuery = false
 		tela.CastShadow = false
 		tela:SetAttribute("Strip", 0)
+		-- What is drawn on it, for the cloth each screen makes of it (client/TifoWave).
+		tela:SetAttribute("Team", a.teamId)
+		tela:SetAttribute("Emblem", a.emblem == true and (team :: any).emblem ~= nil)
+		tela:SetAttribute("Lines", table.concat(lines, "\n"))
+		tela:SetAttribute("Message", text)
 		tela.Parent = folder
 
 		local PW = 1400 -- pixels across the whole sheet

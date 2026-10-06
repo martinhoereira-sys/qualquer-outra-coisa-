@@ -67,6 +67,9 @@ local function wanted(character: Model, root: BasePart): string?
 		and (banner.Position - root.Position).Magnitude < 14 then
 		return "faixa"
 	end
+	if me:GetAttribute("Emote") == "aplaudir" and not walking then
+		return "palmas"
+	end
 	-- Jumping goes on while one moves, in any direction.
 	if me:GetAttribute("Emote") == "saltar" then
 		return "salto"
@@ -83,18 +86,39 @@ local function wanted(character: Model, root: BasePart): string?
 	return nil
 end
 
--- The beats a minute of the chant my claque is singing now, if it says so (Config.Chants).
-local function chantBpm(): number?
+--[[
+	THE BEAT my claque is on now: how many beats have gone by (a number that
+	keeps growing) and how many a second. Of the chant that is on, if it says
+	its bpm (Config.Chants); if not, of the claque's drum (the one the stand
+	jumps to).
+]]
+local function beatNow(): (number?, number?)
 	local teamId = me:GetAttribute("Team")
 	local stadium = workspace:FindFirstChild("Stadium")
-	local value = if stadium and type(teamId) == "string" then stadium:GetAttribute("Musica_" .. teamId) else nil
-	if type(value) ~= "string" then
-		return nil
+	if not stadium or type(teamId) ~= "string" then
+		return nil, nil
 	end
-	local clubId, index = string.match(value, "^(%w+):(%d+):")
-	local song = if clubId then Config.chantsOf(clubId)[tonumber(index) :: number] else nil
-	return if song and type(song.bpm) == "number" and song.bpm > 0 then song.bpm else nil
+	local value = stadium:GetAttribute("Musica_" .. teamId)
+	if type(value) == "string" then
+		local clubId, index, started = string.match(value, "^(%w+):(%d+):([%d%.]+)$")
+		local song = if clubId then Config.chantsOf(clubId)[tonumber(index) :: number] else nil
+		local startedAt = tonumber(started)
+		if song and startedAt and type(song.bpm) == "number" and song.bpm > 0 then
+			return (workspace:GetServerTimeNow() - startedAt) * song.bpm / 60, song.bpm / 60
+		end
+	end
+	local crowd = stadium:FindFirstChild("Crowd")
+	local stamp = crowd and crowd:GetAttribute("Stamp")
+	local beat = crowd and crowd:GetAttribute("Beat_" .. teamId)
+	local rate = crowd and crowd:GetAttribute("Rate_" .. teamId)
+	if type(stamp) == "number" and type(beat) == "number" and type(rate) == "number" and rate > 0 then
+		return beat + rate * (workspace:GetServerTimeNow() - stamp), rate
+	end
+	return nil, nil
 end
+
+-- The animations that go to the beat, and how many beats one turn of each takes.
+local ON_BEAT: { [string]: string } = { salto = "beatsPerJump", palmas = "beatsPerClap" }
 
 local ONCE: { [string]: boolean } = { joelho = true, mbappe = true }
 
@@ -133,9 +157,21 @@ RunService.Heartbeat:Connect(function()
 		-- The jump goes to the beat of the chant that is on (one jump every
 		-- Config.Chants.beatsPerJump beats); with no chant, at its own speed.
 		local track = playing
-		if name == "salto" and track and track.Length > 0 then
-			local bpm = chantBpm()
-			track:AdjustSpeed(if bpm then track.Length * bpm / 60 / Config.Chants.beatsPerJump else Animacoes.speed("salto"))
+		local per = if name then (Config.Chants :: any)[ON_BEAT[name] or ""] else nil
+		if name and track and type(per) == "number" and track.Length > 0 then
+			local beat, rate = beatNow()
+			if beat and rate then
+				-- One turn every `per` beats, and landing on the beat: the speed
+				-- follows the tempo, and the place in the turn is put right if it drifts.
+				track:AdjustSpeed(track.Length * rate / per)
+				local want = (beat / per % 1) * track.Length
+				local off = math.abs(track.TimePosition - want)
+				if math.min(off, track.Length - off) > 0.12 then
+					track.TimePosition = want
+				end
+			else
+				track:AdjustSpeed(Animacoes.speed(name))
+			end
 		end
 		return
 	end

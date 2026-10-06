@@ -801,6 +801,10 @@ RunService.Stepped:Connect(function()
 		if play and emote == "saltar" and Animacoes.has("salto") then
 			play = nil
 		end
+		-- The same for clapping ("palmas").
+		if play and emote == "aplaudir" and Animacoes.has("palmas") then
+			play = nil
+		end
 		if play then
 			if emote == "saltar" then
 				-- O salto vai ao compasso do tambor da claque (o da bancada): um

@@ -938,9 +938,10 @@ MatchLoop.onChange(function(snapshot)
 			wants. (In "tudoConta" nothing has to be "all played": whoever is in
 			front at this moment wins.)
 		]]
-		-- One match less for the traitors who were at it.
+		-- One match less for the traitors who played it.
 		for _, player in Players:GetPlayers() do
-			if player:GetAttribute("Traidor") ~= nil and (Teams.get(player) or Squad.byPlayer(player)) then
+			-- (Only the matches played ON THE PITCH count: being in the claque does not.)
+			if player:GetAttribute("Traidor") ~= nil and Squad.byPlayer(player) then
 				Money.traitorTick(player)
 			end
 		end
