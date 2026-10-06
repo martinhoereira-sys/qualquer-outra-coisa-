@@ -413,6 +413,8 @@ function Money.setClub(player: Player, clubId: string)
 	end
 	dirty[player] = true
 	publish(player)
+	-- A club is not left waiting for the next minute's save: it is written now.
+	task.spawn(save, player)
 end
 
 function Money.setSecond(player: Player, clubId: string?)
@@ -426,6 +428,8 @@ function Money.setSecond(player: Player, clubId: string?)
 	end
 	dirty[player] = true
 	publish(player)
+	-- A club is not left waiting for the next minute's save: it is written now.
+	task.spawn(save, player)
 end
 
 -- I have just left `from` for its rival: a traitor for Config.Traitor.matches matches.
@@ -438,6 +442,8 @@ function Money.markTraitor(player: Player, from: string)
 	p.traitor = Config.Traitor.matches
 	dirty[player] = true
 	publish(player)
+	-- A club is not left waiting for the next minute's save: it is written now.
+	task.spawn(save, player)
 end
 
 -- A match I was at has ended: one less as a traitor.
@@ -463,6 +469,8 @@ function Money.setSecond2(player: Player, clubId: string?)
 	p.second2 = clubId
 	dirty[player] = true
 	publish(player)
+	-- A club is not left waiting for the next minute's save: it is written now.
+	task.spawn(save, player)
 end
 
 function Money.second2Of(player: Player): string?
@@ -479,6 +487,8 @@ function Money.setReferee(player: Player, clubId: string)
 	p.referee = clubId
 	dirty[player] = true
 	publish(player)
+	-- A club is not left waiting for the next minute's save: it is written now.
+	task.spawn(save, player)
 end
 
 function Money.refereeOf(player: Player): string?
@@ -520,6 +530,8 @@ function Money.wipe(player: Player): boolean
 	loaded[player] = true
 	dirty[player] = true -- saved as a new profile
 	publish(player)
+	-- A club is not left waiting for the next minute's save: it is written now.
+	task.spawn(save, player)
 	return true
 end
 

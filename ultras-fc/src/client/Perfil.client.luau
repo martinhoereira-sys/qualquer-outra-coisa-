@@ -639,6 +639,32 @@ end)
 					choose(entry.role)
 				end)
 			end
+			-- The second club can be taken away: REMOVE, and then YES to be sure.
+			if entry.role == "jogador2" and entry.club then
+				local remove = button(page, TXT.remove, 12, CARD, MUTED)
+				remove.Name = "Tirar_jogador2"
+				remove.Size = UDim2.fromOffset(86, 20)
+				remove.Position = UDim2.fromOffset(694, y - 4)
+				local sure = false
+				remove.Activated:Connect(function()
+					if not sure then
+						sure = true
+						remove.Text = TXT.removeSure
+						remove.BackgroundColor3 = Color3.fromRGB(170, 44, 40)
+						remove.TextColor3 = TEXT
+						task.delay(4, function()
+							if remove.Parent and sure then
+								sure = false
+								remove.Text = TXT.remove
+								remove.BackgroundColor3 = CARD
+								remove.TextColor3 = MUTED
+							end
+						end)
+					else
+						Remotes.PickTeam:FireServer("tirar:jogador2")
+					end
+				end)
+			end
 		end
 
 		local won = if mine then titles(mine.club) else { 0, 0, 0 }

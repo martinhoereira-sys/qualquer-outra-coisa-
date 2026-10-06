@@ -476,6 +476,11 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 		pickClub(player, newClub, "adepto")
 		return
 	end
+	-- From the profile: the second club one plays for is taken away ("tirar:jogador2").
+	if what == "tirar:jogador2" then
+		Money.setSecond2(player, nil)
+		return
+	end
 	-- From the profile: "papel:<adepto|jogador|arbitro>:<club>" gives a role its club.
 	local which, forClub = string.match(what, "^papel:(%w+):(%w+)$")
 	if which and (Config.Clubs :: any)[forClub] then
