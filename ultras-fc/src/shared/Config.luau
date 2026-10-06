@@ -1110,7 +1110,7 @@ Config.Text = {
 		{ "⏱", "Official matches every 20 minutes, from 09:00 to 01:00." },
 		{ "🌙", "At night there are only friendlies, at the training pitches." },
 		{ "📣", "The capo runs the chants and the orders. Nobody is forced." },
-		{ "🟨", "Nobody referees a match with one of their clubs in it." },
+		{ "🟨", "The referee is of the match, of no club. Nobody referees a match with one of their clubs in it." },
 		{ "⭐", "XP: be in the stand, march in the corteo, light up after a goal, play, referee." },
 		{ "💰", "Escudos: wages at full time, your team's goals, the daily reward." },
 	},

@@ -489,8 +489,6 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 			Money.setSecond(player, forClub)
 		elseif which == "jogador2" then
 			Money.setSecond2(player, forClub)
-		elseif which == "arbitro" then
-			Money.setReferee(player, forClub)
 		elseif which == "adepto" and Money.clubOf(player) == nil then
 			-- The ultras' club: only the first time here (after that, at the other clubhouse).
 			local _, plays = Money.clubOf(player)

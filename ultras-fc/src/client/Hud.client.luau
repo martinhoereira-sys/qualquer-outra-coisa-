@@ -640,6 +640,11 @@ do
 			b.Position = UDim2.fromOffset((W - width) / 2, 170 + (i - 1) * (U.button + U.gap))
 			b.Size = UDim2.fromOffset(width, U.button)
 			b.Activated:Connect(function()
+				if role.id == "arbitro" then
+					-- The referee is of the MATCH, of no club: straight in.
+					pick("arbitro")
+					return
+				end
 				gridRole = role.id
 				gridAdding = false
 				showGrid()
@@ -713,14 +718,15 @@ do
 			end
 		end
 		-- Nobody referees a match with one of their clubs in it: then the whistle is not offered.
-		if whistle and not (playing(ultra) or playing(plays) or playing(playsToo) or playing(whistle)) then
+		-- (The referee is of the match, of no club: always there, unless one of my clubs plays.)
+		if not (playing(ultra) or playing(plays) or playing(playsToo)) then
 			row(TXT.refereeRole, U.icons.referee, TXT.withWhistle, false, function()
 				pick("arbitro")
 			end).Name = "Papel_arbitro"
 		end
 		-- What I am not yet: underneath, dimmed.
 		for _, role in ROLES do
-			if not clubOfRole(role.id) then
+			if role.id ~= "arbitro" and not clubOfRole(role.id) then
 				row(string.format(TXT.addRole, role.word), role.icon, " ", true, function()
 					gridRole = role.id
 					gridAdding = true

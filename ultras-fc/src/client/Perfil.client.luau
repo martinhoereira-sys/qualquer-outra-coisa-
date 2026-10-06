@@ -619,7 +619,6 @@ end)
 			{ role = "adepto", word = TXT.roleUltra, club = mine, change = false },
 			{ role = "jogador", word = TXT.rolePlayer, club = second, change = true },
 			{ role = "jogador2", word = TXT.rolePlayer2, club = (Config.Clubs :: any)[player:GetAttribute("Clube3") or ""], change = true, after = "jogador" },
-			{ role = "arbitro", word = TXT.roleReferee, club = (Config.Clubs :: any)[player:GetAttribute("ClubeArbitro") or ""], change = true },
 		}
 		for i, entry in rows do
 			local y = (i - 1) * 52

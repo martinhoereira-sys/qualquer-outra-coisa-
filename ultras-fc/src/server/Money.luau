@@ -141,9 +141,7 @@ local function fromSaved(value: any): Profile?
 	if type(value.second2) == "string" and (Config.Clubs :: any)[value.second2] and value.second2 ~= p.second then
 		p.second2 = value.second2
 	end
-	if type(value.referee) == "string" and (Config.Clubs :: any)[value.referee] then
-		p.referee = value.referee
-	end
+	-- (A referee is of the match, of no club: a club saved for it before is dropped.)
 	if p.club and type(value.since) == "number" then
 		p.since = value.since
 	end
