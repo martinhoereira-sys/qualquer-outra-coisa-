@@ -807,6 +807,13 @@ player:GetAttributeChangedSignal("Leader"):Connect(refreshRole)
 player:GetAttributeChangedSignal("UpNext"):Connect(refreshRole)
 -- The clubhouse asked: join this club?
 Remotes.PickTeam.OnClientEvent:Connect(function(what, clubId)
+	if what == "novo" then
+		-- My profile was erased: the very first question again.
+		menuGui:SetAttribute("Picked", nil)
+		showClubs()
+		menu.Visible = true
+		return
+	end
 	local club = (Config.Clubs :: any)[clubId]
 	if what == "confirmar" and club then
 		if player:GetAttribute("Clube") == nil then

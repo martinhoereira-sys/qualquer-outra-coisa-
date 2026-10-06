@@ -212,6 +212,21 @@ local function load(player: Player)
 				if temp.escudos ~= 0 or temp.xp.adepto + temp.xp.jogador + temp.xp.arbitro > 0 then
 					dirty[player] = true
 				end
+				-- A club chosen in the first seconds, before the saved profile
+				-- arrived, is kept too (where the saved one has none).
+				if temp.club and not real.club and not Config.isRival(temp.club, real.second) and not Config.isRival(temp.club, real.referee) then
+					real.club = temp.club
+					real.since = temp.since
+					dirty[player] = true
+				end
+				if temp.second and not real.second and not Config.isRival(temp.second, real.club) and not Config.isRival(temp.second, real.referee) then
+					real.second = temp.second
+					dirty[player] = true
+				end
+				if temp.referee and not real.referee and not Config.isRival(temp.referee, real.club) and not Config.isRival(temp.referee, real.second) then
+					real.referee = temp.referee
+					dirty[player] = true
+				end
 			end
 			profiles[player] = real
 			loaded[player] = true
@@ -247,13 +262,17 @@ local function save(player: Player)
 		traitor = p.traitor,
 		version = p.version,
 	}
+	-- "Nothing to save" is said BEFORE writing: whatever changes while the
+	-- write is on its way marks it again, and is saved the next time. (It used
+	-- to be cleared after the write, and a choice made meanwhile was lost.)
+	dirty[player] = nil
 	local ok = retry(function()
 		return s:UpdateAsync(key(player), function()
 			return snapshot
 		end)
 	end)
-	if ok then
-		dirty[player] = nil
+	if not ok and profiles[player] == p then
+		dirty[player] = true
 	end
 end
 
@@ -432,6 +451,38 @@ end
 function Money.clubOf(player: Player): (string?, string?)
 	local p = profiles[player]
 	return if p then p.club else nil, if p then p.second else nil
+end
+
+--[[
+	ERASE MY PROFILE (an admin, on their own account only: who may call this
+	is Main's business). Everything that is this player's goes from the
+	DataStore: clubs, roles, levels, money, the traitor's mark. The player is
+	left as if they had never joined. Nobody else, no table and no season is
+	touched. Returns false if the DataStore refused.
+]]
+function Money.wipe(player: Player): boolean
+	local s = store
+	if s then
+		local ok = retry(function()
+			s:RemoveAsync(key(player))
+			return true
+		end)
+		if not ok then
+			return false
+		end
+		-- The coins of the old save too (a first join would bring them back).
+		local old = oldStore
+		if old then
+			pcall(function()
+				old:RemoveAsync(key(player))
+			end)
+		end
+	end
+	profiles[player] = newProfile(M.start)
+	loaded[player] = true
+	dirty[player] = true -- saved as a new profile
+	publish(player)
+	return true
 end
 
 function Money.onChanged(fn: (Player) -> ())

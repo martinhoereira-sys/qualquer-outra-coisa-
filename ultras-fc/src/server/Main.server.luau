@@ -344,9 +344,41 @@ end
 	of that club, in the place of a bot.
 ]]
 local seating = false -- the entrance: the second-club people are being given their places
+--[[
+	CHANGING ROLE PUTS ME AT THAT ROLE'S HOME: the ground of the club I am
+	that for, not where I happened to be. (An ultra goes to his club's
+	clubhouse; a player waiting for a place, to the ground of the club he
+	plays for.)
+]]
+local lastRole: { [Player]: string } = {}
+local function sendToClubHome(player: Player, clubId: string)
+	local slot = nil
+	for _, teamId in Config.TeamOrder do
+		if Config.Teams[teamId].club == clubId then
+			slot = teamId
+		end
+	end
+	local point = if slot then City.spawnPoint(slot) else nil
+	local site = (Config.Clubs :: any)[clubId].site
+	if not point and site then
+		point = Vector3.new(site.x, 8, site.z)
+	end
+	if point then
+		placeAt(player, point, Vector3.new(0, point.Y - 8, 0))
+	end
+end
+
 local function pickClub(player: Player, clubId: string, role: string)
 	if not (Config.Clubs :: any)[clubId] or not canSwitch(player) then
 		return
+	end
+	local kind = if role == "baliza" then "jogador" else role
+	local changed = lastRole[player] ~= kind .. ":" .. clubId
+	lastRole[player] = kind .. ":" .. clubId
+	if changed then
+		-- (Wherever I had gone as what I was before does not hold any more.)
+		atStadium[player] = nil
+		player:SetAttribute("NoEstadio", nil)
 	end
 	--[[
 		A CLUB FOR EACH ROLE. The ultras' club (`mine`) and the club one plays
@@ -382,6 +414,9 @@ local function pickClub(player: Player, clubId: string, role: string)
 	if not slot then
 		-- Not playing now: the choice is kept for the club's next match.
 		toWait(player, clubId, role)
+		if changed then
+			task.spawn(sendToClubHome, player, clubId)
+		end
 		return
 	end
 	if role == "jogador" or role == "baliza" then
@@ -398,6 +433,9 @@ local function pickClub(player: Player, clubId: string, role: string)
 				title = (Config.Clubs :: any)[clubId].name,
 				lines = { if running then Config.Text.hud.pitchNextMatch else Config.Text.hud.pitchAtKickOff },
 			})
+			if changed then
+				task.spawn(sendToClubHome, player, clubId)
+			end
 			return
 		end
 	end
@@ -1540,6 +1578,21 @@ local function adminBar(player: Player, action: any, value: any)
 		-- Start the season again: results, points, goals and tables go; people's clubs, levels and gear stay.
 		Competition.reset()
 		Remotes.Npc:FireClient(player, { title = Config.Text.admin.resetDone, lines = {} })
+	elseif action == "wipe" then
+		-- RESET MY PROFILE: the admin's own account, as if it had never joined.
+		if Money.wipe(player) then
+			Squad.leave(player)
+			Referee.release(player)
+			Teams.forget(player)
+			wish[player] = nil
+			switchedAt[player] = nil
+			atStadium[player] = nil
+			player:SetAttribute("Team", nil)
+			player:SetAttribute("UpNext", nil)
+			player:SetAttribute("NoEstadio", nil)
+			Remotes.PickTeam:FireClient(player, "novo")
+			Remotes.Npc:FireClient(player, { title = Config.Text.admin.wipeDone, lines = {} })
+		end
 	elseif action == "derby" then
 		if type(value) == "number" and Config.Derbies[value] then
 			Derby.set(value)
@@ -1722,6 +1775,7 @@ end)
 Players.PlayerRemoving:Connect(function(player)
 	lastHome[player] = nil
 	atStadium[player] = nil
+	lastRole[player] = nil
 end)
 
 --[[
