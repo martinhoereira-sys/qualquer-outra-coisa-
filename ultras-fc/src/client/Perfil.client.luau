@@ -601,25 +601,41 @@ end)
 			line(TXT.noClub, 18, MUTED, 0, 40, 440, Enum.Font.GothamMedium)
 		end
 
-		line(TXT.secondClub, 13, MUTED, 500, 0, 280, Enum.Font.GothamBlack)
-		if second then
-			crest(second, 72, 500, 28)
-			line(second.name, 22, TEXT, 584, 46, 196, Enum.Font.GothamBlack, true)
-		else
-			line(TXT.noSecond, 15, MUTED, 500, 30, 280, Enum.Font.GothamMedium)
-			local choose = button(page, TXT.choose, 15, CARD)
-			choose.Name = "Escolher"
-			choose.Size = UDim2.fromOffset(200, 44)
-			choose.Position = UDim2.fromOffset(500, 62)
-			choose.Activated:Connect(function()
-				-- The screen of the clubs (client/Hud): pick one, then FOLLOW THIS CLUB.
-				local choice = player:WaitForChild("PlayerGui"):FindFirstChild("UltrasEscolha")
-				local event = choice and choice:FindFirstChild("Abrir")
-				if event and event:IsA("BindableEvent") then
-					toggle(false)
-					event:Fire()
-				end
-			end)
+		--[[
+			A club for each thing I am. What I am not yet has a button, in plain
+			sight: + ADD. The club I play for (and mine as a referee) can be
+			changed here; the ultras' club only at the other clubhouse.
+		]]
+		local function choose(role: string)
+			-- The screen of the clubs (client/Hud), for this role.
+			local choice = player:WaitForChild("PlayerGui"):FindFirstChild("UltrasEscolha")
+			local event = choice and choice:FindFirstChild("Abrir")
+			if event and event:IsA("BindableEvent") then
+				toggle(false)
+				event:Fire(role)
+			end
+		end
+		local rows = {
+			{ role = "adepto", word = TXT.roleUltra, club = mine, change = false },
+			{ role = "jogador", word = TXT.rolePlayer, club = second, change = true },
+			{ role = "arbitro", word = TXT.roleReferee, club = (Config.Clubs :: any)[player:GetAttribute("ClubeArbitro") or ""], change = true },
+		}
+		for i, entry in rows do
+			local y = (i - 1) * 68
+			line(entry.word, 13, MUTED, 500, y, 120, Enum.Font.GothamBlack)
+			if entry.club then
+				crest(entry.club, 40, 500, y + 20)
+				line(entry.club.name, 18, TEXT, 548, y + 24, 140, Enum.Font.GothamBlack, true)
+			end
+			if not entry.club or entry.change then
+				local b = button(page, if entry.club then TXT.change else TXT.add, 14, if entry.club then CARD else GOLD, if entry.club then TEXT else BG)
+				b.Name = "Papel_" .. entry.role
+				b.Size = UDim2.fromOffset(88, 36)
+				b.Position = UDim2.fromOffset(692, y + 22)
+				b.Activated:Connect(function()
+					choose(entry.role)
+				end)
+			end
 		end
 
 		local won = if mine then titles(mine.club) else { 0, 0, 0 }
@@ -635,7 +651,7 @@ end)
 		end
 	end
 
-	for _, name in { "Clube", "Clube2", "ClubeDesde", "VeioDe", "Nivel_adepto", "Nivel_jogador", "Nivel_arbitro" } do
+	for _, name in { "Clube", "Clube2", "ClubeArbitro", "ClubeDesde", "VeioDe", "Nivel_adepto", "Nivel_jogador", "Nivel_arbitro" } do
 		player:GetAttributeChangedSignal(name):Connect(draw)
 	end
 	workspace:GetAttributeChangedSignal("Epoca"):Connect(function()

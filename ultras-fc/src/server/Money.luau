@@ -34,8 +34,10 @@ export type Profile = {
 	xp: { adepto: number, jogador: number, arbitro: number },
 	prefs: { number: number?, position: string?, boots: number? },
 	daily: { day: number, streak: number },
-	club: string?, -- MY club: one only, kept between sessions
-	second: string?, -- a second club I follow (no claque rights)
+	-- A club for each thing I am (each one kept between sessions; they may be the same club):
+	club: string?, -- the club I am an ULTRA of (its claque is mine)
+	second: string?, -- the club I PLAY for
+	referee: string?, -- my club as a REFEREE (I never referee its matches)
 	since: number?, -- when I joined my club (os.time)
 	cameFrom: string?, -- the rival I left for this club (kept for ever)
 	traitor: number?, -- matches left as a traitor (Config.Traitor)
@@ -83,6 +85,7 @@ local function publish(player: Player)
 	player:SetAttribute("MoedasInfinitas", if unlimited(player) then true else nil)
 	player:SetAttribute("Clube", if p then p.club else nil)
 	player:SetAttribute("Clube2", if p then p.second else nil)
+	player:SetAttribute("ClubeArbitro", if p then p.referee else nil)
 	player:SetAttribute("ClubeDesde", if p then p.since else nil)
 	player:SetAttribute("VeioDe", if p then p.cameFrom else nil)
 	player:SetAttribute("Traidor", if p then p.traitor else nil)
@@ -130,8 +133,11 @@ local function fromSaved(value: any): Profile?
 	if type(value.club) == "string" and (Config.Clubs :: any)[value.club] then
 		p.club = value.club
 	end
-	if type(value.second) == "string" and (Config.Clubs :: any)[value.second] and value.second ~= p.club then
+	if type(value.second) == "string" and (Config.Clubs :: any)[value.second] then
 		p.second = value.second
+	end
+	if type(value.referee) == "string" and (Config.Clubs :: any)[value.referee] then
+		p.referee = value.referee
 	end
 	if p.club and type(value.since) == "number" then
 		p.since = value.since
@@ -142,9 +148,12 @@ local function fromSaved(value: any): Profile?
 	if type(value.traitor) == "number" and value.traitor > 0 then
 		p.traitor = math.floor(value.traitor)
 	end
-	-- The rival is never the second club.
+	-- The rival of my club is never one of my clubs.
 	if Config.isRival(p.club, p.second) then
 		p.second = nil
+	end
+	if Config.isRival(p.club, p.referee) or Config.isRival(p.second, p.referee) then
+		p.referee = nil
 	end
 	if type(value.daily) == "table" and type(value.daily.day) == "number" and type(value.daily.streak) == "number" then
 		p.daily = { day = value.daily.day, streak = value.daily.streak }
@@ -232,6 +241,7 @@ local function save(player: Player)
 		-- My club, the one I follow, and since when: kept between sessions.
 		club = p.club,
 		second = p.second,
+		referee = p.referee,
 		since = p.since,
 		cameFrom = p.cameFrom,
 		traitor = p.traitor,
@@ -360,8 +370,11 @@ function Money.setClub(player: Player, clubId: string)
 		p.since = os.time()
 	end
 	p.club = clubId
-	if p.second == clubId or Config.isRival(clubId, p.second) then
+	if Config.isRival(clubId, p.second) then
 		p.second = nil
+	end
+	if Config.isRival(clubId, p.referee) then
+		p.referee = nil
 	end
 	dirty[player] = true
 	publish(player)
@@ -369,7 +382,7 @@ end
 
 function Money.setSecond(player: Player, clubId: string?)
 	local p = profiles[player]
-	if not p or (clubId ~= nil and (not (Config.Clubs :: any)[clubId] or clubId == p.club or Config.isRival(clubId, p.club))) then
+	if not p or (clubId ~= nil and (not (Config.Clubs :: any)[clubId] or Config.isRival(clubId, p.club) or Config.isRival(clubId, p.referee))) then
 		return
 	end
 	p.second = clubId
@@ -398,6 +411,22 @@ function Money.traitorTick(player: Player)
 	p.traitor = if p.traitor > 1 then p.traitor - 1 else nil
 	dirty[player] = true
 	publish(player)
+end
+
+-- My club as a referee.
+function Money.setReferee(player: Player, clubId: string)
+	local p = profiles[player]
+	if not p or not (Config.Clubs :: any)[clubId] or Config.isRival(clubId, p.club) or Config.isRival(clubId, p.second) then
+		return
+	end
+	p.referee = clubId
+	dirty[player] = true
+	publish(player)
+end
+
+function Money.refereeOf(player: Player): string?
+	local p = profiles[player]
+	return if p then p.referee else nil
 end
 
 function Money.clubOf(player: Player): (string?, string?)

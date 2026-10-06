@@ -239,11 +239,12 @@ local function pickTeam(player: Player, teamId: any)
 
 	-- O apito e um papel como os outros, escolhido a entrada.
 	if teamId == "arbitro" then
-		-- Nobody referees a match of their own club, nor of the club they follow.
+		-- Nobody referees a match with any of their clubs in it (ultra, player or referee).
 		local mine, second = Money.clubOf(player)
+		local third = Money.refereeOf(player)
 		for _, slot in Config.TeamOrder do
 			local playing = Config.Teams[slot].club
-			if playing == mine or playing == second then
+			if playing == mine or playing == second or playing == third then
 				return
 			end
 		end
@@ -347,14 +348,33 @@ local function pickClub(player: Player, clubId: string, role: string)
 	if not (Config.Clubs :: any)[clubId] or not canSwitch(player) then
 		return
 	end
+	--[[
+		A CLUB FOR EACH ROLE. The ultras' club (`mine`) and the club one plays
+		for (`second`) are chosen apart, and may be the same. The first time a
+		role is asked for, its club is the one asked with it; after that the
+		ultras' club only changes at the other clubhouse, and the player's
+		club in the profile ("papel:jogador:<club>"). A rival of one of my
+		clubs is never another of them.
+	]]
 	local mine, second = Money.clubOf(player)
-	if not mine then
-		Money.setClub(player, clubId)
-		mine = clubId
-	end
-	if clubId ~= mine then
-		-- Not my club: only on the pitch, and only for the club I follow.
-		if clubId ~= second or (role ~= "jogador" and role ~= "baliza") then
+	local onPitch = role == "jogador" or role == "baliza"
+	if onPitch then
+		if not second then
+			Money.setSecond(player, clubId)
+			second = select(2, Money.clubOf(player))
+		end
+		if clubId ~= second then
+			return
+		end
+	else
+		if not mine then
+			if Config.isRival(clubId, second) or Config.isRival(clubId, Money.refereeOf(player)) then
+				return
+			end
+			Money.setClub(player, clubId)
+			mine = clubId
+		end
+		if clubId ~= mine then
 			return
 		end
 	end
@@ -369,7 +389,9 @@ local function pickClub(player: Player, clubId: string, role: string)
 		local already = f ~= nil and f.teamId == slot
 		local phase = MatchLoop.phase()
 		local running = phase == "first" or phase == "halftime" or phase == "second" or phase == "fulltime"
-		if not already and (running or (clubId ~= mine and not seating)) then
+		-- ("Its own": whoever is an ultra of this club too, or of no club yet.)
+		local own = mine == nil or mine == clubId
+		if not already and (running or (not own and not seating)) then
 			wish[player] = { club = clubId, role = role }
 			player:SetAttribute("UpNext", clubId)
 			Remotes.Npc:FireClient(player, {
@@ -413,9 +435,21 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 		pickClub(player, newClub, "adepto")
 		return
 	end
-	local followed = string.match(what, "^seguir:(%w*)$")
-	if followed then
-		Money.setSecond(player, if followed == "" then nil else followed)
+	-- From the profile: "papel:<adepto|jogador|arbitro>:<club>" gives a role its club.
+	local which, forClub = string.match(what, "^papel:(%w+):(%w+)$")
+	if which and (Config.Clubs :: any)[forClub] then
+		if which == "jogador" then
+			-- The club one plays for changes here, whenever one wants.
+			Money.setSecond(player, forClub)
+		elseif which == "arbitro" then
+			Money.setReferee(player, forClub)
+		elseif which == "adepto" and Money.clubOf(player) == nil then
+			-- The ultras' club: only the first time here (after that, at the other clubhouse).
+			local _, plays = Money.clubOf(player)
+			if not Config.isRival(forClub, plays) and not Config.isRival(forClub, Money.refereeOf(player)) then
+				Money.setClub(player, forClub)
+			end
+		end
 		return
 	end
 	-- From the menu: "clube:<club>:<adepto|jogador|baliza>".
@@ -547,7 +581,8 @@ local function seatWaiting(second: boolean)
 		local w = wish[player]
 		if w and player:GetAttribute("UpNext") and (w.role == "jogador" or w.role == "baliza") and clubPlace(w.club) then
 			local mine = Money.clubOf(player)
-			if (w.club ~= mine) == second then
+			local own = mine == nil or mine == w.club
+			if own ~= second then
 				switchedAt[player] = nil
 				pickClub(player, w.club, w.role)
 			end
@@ -652,9 +687,13 @@ end
 local function chooseMatch(slot: number, late: boolean)
 	local people: { [string]: number } = {}
 	for _, player in Players:GetPlayers() do
-		local mine = Money.clubOf(player)
+		-- (A person counts for the club they are an ultra of, and for the one they play for.)
+		local mine, plays = Money.clubOf(player)
 		if mine then
 			people[mine] = (people[mine] or 0) + 1
+		end
+		if plays and plays ~= mine then
+			people[plays] = (people[plays] or 0) + 1
 		end
 	end
 	local match = Competition.pick(slot, people, late)

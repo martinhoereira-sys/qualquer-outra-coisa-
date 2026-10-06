@@ -126,6 +126,7 @@ UI.corner(menu)
 ]]
 local showClubs: () -> ()
 local askChange: (any) -> ()
+local openFor: (string?) -> ()
 do
 	local W, H = U.canvas.X, U.canvas.Y
 	local EDGE = U.gap * 1.5
@@ -182,6 +183,8 @@ do
 	local function pick(what: string)
 		Remotes.PickTeam:FireServer(what)
 		menu.Visible = false
+		-- (From here on the list gets out of the way by itself when the server puts me somewhere.)
+		menuGui:SetAttribute("Picked", true)
 	end
 
 	-- How long until the next match: in the corner of both steps.
@@ -351,63 +354,44 @@ do
 		return y + lines * ((U :: any)[size] + 6) + HALF
 	end
 
-	-- The first choice is kept: nobody makes it without knowing.
-	local function warn(side: Frame, club: any, send: string)
-		side:ClearAllChildren()
-		local y = words(side, string.format(TXT.warnJoin, club.nameUpper), "normal", false, 0, 2)
-		y = words(side, TXT.warnKept, "small", true, y, 3)
-		y = words(side, TXT.warnChange, "small", true, y, 3)
-		y = words(side, TXT.warnSure, "normal", false, y + HALF, 1) + HALF
-		local yes = UI.button(side, string.format(TXT.warnYes, club.nameUpper))
-		yes.Name = "Sim"
-		yes.Position = UDim2.fromOffset(0, y)
-		UI.outline(yes, club.color)
-		yes.Activated:Connect(function()
-			pick(send)
-		end)
-		local no = UI.button(side, TXT.back)
-		no.Name = "Nao"
-		no.Position = UDim2.fromOffset(0, y + U.button + U.gap)
-		no.Activated:Connect(function()
-			showClubs()
-		end)
+	--[[
+		FIRST WHAT I WANT TO BE, THEN THE CLUB. Each role has its own club
+		(they may be the same): the club I am an ULTRA of ("Clube"), the one I
+		PLAY for ("Clube2"), and mine as a REFEREE ("ClubeArbitro").
+		  gridRole     the role a club is being chosen for
+		  gridAdding   true when it is being added from the profile or the list
+		               (the choice is kept and one comes back to the list);
+		               false the very first time (the choice is kept and one goes in)
+	]]
+	local gridRole = "adepto"
+	local gridAdding = false
+	local showGrid: () -> ()
+	local ROLE_ATTRIBUTE = { adepto = "Clube", jogador = "Clube2", arbitro = "ClubeArbitro" }
+	local function clubOfRole(role: string): string?
+		local value = player:GetAttribute(ROLE_ATTRIBUTE[role])
+		return if type(value) == "string" then value else nil
+	end
+	-- Is `clubId` the rival of one of my clubs? (Then it can never be another of them.)
+	local function isMyRival(clubId: string): boolean
+		for _, role in { "adepto", "jogador", "arbitro" } do
+			if Config.isRival(clubId, clubOfRole(role)) then
+				return true
+			end
+		end
+		return false
+	end
+	local function isMine(clubId: string): boolean
+		return clubOfRole("adepto") == clubId or clubOfRole("jogador") == clubId or clubOfRole("arbitro") == clubId
 	end
 
-	--[[
-		Step 2: what this club lets me be.
-		- no club yet, or it is MY club: supporter, player or goalkeeper;
-		- another club: follow it as my second club (and then play for it as a
-		  substitute). Changing to it for good is done at its clubhouse, in
-		  person: here it is only said.
-	]]
-	local function showRoles(club: any, today: boolean)
+	-- The club's card, open, to say yes to: the role is already chosen.
+	local function confirm(club: any, today: boolean)
 		local side = openCard(club, today, function()
-			showClubs()
+			showGrid()
 		end)
-		local I = U.icons
-		local mine = player:GetAttribute("Clube")
-		local second = player:GetAttribute("Clube2")
-		local roles: { any } = {}
-		if mine == nil or mine == club.club then
-			roles = {
-				{ text = TXT.supporter, icon = I.supporter, main = true, level = levelOf("adepto"), send = "clube:" .. club.club .. ":adepto" },
-				{ text = TXT.playerRole, icon = I.player, level = levelOf("jogador"), send = "clube:" .. club.club .. ":jogador" },
-				{ text = TXT.goalkeeper, icon = I.keeper, level = levelOf("jogador"), send = "clube:" .. club.club .. ":baliza" },
-			}
-		elseif second == club.club then
-			roles = {
-				{ text = TXT.substitute, icon = I.player, main = true, level = levelOf("jogador"), send = "clube:" .. club.club .. ":jogador" },
-				{ text = TXT.unfollow, icon = I.follow, send = "seguir:", stay = true },
-			}
-		elseif Config.isRival(mine, club.club) then
-			-- The rival is never a second club: locked, and it says why.
-			roles = {}
-		else
-			roles = { { text = TXT.follow, icon = I.follow, main = true, send = "seguir:" .. club.club, stay = true } }
-		end
-		local y = 0
-		if #roles == 0 then
-			local locked = UI.button(side, TXT.follow, "🔒")
+		if isMyRival(club.club) then
+			-- The rival: locked, and it says why.
+			local locked = UI.button(side, club.nameUpper, "🔒")
 			locked.Name = "Bloqueado"
 			locked.AutoButtonColor = false
 			locked.BackgroundTransparency = 0.6
@@ -415,29 +399,49 @@ do
 			if word then
 				word.TextTransparency = 0.6
 			end
-			y = words(side, TXT.rivalLocked, "normal", false, U.button + U.gap, 2) + HALF
+			words(side, TXT.rivalLocked, "normal", false, U.button + U.gap, 2)
+			return
 		end
-		for _, role in roles do
-			local b = UI.button(side, role.text, role.icon, if role.level then string.format(TXT.level, role.level) else nil)
-			b.Position = UDim2.fromOffset(0, y)
-			y += U.button + U.gap
-			if role.main then
-				UI.outline(b, club.color)
+		local role = gridRole
+		local y = 0
+		local yesText: string
+		if role == "adepto" then
+			-- The ultras' club is kept: nobody chooses it without knowing.
+			y = words(side, string.format(TXT.warnJoin, club.nameUpper), "normal", false, 0, 2)
+			y = words(side, TXT.warnKept, "small", true, y, 3)
+			y = words(side, TXT.warnChange, "small", true, y, 3)
+			y = words(side, TXT.warnSure, "normal", false, y + HALF, 1) + HALF
+			yesText = string.format(TXT.warnYes, club.nameUpper)
+		elseif role == "jogador" then
+			y = words(side, string.format(TXT.playForClub, club.nameUpper), "normal", false, 0, 2)
+			y = words(side, TXT.playChange, "small", true, y, 2) + HALF
+			yesText = string.format(TXT.playYes, club.nameUpper)
+		else
+			y = words(side, string.format(TXT.refFor, club.nameUpper), "normal", false, 0, 3) + HALF
+			yesText = string.format(TXT.refYes, club.nameUpper)
+		end
+		local yes = UI.button(side, yesText)
+		yes.Name = "Sim"
+		yes.Position = UDim2.fromOffset(0, y)
+		UI.outline(yes, club.color)
+		yes.Activated:Connect(function()
+			if gridAdding then
+				-- Kept, and back to the list of what I am.
+				Remotes.PickTeam:FireServer("papel:" .. role .. ":" .. club.club)
+				task.delay(0.5, showClubs)
+			elseif role == "arbitro" then
+				Remotes.PickTeam:FireServer("papel:arbitro:" .. club.club)
+				pick("arbitro")
+			else
+				pick("clube:" .. club.club .. ":" .. role)
 			end
-			b.Activated:Connect(function()
-				if mine == nil then
-					warn(side, club, role.send)
-				elseif role.stay then
-					Remotes.PickTeam:FireServer(role.send)
-					task.delay(0.4, showClubs)
-				else
-					pick(role.send)
-				end
-			end)
-		end
-		if mine ~= nil and mine ~= club.club then
-			words(side, TXT.changeNote, "small", true, y, 2)
-		end
+		end)
+		local no = UI.button(side, TXT.back)
+		no.Name = "Nao"
+		no.Position = UDim2.fromOffset(0, y + U.button + U.gap)
+		no.Activated:Connect(function()
+			showGrid()
+		end)
 	end
 
 	-- At a clubhouse: "do you really want to leave X and join Y?"
@@ -462,16 +466,16 @@ do
 		no.Activated:Connect(close)
 	end
 
-	-- Step 1: every club, each beside its rival.
-	function showClubs()
+	-- The clubs, each beside its rival: a club is chosen for `gridRole`.
+	function showGrid()
 		atClubs = true
 		stage:ClearAllChildren()
 		measure()
-		local title = UI.label(stage, TXT.beAnUltra, "title")
+		local title = UI.label(stage, TXT.chooseClub, "title")
 		title.TextXAlignment = Enum.TextXAlignment.Left
 		title.Position = UDim2.fromOffset(EDGE, 20)
 		title.Size = UDim2.fromOffset(W - EDGE * 2 - 360 - U.button - U.gap * 2, U.title + 6)
-		local sub = UI.label(stage, TXT.forGood, "small", true)
+		local sub = UI.label(stage, (TXT :: any)["role_" .. gridRole], "small", true)
 		sub.TextXAlignment = Enum.TextXAlignment.Left
 		sub.Position = UDim2.fromOffset(EDGE, 20 + U.title + 6 + HALF)
 		sub.Size = title.Size
@@ -497,6 +501,16 @@ do
 			end
 			table.insert(group.clubs, club)
 			rows = math.max(rows, #group.clubs)
+		end
+		-- A club that is already mine comes first.
+		for g, group in groups do
+			for i, club in group.clubs do
+				if isMine(club.club) then
+					table.insert(group.clubs, 1, table.remove(group.clubs, i) :: any)
+					table.insert(groups, 1, table.remove(groups, g) :: any)
+					break
+				end
+			end
 		end
 
 		local top = 20 + U.button + U.gap
@@ -530,7 +544,8 @@ do
 			proper(UI.label(column, string.format(TXT.derbyOf, string.upper(group.city)), "small", true, true))
 			for i, club in group.clubs do
 				local today = club.club == match.home or club.club == match.away
-				local mine = club.club == myClub
+				local mine = isMine(club.club)
+				local rival = isMyRival(club.club)
 				local b = UI.card(column)
 				b.Name = "Clube_" .. club.club
 				b.Position = UDim2.fromOffset(0, head + (i - 1) * (cardH + U.gap))
@@ -549,13 +564,16 @@ do
 				claque.Position = UDim2.fromOffset(HALF, y)
 				claque.Size = UDim2.new(1, -U.gap, 0, U.small + 6)
 				y += U.small + 6
-				if mine or today then
-					local tag = UI.label(b, if mine then TXT.yourClub else TXT.todaysDerby, "small", false, true)
+				if rival then
+					b.BackgroundTransparency = 0.6
+				end
+				if mine or rival or today then
+					local tag = UI.label(b, if mine then TXT.yourClub elseif rival then TXT.rivalTag else TXT.todaysDerby, "small", false, true)
 					tag.Position = UDim2.fromOffset(HALF, y)
 					tag.Size = UDim2.new(1, -U.gap, 0, U.small + 6)
 				end
 				b.Activated:Connect(function()
-					showRoles(club, today)
+					confirm(club, today)
 				end)
 				if i > 1 then
 					-- Between the two: they play each other.
@@ -572,18 +590,133 @@ do
 			end
 		end
 
-		-- Nobody referees a match of their own club, nor of the club they follow:
-		-- the button is not even there (the server refuses it too).
-		local involved = match.home == myClub or match.away == myClub or match.home == myFollowed or match.away == myFollowed
-		local ref = UI.button(stage, TXT.refereeRole, U.icons.referee, string.format(TXT.level, levelOf("arbitro")))
-		ref.Name = "Arbitro"
-		ref.AnchorPoint = Vector2.new(0.5, 0)
-		ref.Position = UDim2.fromOffset(W / 2, H - 20 - U.button)
-		ref.Size = UDim2.fromOffset(440, U.button)
-		ref.Visible = not involved
-		ref.Activated:Connect(function()
-			pick("arbitro")
+		-- Back to where the role was chosen.
+		local back = UI.button(stage, TXT.back)
+		back.Name = "Voltar"
+		back.AnchorPoint = Vector2.new(0.5, 0)
+		back.Position = UDim2.fromOffset(W / 2, H - 20 - U.button)
+		back.Size = UDim2.fromOffset(300, U.button)
+		back.Activated:Connect(function()
+			showClubs()
 		end)
+	end
+
+	local ROLES = {
+		{ id = "adepto", word = TXT.ultra, icon = U.icons.supporter, note = TXT.inCurva },
+		{ id = "jogador", word = TXT.playerRole, icon = U.icons.player, note = TXT.onPitch },
+		{ id = "arbitro", word = TXT.refereeRole, icon = U.icons.referee, note = TXT.withWhistle },
+	}
+
+	local function heading(big: string, small: string?, proper_: boolean?)
+		local title = UI.label(stage, big, "title", false, true)
+		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.Position = UDim2.fromOffset(EDGE, 20)
+		title.Size = UDim2.fromOffset(W - EDGE * 2 - 360 - U.button - U.gap * 2, U.title + 6)
+		title.AutoLocalize = not proper_
+		if small then
+			local sub = UI.label(stage, small, "small", true)
+			sub.TextXAlignment = Enum.TextXAlignment.Left
+			sub.Position = UDim2.fromOffset(EDGE, 20 + U.title + 6 + HALF)
+			sub.Size = title.Size
+		end
+		nextMatch()
+	end
+
+	-- The very first time: what do you want to be? (Then the club, and in.)
+	local function showFirst()
+		atClubs = false
+		stage:ClearAllChildren()
+		measure()
+		heading(TXT.whatToBe, nil)
+		local width = 760
+		for i, role in ROLES do
+			local b = UI.button(stage, role.word, role.icon, role.note)
+			b.Name = "Papel_" .. role.id
+			b.Position = UDim2.fromOffset((W - width) / 2, 170 + (i - 1) * (U.button + U.gap))
+			b.Size = UDim2.fromOffset(width, U.button)
+			b.Activated:Connect(function()
+				gridRole = role.id
+				gridAdding = false
+				showGrid()
+			end)
+		end
+	end
+
+	--[[
+		After the first time: straight to the list of what I already am, each
+		with its club. What I am not yet is underneath, dimmed, with + ADD.
+	]]
+	local function showHub()
+		atClubs = false
+		stage:ClearAllChildren()
+		measure()
+		local main = (Config.Clubs :: any)[clubOfRole("adepto") or clubOfRole("jogador") or clubOfRole("arbitro") or ""]
+		heading(if main then main.nameUpper else TXT.whatToBe, if main then TXT.whatToBe else nil, main ~= nil)
+		local match = Config.Derbies[Config.Derby]
+		local function playing(clubId: string?): boolean
+			return clubId ~= nil and (match.home == clubId or match.away == clubId)
+		end
+		local width = 760
+		local x = (W - width) / 2
+		local y = 150
+		local function row(text: string, icon: string, note: string, dim: boolean, act: () -> ()): TextButton
+			local b = UI.button(stage, text, icon, note)
+			b.Position = UDim2.fromOffset(x, y)
+			b.Size = UDim2.fromOffset(width, U.button)
+			if dim then
+				b.BackgroundTransparency = 0.6
+				for _, name in { "Palavra", "Nota" } do
+					local l = b:FindFirstChild(name) :: TextLabel?
+					if l then
+						l.TextTransparency = 0.55
+					end
+				end
+			end
+			b.Activated:Connect(act)
+			y += U.button + HALF
+			return b
+		end
+		local ultra, plays, whistle = clubOfRole("adepto"), clubOfRole("jogador"), clubOfRole("arbitro")
+		if ultra then
+			local b = row(TXT.ultra, U.icons.supporter, TXT.inCurva, false, function()
+				pick("clube:" .. ultra .. ":adepto")
+			end)
+			b.Name = "Papel_adepto"
+			UI.outline(b, (Config.Clubs :: any)[ultra].color)
+		end
+		if plays then
+			local name = (Config.Clubs :: any)[plays].nameUpper
+			row(TXT.playerRole, U.icons.player, string.format(TXT.forClub, name), false, function()
+				pick("clube:" .. plays .. ":jogador")
+			end).Name = "Papel_jogador"
+			row(TXT.goalkeeper, U.icons.keeper, string.format(TXT.forClub, name), false, function()
+				pick("clube:" .. plays .. ":baliza")
+			end).Name = "Papel_baliza"
+		end
+		-- Nobody referees a match with one of their clubs in it: then the whistle is not offered.
+		if whistle and not (playing(ultra) or playing(plays) or playing(whistle)) then
+			row(TXT.refereeRole, U.icons.referee, TXT.withWhistle, false, function()
+				pick("arbitro")
+			end).Name = "Papel_arbitro"
+		end
+		-- What I am not yet: underneath, dimmed.
+		for _, role in ROLES do
+			if not clubOfRole(role.id) then
+				row(string.format(TXT.addRole, role.word), role.icon, " ", true, function()
+					gridRole = role.id
+					gridAdding = true
+					showGrid()
+				end).Name = "Juntar_" .. role.id
+			end
+		end
+	end
+
+	function showClubs()
+		if clubOfRole("adepto") or clubOfRole("jogador") or clubOfRole("arbitro") then
+			showHub()
+		else
+			showFirst()
+		end
 	end
 
 	showClubs()
@@ -593,16 +726,34 @@ do
 			task.defer(function()
 				measure()
 				if atClubs and W ~= before then
-					showClubs()
+					showGrid()
 				end
 			end)
+		end)
+	end
+	function openFor(role: string?)
+		if role then
+			gridRole = role
+			gridAdding = true
+			showGrid()
+		else
+			showClubs()
+		end
+	end
+	-- On coming in, the list of what I am is what one sees: it is drawn again as my clubs arrive from the server.
+	for _, name in { "Clube", "Clube2", "ClubeArbitro" } do
+		player:GetAttributeChangedSignal(name):Connect(function()
+			if not menuGui:GetAttribute("Picked") or menu.Visible then
+				showClubs()
+			end
 		end)
 	end
 	-- A new derby: the clubs on offer today are others.
 	Derby.onChanged(showClubs)
 end
-;(menuGui:FindFirstChild("Abrir") :: BindableEvent).Event:Connect(function()
-	showClubs()
+;(menuGui:FindFirstChild("Abrir") :: BindableEvent).Event:Connect(function(role: any)
+	-- (From the profile: a club for this role.)
+	openFor(if type(role) == "string" then role else nil)
 	menu.Visible = true
 end)
 
@@ -667,12 +818,12 @@ Remotes.PickTeam.OnClientEvent:Connect(function(what, clubId)
 end)
 -- Coming back with a club: the server puts me in, and the menu gets out of the way.
 player:GetAttributeChangedSignal("Team"):Connect(function()
-	if player:GetAttribute("Team") ~= nil then
+	if player:GetAttribute("Team") ~= nil and menuGui:GetAttribute("Picked") then
 		menu.Visible = false
 	end
 end)
 player:GetAttributeChangedSignal("UpNext"):Connect(function()
-	if player:GetAttribute("UpNext") ~= nil then
+	if player:GetAttribute("UpNext") ~= nil and menuGui:GetAttribute("Picked") then
 		menu.Visible = false
 	end
 end)
