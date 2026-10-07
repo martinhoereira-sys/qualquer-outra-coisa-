@@ -157,6 +157,10 @@ local function look(inst: Instance)
 		return
 	end
 	seen[inst] = true
+	-- What belongs to ONE club for good (its ground, its clubhouse) is never repainted with the match.
+	if inst:FindFirstAncestor("Recintos") or inst:FindFirstAncestor("SedesParadas") or (inst:IsA("BasePart") and inst:GetAttribute("Fixo") == true) then
+		return
+	end
 	-- An emblem is always one club's own (whoever draws it redraws it); the admin bar names all four clubs.
 	if not inst:IsA("BasePart") and (inst.Name == "Emblema" or inst:FindFirstAncestor("Emblema") or inst:FindFirstAncestor("UltrasAdmin") or inst:FindFirstAncestor("UltrasLiga") or inst:FindFirstAncestor("UltrasRota") or inst:FindFirstAncestor("UltrasRelogio") or inst:FindFirstAncestor("UltrasEscolha") or inst:FindFirstAncestor("UltrasMenu")) then
 		return

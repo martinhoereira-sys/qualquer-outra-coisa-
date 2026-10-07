@@ -396,6 +396,7 @@ function SedeBuilder.dressExisting(clubId: string): string
 			-- The roof: the big pieces above the top slab, whatever colour they were given.
 			if d.Position.Y > slab.Position.Y + 1 and d.Size.X * d.Size.Z > 300 then
 				d.Color = club.color
+				d:SetAttribute("Fixo", true) -- this club's for good: not repainted with the match (shared/Derby)
 				roofs += 1
 			elseif near(d.Color, OLD_WALL) then
 				if d.Size.Y < 2 then
