@@ -117,6 +117,12 @@ local function sede(club: any, index: number, at: CFrame, parent: Instance): (Mo
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.Anchored = true
+			-- The old tables of the hand-made sede (thin black tops and legs) go: the
+			-- desks of the three people are new ones, put at the same place (Clubhouse.desks).
+			if near(d.Color, Color3.fromRGB(17, 17, 17)) and d.Size.X * d.Size.Y * d.Size.Z < 6 then
+				d:Destroy()
+				continue
+			end
 			if near(d.Color, OLD_ROOF) then
 				d.Color = club.color
 			elseif near(d.Color, OLD_WALL) then

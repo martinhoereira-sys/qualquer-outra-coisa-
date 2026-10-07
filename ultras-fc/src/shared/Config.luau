@@ -39,7 +39,7 @@ Config.Clubs = {
 	luz = {
 		club = "luz",
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = -697, z = 529, existing = true, block = "1_8", marker = "sede vermelha", rota = "home", pitch = { x = -747, z = 374, turn = 90, length = 80, width = 48 } }, -- the sede made by hand, where it is
+		site = { x = -712, z = 510, block = "1_8" }, -- (the sede made by hand stood here until 2026-10-07: now a built one, like every club)
 		name = "Luz SC",
 		fullName = "Sport Clube da Luz",
 		nameUpper = "LUZ SC",
@@ -85,7 +85,7 @@ Config.Clubs = {
 	alvalade = {
 		club = "alvalade",
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = 701, z = -590, existing = true, block = "9_2", marker = "sede azul", rota = "away", pitch = { x = 706, z = -375, length = 100, width = 64 } }, -- the sede made by hand, where it is
+		site = { x = 706, z = -682, block = "9_1" }, -- (the sede made by hand stood here until 2026-10-07: now a built one, like every club)
 		name = "Alvalade SC",
 		fullName = "Sporting Clube de Alvalade",
 		nameUpper = "ALVALADE SC",
