@@ -961,8 +961,12 @@ do
 		local moment = ScheduleClock.at(ScheduleClock.gameTime())
 		local teamId = player:GetAttribute("Team")
 		local claque = type(teamId) == "string" and Config.Teams[teamId] ~= nil
-		if not claque or moment.night or moment.phase == "clubhouse" or moment.phase == "corteo" then
+		if moment.night or moment.phase == "clubhouse" or moment.phase == "corteo" then
 			return "home"
+		end
+		if not claque then
+			-- Of neither club (and not on the pitch): the match can be watched as a neutral.
+			return if teamId == nil then "stadium" else "home"
 		end
 		return if player:GetAttribute("NoEstadio") == moment.slot then "there" else "stadium"
 	end

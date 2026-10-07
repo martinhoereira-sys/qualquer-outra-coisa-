@@ -1789,6 +1789,12 @@ Remotes.Home.OnServerEvent:Connect(function(player, where)
 	if where == "estadio" then
 		if teamId and matchOn then
 			task.spawn(sendToClaque, player, teamId, true)
+		elseif matchOn and not Squad.byPlayer(player) and Referee.current() ~= player then
+			-- Not of either club: any match can be watched, from the side stand, as a neutral.
+			local S = Config.Stadium
+			local Plan = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("StadiumPlan"))
+			local row = 5
+			task.spawn(placeAt, player, Vector3.new(0, row * S.rowHeight + 3.5, Plan.innerZ + row * S.rowDepth), Vector3.new(0, 0, 0))
 		else
 			Remotes.Npc:FireClient(player, { title = Config.Text.hud.stadium, lines = { Config.Text.hud.noMatchOn } })
 		end
