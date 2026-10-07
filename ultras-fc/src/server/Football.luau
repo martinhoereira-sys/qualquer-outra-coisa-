@@ -1444,6 +1444,38 @@ function Football.step(dt: number)
 		claim(b, now)
 	end
 
+	--[[
+		THE BALL DOES NOT GO THROUGH PEOPLE. A ball nobody has that reaches a
+		player's body (higher than the feet can take it, or while that player
+		cannot play it) hits him and comes off: it loses most of its pace and
+		goes back the way of the body it hit. That player's team touched it
+		last. (Whoever has just kicked it is let alone for an instant.)
+	]]
+	if not state.carrier and not piece and not Squad.isFrozen() and now >= state.flightUntil then
+		local at = b.Position
+		local v = b.AssemblyLinearVelocity
+		local flatV = Vector3.new(v.X, 0, v.Z)
+		if flatV.Magnitude > 6 and at.Y - R <= F.bodyHeight then
+			for _, f in Squad.active() do
+				local root = f.root
+				local kicked = lastKick ~= nil and lastKick.f == f and now - lastKick.at < 0.5
+				if root and not kicked and not Squad.isDown(f, now) then
+					local away = Vector3.new(at.X - root.Position.X, 0, at.Z - root.Position.Z)
+					if away.Magnitude <= F.bodyRadius and away.Magnitude > 0.05 and flatV:Dot(away) < 0 then
+						local normal = away.Unit
+						local bounced = flatV - 2 * flatV:Dot(normal) * normal
+						b.AssemblyLinearVelocity = bounced * F.bodyBounce + Vector3.new(0, math.max(v.Y, 0) * 0.4, 0)
+						b.CFrame = CFrame.new(root.Position.X + normal.X * (F.bodyRadius + 0.2), at.Y, root.Position.Z + normal.Z * (F.bodyRadius + 0.2))
+						state.curve = 0
+						state.lastTouch = f.teamId
+						state.lastToucher = f
+						break
+					end
+				end
+			end
+		end
+	end
+
 	-- Quem a tem, a vista de todos (ecra e testes).
 	local holder = state.carrier
 	local name = if holder and holder.model then holder.model.Name else nil

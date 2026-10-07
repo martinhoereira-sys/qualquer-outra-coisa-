@@ -1929,9 +1929,13 @@ Config.Football = {
 		O boneco fica na linha, a acompanhar a bola, e defende so uma parte dos
 		remates fortes — quer-se golos.
 	]]
-	keeperReach = 5, -- a esta distancia agarra sozinho, na sua area
+	keeperReach = 4, -- a esta distancia agarra sozinho, na sua area (era 5: a bola aparecia-lhe na mao de longe)
 	keeperHeight = 8, -- e ate esta altura: apanha a bola no ar
-	keeperDiveReach = 11, -- a atirar-se chega mais longe
+	keeperDiveReach = 7, -- a atirar-se chega mais longe (era 11)
+	-- The body: a loose ball that reaches a player above his feet's reach hits him and comes off.
+	bodyRadius = 1.6,
+	bodyHeight = 5.4,
+	bodyBounce = 0.4, -- how much of its pace it keeps
 	keeperDiveSpeed = 42, -- studs/s do mergulho
 	keeperDiveTime = 1, -- quanto dura o voo; falhou, fica no chao (fallTime)
 	keeperDiveCooldown = 1.5,
