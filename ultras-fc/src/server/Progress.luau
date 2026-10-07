@@ -319,6 +319,25 @@ function Progress.footballEvent(kind: string, player: Player)
 	end
 end
 
+--[[
+	THE CAPO'S XP: for leading. `kind` is "follow" (a real person joined in one
+	of his orders) or "chant" (he started a chant). Up to Config's cap a match.
+]]
+local capoXP: { [Player]: number } = {}
+function Progress.capo(player: Player, kind: string)
+	local A = P.adepto
+	local amount = if kind == "chant" then A.capoChantXP else A.capoFollowXP
+	local had = capoXP[player] or 0
+	local give = math.min(amount, A.capoCap - had)
+	if give > 0 then
+		capoXP[player] = had + give
+		gain(player, "adepto", give)
+	end
+end
+function Progress.capoNewMatch()
+	table.clear(capoXP)
+end
+
 -- Acendeu alguma coisa: tocha ou fumo no momento certo da XP (ate 3 por jogo).
 function Progress.ignite(player: Player, kind: string)
 	Progress.markActive(player)

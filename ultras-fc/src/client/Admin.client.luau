@@ -67,7 +67,7 @@ end
 local open = button(gui, T.open, UDim2.fromOffset(84, 28), UDim2.new(0, 16, 1, -44))
 open.BackgroundTransparency = 0.15
 
-local rows = 7
+local rows = 8
 local panel = Instance.new("Frame")
 panel.Name = "Bar"
 panel.Visible = false
@@ -281,5 +281,91 @@ do
 	yes.Activated:Connect(function()
 		confirm.Visible = false
 		Remotes.Admin:FireServer("wipe")
+	end)
+end
+
+--[[
+	ANIMATIONS: every animation of Config.Animations that has a number, to try
+	on my own character (only on this screen: nobody else sees it). One at a
+	time; STOP ends it.
+]]
+do
+	local Animacoes = require(Shared:WaitForChild("Animacoes"))
+	local y = rowLabel(8, T.animations)
+	local openList = button(panel, T.animations, UDim2.fromOffset(190, ROW - 14), UDim2.fromOffset(LABEL, y + 4))
+	openList.Name = "Animacoes"
+
+	local list = Instance.new("ScrollingFrame")
+	list.Name = "ListaAnimacoes"
+	list.Visible = false
+	list.BackgroundColor3 = PANEL
+	list.BackgroundTransparency = 0.08
+	list.BorderSizePixel = 0
+	list.Position = UDim2.new(0, 16 + panel.Size.X.Offset + 8, 1, -(52 + 34 + rows * ROW + 8))
+	list.Size = UDim2.fromOffset(220, 34 + rows * ROW + 8)
+	list.CanvasSize = UDim2.new()
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	list.ScrollBarThickness = 6
+	list.Parent = gui
+	corner(list, 10)
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 6)
+	layout.Parent = list
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 8)
+	pad.PaddingLeft = UDim.new(0, 8)
+	pad.PaddingRight = UDim.new(0, 14)
+	pad.PaddingBottom = UDim.new(0, 8)
+	pad.Parent = list
+
+	local playing: AnimationTrack? = nil
+	local function stop()
+		if playing then
+			playing:Stop(0.2)
+			playing = nil
+		end
+	end
+	local stopButton = button(list, T.animationsStop, UDim2.new(1, 0, 0, 30), UDim2.new())
+	stopButton.Name = "Parar"
+	stopButton.BackgroundColor3 = Color3.fromRGB(120, 44, 40)
+	stopButton.Activated:Connect(stop)
+
+	local names: { string } = {}
+	for name in Config.Animations :: any do
+		if Animacoes.has(name) then
+			table.insert(names, name)
+		end
+	end
+	table.sort(names)
+	for _, name in names do
+		local b = button(list, name, UDim2.new(1, 0, 0, 30), UDim2.new())
+		b.Name = "Anim_" .. name
+		b.AutoLocalize = false
+		b.Activated:Connect(function()
+			stop()
+			local character = player.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+			local track = if animator then Animacoes.track(animator, name) else nil
+			if track then
+				track.Looped = true
+				track.Priority = Enum.AnimationPriority.Action4
+				Animacoes.play(track, name, 0.2)
+				playing = track
+			end
+		end)
+	end
+
+	openList.Activated:Connect(function()
+		list.Visible = not list.Visible
+		if not list.Visible then
+			stop()
+		end
+	end)
+	open.Activated:Connect(function()
+		if not panel.Visible then
+			list.Visible = false
+			stop()
+		end
 	end)
 end

@@ -37,6 +37,7 @@ local Lider = {}
 
 export type Deps = {
 	level: (Player) -> number, -- o nivel de adepto
+	xp: ((Player, string) -> ())?, -- the capo's XP for leading ("follow", "chant")
 	phase: () -> string,
 }
 
@@ -49,7 +50,7 @@ local lit: { [Player]: number } = {}
 -- Quando cada ordem pode voltar a ser dada, por claque.
 local nextOrder: { [string]: number } = {}
 -- Os avisos em aberto: quem foi convidado para qual ordem, e ate quando.
-type Invite = { order: string, teamId: string, untilAt: number, taken: { [Player]: boolean } }
+type Invite = { order: string, teamId: string, untilAt: number, taken: { [Player]: boolean }, leader: Player? }
 local invites: { [number]: Invite } = {}
 local nextInviteId = 0
 
@@ -223,7 +224,7 @@ local TEXTS = {
 local function invite(leader: Player, teamId: string, order: string)
 	nextInviteId += 1
 	local id = nextInviteId
-	invites[id] = { order = order, teamId = teamId, untilAt = os.clock() + L.inviteSeconds + 2, taken = {} }
+	invites[id] = { order = order, teamId = teamId, untilAt = os.clock() + L.inviteSeconds + 2, taken = {}, leader = leader }
 	for _, player in Players:GetPlayers() do
 		if player ~= leader and Teams.get(player) == teamId then
 			Remotes.Lider:FireClient(player, { kind = "convite", id = id, order = order, text = TEXTS[order] or order })
@@ -267,6 +268,11 @@ local function accept(player: Player, id: number)
 	end
 	entry.taken[player] = true
 	local order = entry.order
+	-- Someone followed: that is what leading is.
+	local capo = entry.leader
+	if capo and capo.Parent and deps and deps.xp then
+		deps.xp(capo, "follow")
+	end
 	if order == "formar" then
 		local spot = slotFor(entry.teamId)
 		if spot then
@@ -435,6 +441,9 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 					end
 				end)
 				notice(teamId, TXT.theCapoPutOn .. song.name, nil)
+				if deps and deps.xp then
+					deps.xp(player, "chant")
+				end
 				tell(player, TXT.playing .. song.name)
 			else
 				stopChant(teamId)

@@ -953,6 +953,7 @@ MatchLoop.onChange(function(snapshot)
 		com ou sem ele, e o botao "SEDE" ou as pernas levam-no quando quiser.
 	]]
 	if entered and snapshot.phase == "clubhouse" then
+		Progress.capoNewMatch()
 		task.defer(seatWaiting, false)
 	end
 	if entered and snapshot.phase == "entrada" then
@@ -1884,6 +1885,7 @@ Lider.start({
 		return Progress.level(player, "adepto")
 	end,
 	phase = MatchLoop.phase,
+	xp = Progress.capo,
 })
 -- A roupa muda com o papel: ultra, jogador ou arbitro.
 Kit.start()
