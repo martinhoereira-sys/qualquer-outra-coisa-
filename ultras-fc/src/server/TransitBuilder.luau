@@ -48,7 +48,7 @@ local LINES: { Line } = {
 			{ name = "Avenida Norte", lines = "1", at = Vector2.new(0, 580) },
 			{ name = "Zona Nova", lines = "1", at = Vector2.new(630, 250) },
 			{ name = "Sede Azul", lines = "1", at = Vector2.new(630, -540) },
-			{ name = "Academia LES", lines = "1", at = Vector2.new(-110, -600) },
+			{ name = "Rua do Sul", lines = "1", at = Vector2.new(-110, -600) },
 			{ name = "Bairro Velho", lines = "1", at = Vector2.new(-630, -100) },
 		},
 		buses = 2,
@@ -61,7 +61,7 @@ local LINES: { Line } = {
 		stops = {
 			{ name = "Estadio Principal", lines = "2", at = Vector2.new(0, -165) },
 			{ name = "Estadio Nascente", lines = "2", at = Vector2.new(200, 20) },
-			{ name = "Academia AGN", lines = "2", at = Vector2.new(100, 440) },
+			{ name = "Rua do Norte", lines = "2", at = Vector2.new(100, 440) },
 			{ name = "Estadio Poente", lines = "2", at = Vector2.new(-200, 20) },
 		},
 		buses = 1,

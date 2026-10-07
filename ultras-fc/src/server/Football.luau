@@ -831,6 +831,22 @@ local function claim(b: BasePart, now: number)
 	if math.abs(b.Position.X) >= HALF + R then
 		return
 	end
+	--[[
+		A BALL THAT IS GOING OUT (OR IN) IS NOBODY'S. Once its middle is over a
+		line and it is still moving away, no one "wins" it just by standing
+		near: it used to jump to the feet of whoever was within reach, so a
+		shot going in ended at a defender's feet, and a ball one team put out
+		was "touched last" by the other and the restart went to the wrong side.
+		(A ball lying still on the line can still be played.)
+	]]
+	do
+		local p, v = b.Position, b.AssemblyLinearVelocity
+		local overEnd = math.abs(p.X) > HALF and v.X * p.X > 1
+		local overSide = math.abs(p.Z) > WIDTH2 and v.Z * p.Z > 1
+		if overEnd or overSide then
+			return
+		end
+	end
 	local best: Footballer? = nil
 	local bestDistance = math.huge
 	for _, f in Squad.active() do
@@ -1378,6 +1394,20 @@ function Football.step(dt: number)
 			local look = flat(r.CFrame.LookVector)
 			local at = r.Position + look * F.dribbleDistance
 			local v = r.AssemblyLinearVelocity
+			--[[
+				The ball goes out when whoever has it takes it out, not because
+				they turned to face the line: while the player's own feet are
+				inside, the ball at them stays on the line at most. (In front of
+				the goal it is free: walking it in is a goal.)
+			]]
+			local x, z = at.X, at.Z
+			if math.abs(r.Position.Z) < WIDTH2 then
+				z = math.clamp(z, -WIDTH2, WIDTH2)
+			end
+			if math.abs(r.Position.X) < HALF and math.abs(z) > F.goalHalfWidth then
+				x = math.clamp(x, -HALF, HALF)
+			end
+			at = Vector3.new(x, at.Y, z)
 			b.CFrame = CFrame.new(at.X, R + 0.05, at.Z)
 			b.AssemblyLinearVelocity = Vector3.new(v.X, 0, v.Z)
 			b.AssemblyAngularVelocity = Vector3.new(v.Z, 0, -v.X) / R
