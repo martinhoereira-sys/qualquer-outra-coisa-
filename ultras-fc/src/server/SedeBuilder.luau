@@ -29,9 +29,10 @@ local SedeBuilder = {}
 local SCALE = 0.7 -- the sede is a little smaller than the hand-made one
 -- The training pitch: as big as the block lets it be, up to this (the stadium's
 -- own pitch does not fit in a city block).
-local PITCH_MAX = Vector3.new(110, 0.4, 64)
-local MARGIN = 5 -- pavement left round the ground
-local GAP = 6 -- between the sede and the pitch
+local PITCH_MAX = Vector3.new(130, 0.4, 86)
+local MARGIN = 3 -- pavement left round the ground
+local GAP = 4 -- between the sede and the pitch
+local SHAPE = 0.7 -- a pitch is never deeper than this share of its length
 
 -- The walls: black, white or dark grey, so the grounds look alike but not the same.
 local WALLS = {
@@ -192,6 +193,47 @@ local function pitch(club: any, at: CFrame, parent: Instance, PITCH: Vector3)
 	folder.Parent = parent
 end
 
+--[[
+	Is there anything of the map where the pitch would be? The pavement, the
+	generic houses (they are taken away) and the ground itself do not count;
+	trees, hand-made houses, shops, bus shelters, anything else does.
+]]
+local function inTheWay(centre: CFrame, size: Vector3): string?
+	local params = OverlapParams.new()
+	local grounds = workspace:FindFirstChild("Recintos")
+	params.FilterDescendantsInstances = if grounds then { grounds } else {}
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	for _, hit in workspace:GetPartBoundsInBox(centre * CFrame.new(0, 12, 0), Vector3.new(size.X + 8, 20, size.Z + 8), params) do
+		if hit.Name == "Passeio" or hit:IsA("Terrain") or not hit.CanCollide then
+			continue
+		end
+		local top: Instance = hit
+		local generic = false
+		while top.Parent and top.Parent ~= workspace do
+			if top.Name == "Predio" then
+				generic = true
+			end
+			top = top.Parent
+		end
+		if not generic then
+			return hit:GetFullName()
+		end
+	end
+	return nil
+end
+
+-- The biggest pitch up to `want` that has nothing of the map in its way at `at`.
+local function fit(at: CFrame, want: Vector3, least: Vector3): Vector3
+	local size = want
+	for _ = 1, 14 do
+		if not inTheWay(at, size) then
+			return size
+		end
+		size = Vector3.new(math.max(size.X - 4, least.X), size.Y, math.max(size.Z - 3, least.Z))
+	end
+	return least
+end
+
 -- Takes the generic houses (Predio) of the blocks out of the way of the ground.
 local function clear(centre: CFrame, size: Vector3): number
 	local removed = 0
@@ -247,8 +289,9 @@ function SedeBuilder.build(clubId: string): number
 		end
 		local only = Instance.new("Model")
 		only.Name = "Recinto_" .. clubId
-		local size = Vector3.new(p.length, PITCH_MAX.Y, p.width)
 		local at = CFrame.new(p.x, site.y or 0.7, p.z) * CFrame.Angles(0, math.rad(p.turn or 0), 0)
+		-- As big as there is room for, up to the biggest; never smaller than it was.
+		local size = fit(at, Vector3.new(math.max(p.length, PITCH_MAX.X), PITCH_MAX.Y, math.max(p.width, PITCH_MAX.Z)), Vector3.new(p.length, PITCH_MAX.Y, p.width))
 		local taken = clear(at, Vector3.new(size.X + 12, 0, size.Z + 12))
 		pitch(club, at, only, size)
 		only.Parent = holder
@@ -273,14 +316,31 @@ function SedeBuilder.build(clubId: string): number
 	-- How big the pitch can be here: what is left of the block beside the sede.
 	local sedeDepth = 60 * SCALE
 	local PITCH = PITCH_MAX
+	local LEAST = Vector3.new(40, PITCH_MAX.Y, 30)
 	local city = workspace:FindFirstChild("Cidade")
 	local blocks = city and city:FindFirstChild("Quarteiroes")
 	local block = blocks and site.block and blocks:FindFirstChild("Quarteirao_" .. site.block)
 	local floor = block and block:FindFirstChild("Passeio")
 	if floor and floor:IsA("BasePart") then
 		local roomX = floor.Size.X - MARGIN * 2
-		local roomZ = math.min(floor.Size.Z, 140) - MARGIN * 2 - sedeDepth - GAP - 4
-		PITCH = Vector3.new(math.clamp(roomX - 4, 40, site.maxWidth or PITCH_MAX.X), PITCH_MAX.Y, math.clamp(roomZ, 30, PITCH_MAX.Z))
+		local roomZ = math.min(floor.Size.Z, 170) - MARGIN * 2 - sedeDepth - GAP - 4
+		local length = math.clamp(roomX - 4, 40, site.maxWidth or PITCH_MAX.X)
+		-- (What it was before the pitches grew: it is never made smaller than that.)
+		local wasX = math.clamp(floor.Size.X - 14, 40, site.maxWidth or 110)
+		local wasZ = math.clamp(math.min(floor.Size.Z, 140) - 62, 30, 64)
+		LEAST = Vector3.new(math.min(wasX, length), PITCH_MAX.Y, wasZ)
+		PITCH = Vector3.new(length, PITCH_MAX.Y, math.max(wasZ, math.clamp(roomZ, 30, math.min(PITCH_MAX.Z, length * SHAPE))))
+	end
+	-- Nothing of the map under it: it gives way (to trees, hand-made houses, shops...) until it fits.
+	for _ = 1, 14 do
+		local span = sedeDepth + GAP + PITCH.Z + 4
+		if not inTheWay(base * CFrame.new(0, 0, span / 2 - PITCH.Z / 2 - 2), PITCH) then
+			break
+		end
+		if PITCH.X <= LEAST.X and PITCH.Z <= LEAST.Z then
+			break
+		end
+		PITCH = Vector3.new(math.max(PITCH.X - 4, LEAST.X), PITCH.Y, math.max(PITCH.Z - 3, LEAST.Z))
 	end
 	-- The sede in the north half of the site, the pitch in the south half.
 	local total = sedeDepth + GAP + PITCH.Z + 4
@@ -297,6 +357,76 @@ function SedeBuilder.build(clubId: string): number
 	ground:SetAttribute("Total", total)
 	ground.Parent = root
 	return removed
+end
+
+--[[
+	A SEDE MADE BY HAND is dressed like the built ones, where it stands and
+	without taking anything of it away: the roof in the club's colour, the
+	walls in the palette of the grounds, the floor slabs in concrete grey, and
+	over the door the club's name, its emblem and the claque's name.
+	`slab` is its big floor/ceiling slab (it gives the middle and the size).
+]]
+function SedeBuilder.dressExisting(clubId: string): string
+	local club = (Config.Clubs :: any)[clubId]
+	local site = club and club.site
+	if not site or not site.existing then
+		return "not a hand-made sede"
+	end
+	-- Its slab: the biggest flat piece near the site.
+	local slab: BasePart? = nil
+	for _, d in workspace:GetChildren() do
+		if d:IsA("BasePart") and d.Size.Y < 2 and d.Size.X * d.Size.Z > 3000 and (Vector3.new(d.Position.X - site.x, 0, d.Position.Z - site.z)).Magnitude < 90 then
+			if not slab or d.Position.Y > slab.Position.Y then
+				slab = d
+			end
+		end
+	end
+	if not slab then
+		return "slab not found"
+	end
+	local centre = Vector3.new(slab.Position.X, 0, slab.Position.Z)
+	local half = Vector3.new(slab.Size.X / 2 + 3, 0, slab.Size.Z / 2 + 3)
+	local index = table.find(Config.ClubOrder, clubId) or 1
+	local wall = WALLS[(index - 1) % #WALLS + 1]
+	local roofs, walls = 0, 0
+	local top = 0
+	for _, d in workspace:GetChildren() do
+		if d:IsA("BasePart") and math.abs(d.Position.X - centre.X) <= half.X and math.abs(d.Position.Z - centre.Z) <= half.Z then
+			top = math.max(top, d.Position.Y + d.Size.Y / 2)
+			-- The roof: the big pieces above the top slab, whatever colour they were given.
+			if d.Position.Y > slab.Position.Y + 1 and d.Size.X * d.Size.Z > 300 then
+				d.Color = club.color
+				roofs += 1
+			elseif near(d.Color, OLD_WALL) then
+				if d.Size.Y < 2 then
+					d.Color = Color3.fromRGB(58, 60, 66)
+					d.Material = Enum.Material.Concrete
+				else
+					d.Color = wall.colour
+					d.Material = wall.material
+				end
+				walls += 1
+			end
+		end
+	end
+	-- Over the door (the +Z side): name, emblem, claque. Built again each time.
+	local root = workspace:FindFirstChild("Recintos")
+	local ground = root and root:FindFirstChild("Recinto_" .. clubId)
+	if ground then
+		local old = ground:FindFirstChild("Fachada")
+		if old then
+			old:Destroy()
+		end
+		local face = Instance.new("Model")
+		face.Name = "Fachada"
+		local height = slab.Position.Y
+		local front = CFrame.new(centre.X, 0, centre.Z + slab.Size.Z / 2 + 0.6)
+		emblemBoard(club, 7, front * CFrame.new(0, height * 0.62, 0) * CFrame.Angles(0, math.pi, 0), Enum.NormalId.Front, face)
+		sign(club.claque, Vector3.new(26, 3.4, 0.3), front * CFrame.new(0, height * 0.62 - 6, 0) * CFrame.Angles(0, math.pi, 0), club.color, inkFor(club.color), face)
+		sign(club.nameUpper, Vector3.new(26, 2.4, 0.3), front * CFrame.new(0, height * 0.62 + 5.4, 0) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(20, 20, 24), WHITE, face)
+		face.Parent = ground
+	end
+	return string.format("roof pieces %d, wall pieces %d, slab at %.0f,%.0f", roofs, walls, centre.X, centre.Z)
 end
 
 function SedeBuilder.buildAll(): number
