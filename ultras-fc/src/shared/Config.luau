@@ -2127,7 +2127,7 @@ Config.Chants = {
 		luz = {},
 		alvalade = {
 			{ name = "Nunca vais acabar", id = 121342319651900, seconds = 31, repeats = 2 },
-			{ name = "Onde tu fores jogar eu vou lá estar", id = 83139203994263, seconds = 88.8, repeats = 1 },
+			{ name = "Onde tu fores jogar eu vou lá estar", id = 123151187163093, seconds = 83.9, repeats = 1 },
 		},
 		nervion = {},
 		triana = {},
