@@ -173,8 +173,21 @@ end
 local benched: Folder? = nil
 local order: { [string]: { Supporter } } = {}
 
+--[[
+	THE STAND IS EMPTY UNTIL ITS CORTEO GETS THERE. While a claque is on its
+	way (clubhouse and corteo), its bots are not in the stand (nor their
+	flares and smoke, which are theirs): they come in when the corteo arrives.
+]]
+local away: { [string]: boolean } = {}
+local lastMembers: { [string]: number } = {}
+
+function Crowd.isAway(teamId: string): boolean
+	return away[teamId] == true
+end
+
 function Crowd.makeRoom(members: { [string]: number })
 	local folder = root
+	lastMembers = members
 	if not folder then
 		return
 	end
@@ -198,13 +211,20 @@ function Crowd.makeRoom(members: { [string]: number })
 		end
 	end
 	for teamId, list in order do
-		local out = math.min((members[teamId] or 0) * C.botsPerPlayer, #list)
+		local out = if away[teamId] then #list else math.min((members[teamId] or 0) * C.botsPerPlayer, #list)
 		for i, person in list do
 			local target = if i <= out then benched else folder
 			if person.model.Parent ~= target then
 				person.model.Parent = target
 			end
 		end
+	end
+end
+
+function Crowd.setAway(teamId: string, on: boolean)
+	if (away[teamId] == true) ~= on then
+		away[teamId] = on
+		Crowd.makeRoom(lastMembers)
 	end
 end
 

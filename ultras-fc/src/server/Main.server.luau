@@ -848,6 +848,13 @@ MatchLoop.onChange(function(snapshot)
 		pickedSlot = snapshot.slot
 		task.spawn(chooseMatch, snapshot.slot, snapshot.phase ~= "clubhouse" and snapshot.phase ~= "corteo")
 	end
+	-- The claque's stand is empty while it is on its way: its bots come in when its corteo arrives.
+	do
+		local onTheWay = not snapshot.night and (snapshot.phase == "clubhouse" or snapshot.phase == "corteo")
+		for _, teamId in Config.TeamOrder do
+			Crowd.setAway(teamId, onTheWay and March.stage(teamId) ~= "chegou")
+		end
+	end
 	local key = snapshot.phase .. ":" .. tostring(snapshot.slot) .. ":" .. tostring(snapshot.night)
 	local entered = key ~= lastKey
 	lastKey = key
