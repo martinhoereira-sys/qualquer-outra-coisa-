@@ -472,6 +472,68 @@ function Clubhouse.bikeRack(teamId: string, at: CFrame, parent: Instance)
 end
 
 --[[
+	Three small desks in a row, outside by the door (for a ground whose sede
+	has none inside): `at` is the middle one, on the ground; they stand along
+	its X. For Clubhouse.staff / Clubhouse.idle.
+]]
+function Clubhouse.desks(at: CFrame, parent: Instance): { Model }
+	local list: { Model } = {}
+	for i = 1, 3 do
+		local model = Instance.new("Model")
+		model.Name = "Mesa_" .. i
+		local top = fixture("Tampo", Vector3.new(5, 0.4, 2.4), at * CFrame.new((i - 2) * 7, 2.9, 0), Color3.fromRGB(64, 50, 40), model)
+		top.Material = Enum.Material.Wood
+		fixture("Frente", Vector3.new(5, 2.7, 0.3), at * CFrame.new((i - 2) * 7, 1.35, 1.05), Color3.fromRGB(34, 36, 42), model)
+		model.PrimaryPart = top
+		model.Parent = parent
+		table.insert(list, model)
+	end
+	return list
+end
+
+--[[
+	A CLUBHOUSE WHOSE CLUB IS NOT PLAYING NOW still has its people and its
+	bikes: the three at the desks (sign up, shop, capo) and the bike rack, in
+	the club's colours. The bikes work; the three say when to come back (what
+	they do belongs to a match day of that club).
+]]
+function Clubhouse.idle(club: any, at: CFrame, parent: Instance)
+	local outward = Vector3.new(at.ZVector.X, 0, at.ZVector.Z).Unit
+	-- The bikes.
+	local folder = Instance.new("Folder")
+	folder.Name = "Bicicletas"
+	folder.Parent = parent
+	local rackAt = at * CFrame.new(10, 0, 4)
+	local bar = fixture("Suporte", Vector3.new(8, 0.3, 0.3), rackAt * CFrame.new(0, 1.5, 0), Color3.fromRGB(60, 62, 68), folder)
+	bar.Material = Enum.Material.Metal
+	for i = -1, 1 do
+		local bike = Bikes.build(club.color, rackAt * CFrame.new(i * 2.6, 1.2, 0) * CFrame.Angles(0, math.rad(90), 0), folder)
+		for _, d in bike:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+			end
+		end
+	end
+	local take = prompt(bar, TXT.takeABike, TXT.toRideAroundTheCity, 10)
+	take.Triggered:Connect(function(player)
+		Bikes.mount(player, club.color)
+	end)
+	-- The three at their desks.
+	local deskAt = at * CFrame.new(-12, 0, 5)
+	Clubhouse.desks(deskAt, parent)
+	for i, title in { TXT.signUp, TXT.shop, TXT.capo2 } do
+		local spot = (deskAt * CFrame.new((i - 2) * 7, 0, -2.6)).Position
+		local root = person(club.color, "NPC_parado_" .. i, title, CFrame.lookAt(spot, spot + outward), parent)
+		if root then
+			local p = prompt(root, title, club.name, 10)
+			p.Triggered:Connect(function(player)
+				say(player, club.name, { Config.Text.sede.notPlaying })
+			end)
+		end
+	end
+end
+
+--[[
 	O posto de arbitragem, na praca.
 
 	Fica fora das duas sedes de proposito: quem apita nao e de nenhum lado, e

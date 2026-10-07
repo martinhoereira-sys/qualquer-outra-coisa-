@@ -1204,6 +1204,7 @@ Config.Text = {
 	sede = {
 		join = "Join this club",
 		tooFar = "To change club you must go to its clubhouse, in person.",
+		notPlaying = "This club is not playing now. Come back before its next match.",
 	},
 	rota = {
 		arrowsOn = "ARROWS: ON",

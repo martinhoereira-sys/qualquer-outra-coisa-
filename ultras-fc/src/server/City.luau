@@ -207,6 +207,53 @@ end
 	players' stop `stop`. Returns the points and where the bus waits (on the
 	street nearest the ground).
 ]]
+function City.dressOthers()
+	local old = workspace:FindFirstChild("SedesParadas")
+	if old then
+		old:Destroy()
+	end
+	local root = Instance.new("Folder")
+	root.Name = "SedesParadas"
+	root.Parent = workspace
+	local playing: { [string]: boolean } = {}
+	for _, teamId in Config.TeamOrder do
+		playing[Config.Teams[teamId].club] = true
+	end
+	for _, clubId in Config.ClubOrder do
+		local club = (Config.Clubs :: any)[clubId]
+		local site = club.site
+		if playing[clubId] or not site then
+			continue
+		end
+		local frame: CFrame? = nil
+		if not site.existing then
+			-- A ground built from Config: the same door as when the club plays (City.place).
+			local base = CFrame.new(site.x, site.y or 0.7, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0)
+			local built = workspace:FindFirstChild("Recintos") and workspace.Recintos:FindFirstChild("Recinto_" .. clubId)
+			local total = (built and built:GetAttribute("Total")) or 86
+			local doorAt = (base * CFrame.new(36, 0, -total / 2 + 21)).Position
+			frame = CFrame.lookAt(doorAt, doorAt - base.RightVector)
+		else
+			-- A sede made by hand: at its sign.
+			local marker = if site.marker then workspace:FindFirstChild(site.marker, true) else nil
+			if marker and marker:IsA("Model") then
+				local pivot = marker:GetPivot()
+				local box, size = marker:GetBoundingBox()
+				local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
+				local forward = if look.Magnitude > 0.01 then look.Unit else Vector3.zAxis
+				local ground = Vector3.new(pivot.Position.X, box.Position.Y - size.Y / 2, pivot.Position.Z)
+				frame = CFrame.lookAt(ground, ground - forward)
+			end
+		end
+		if frame then
+			local holder = Instance.new("Folder")
+			holder.Name = "Sede_" .. clubId
+			holder.Parent = root
+			task.spawn(Clubhouse.idle, club, frame, holder)
+		end
+	end
+end
+
 function City.busLoop(teamId: string, stop: Vector3): ({ Vector3 }, Vector3?)
 	local xs, zs = streets()
 	-- The bus waits by the training pitch (that is where the players are), or by the door.
@@ -268,7 +315,10 @@ function City.place(teamId: string)
 		holder.Parent = workspace
 		table.insert(placed[teamId], holder)
 		spawnPoints[teamId] = doorAt + forward * 4 + Vector3.new(0, 3.5, 0)
-		Clubhouse.equip(teamId, frame, holder, 0)
+		-- The three at their desks, outside by the door: sign up, shop, capo.
+		local desks = Clubhouse.desks(frame * CFrame.new(-12, 0, 5), holder)
+		Clubhouse.equip(teamId, frame, holder, 0, true)
+		Clubhouse.staff(teamId, desks, -forward, holder)
 		Clubhouse.bikeRack(teamId, frame * CFrame.new(10, 0, 4), holder)
 		routes[teamId] = autoRoute(doorAt, teamId)
 		return

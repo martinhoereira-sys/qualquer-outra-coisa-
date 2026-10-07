@@ -1120,6 +1120,8 @@ Squad.setStartOverride(function(f)
 end)
 -- Each club's bus goes from its own ground (the place's club changes with the match).
 function placeTeamBuses()
+	-- (And the clubhouses of the clubs that are not playing: their people and their bikes.)
+	City.dressOthers()
 	local stops = workspace:FindFirstChild("Transportes") and workspace.Transportes:FindFirstChild("Paragens")
 	for _, teamId in Config.TeamOrder do
 		local line = if teamId == "home" then "EN" else "ES"
