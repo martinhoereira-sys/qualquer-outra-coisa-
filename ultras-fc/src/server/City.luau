@@ -164,6 +164,45 @@ local function nearest(lines: { number }, value: number): number
 end
 
 --[[
+	The door of a built ground: beside the sede, on the side of the NEAREST
+	STREET (a ground in the last block of the map has no street on its outer
+	side: the corteo would have to go through the building to get out).
+	Returns where it is and which way is out.
+]]
+local function doorOf(clubId: string): (Vector3, Vector3)
+	local site = (Config.Clubs :: any)[clubId].site
+	local base = CFrame.new(site.x, site.y or 0.7, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0)
+	local built = workspace:FindFirstChild("Recintos") and workspace.Recintos:FindFirstChild("Recinto_" .. clubId)
+	local total = (built and built:GetAttribute("Total")) or 86
+	local xs, zs = streets()
+	local best, bestSide, bestDistance = nil :: Vector3?, 1, math.huge
+	for _, side in { 1, -1 } do
+		local at = (base * CFrame.new(36 * side, 0, -total / 2 + 21)).Position
+		local out = at + base.RightVector * side * 400
+		-- the nearest street on that side, along the way out
+		local distance = math.huge
+		for _, x in xs do
+			local along = (Vector3.new(x, at.Y, at.Z) - at):Dot(base.RightVector * side)
+			if along > 0 and along < distance and math.abs(base.RightVector.X) > 0.5 then
+				distance = along
+			end
+		end
+		for _, z in zs do
+			local along = (Vector3.new(at.X, at.Y, z) - at):Dot(base.RightVector * side)
+			if along > 0 and along < distance and math.abs(base.RightVector.Z) > 0.5 then
+				distance = along
+			end
+		end
+		if distance < bestDistance then
+			best, bestSide, bestDistance = at, side, distance
+		end
+		local _ = out
+	end
+	local at = best or (base * CFrame.new(36, 0, -total / 2 + 21)).Position
+	return at, base.RightVector * bestSide
+end
+
+--[[
 	The way from a door to the gate of this place's stand, along the streets:
 	out to the nearest street, along it to a cross street, along that one to
 	the street beside the stadium on the gate's side, and down it to the gate.
@@ -265,11 +304,8 @@ function City.dressOthers()
 		local frame: CFrame? = nil
 		if not site.existing then
 			-- A ground built from Config: the same door as when the club plays (City.place).
-			local base = CFrame.new(site.x, site.y or 0.7, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0)
-			local built = workspace:FindFirstChild("Recintos") and workspace.Recintos:FindFirstChild("Recinto_" .. clubId)
-			local total = (built and built:GetAttribute("Total")) or 86
-			local doorAt = (base * CFrame.new(36, 0, -total / 2 + 21)).Position
-			frame = CFrame.lookAt(doorAt, doorAt - base.RightVector)
+			local doorAt, forward = doorOf(clubId)
+			frame = CFrame.lookAt(doorAt, doorAt - forward)
 		else
 			-- A sede made by hand: at its sign.
 			local marker = if site.marker then workspace:FindFirstChild(site.marker, true) else nil
@@ -345,12 +381,8 @@ function City.place(teamId: string)
 	local site = club.site
 	if site and not site.existing then
 		-- A ground built from Config (SedeBuilder): the door is beside the sede, on the street side.
-		local base = CFrame.new(site.x, site.y or 0.7, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0)
 		-- (The sede is at the north end of the ground, whatever the size of the pitch.)
-		local built = workspace:FindFirstChild("Recintos") and workspace.Recintos:FindFirstChild("Recinto_" .. club.club)
-		local total = (built and built:GetAttribute("Total")) or 86
-		local doorAt = (base * CFrame.new(36, 0, -total / 2 + 21)).Position
-		local forward = base.RightVector
+		local doorAt, forward = doorOf(club.club)
 		local frame = CFrame.lookAt(doorAt, doorAt - forward)
 		local holder = Instance.new("Folder")
 		holder.Name = "Sede_" .. teamId .. "_recheio"

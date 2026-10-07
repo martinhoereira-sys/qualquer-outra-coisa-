@@ -184,6 +184,8 @@ end
 	A fase do corteo comecou: as faixas aparecem a porta de cada sede, paradas,
 	a espera da ordem de sair.
 ]]
+local streetSpot: (any) -> (Vector3, Vector3)
+
 function March.arm(parent: Instance)
 	March.stop()
 
@@ -218,6 +220,13 @@ function March.arm(parent: Instance)
 				formedAt = 0,
 				launchPending = false,
 			}
+			-- They wait in the street already (behind the door the rows would stand inside the sede).
+			do
+				local b = banners[teamId]
+				local at, look = streetSpot(b)
+				b.leg = 1
+				b.model.CFrame = CFrame.lookAt(Vector3.new(at.X, b.model.Position.Y, at.Z), Vector3.new(at.X, b.model.Position.Y, at.Z) + look)
+			end
 			banners[teamId].model:SetAttribute("Stage", "espera")
 			progress[teamId] = nil
 			publishRoute(banners[teamId])
@@ -316,18 +325,20 @@ end
 	filas direitas (os bonecos; as pessoas so se quiserem). Nao sai sozinha:
 	sai com a ordem de marchar, depois de estar formada uns segundos.
 ]]
-function March.form(teamId: string): boolean
-	local banner = banners[teamId]
-	if not (active and banner) or banner.stage ~= "espera" then
-		return false
-	end
+-- Where the claque stands in the street, and which way it looks: out of the sede, never inside it.
+function streetSpot(banner: Banner): (Vector3, Vector3)
 	--[[
 		A faixa avanca pela rua `formAhead` studs e vira-se para o caminho: as
 		filas formam atras dela, na rua. (A porta da sede fica mesmo atras da
 		faixa: formar ali metia as filas dentro do edificio.)
 	]]
-	local left = M.formAhead
+	-- IN THE ROAD, away from the door: out to the street, and then `formStreet`
+	-- studs down it on the way to the stadium, so the whole block stands on the road.
 	local points = banner.waypoints
+	local left = M.formAhead
+	if #points >= 3 then
+		left = Vector3.new(points[2].X - points[1].X, 0, points[2].Z - points[1].Z).Magnitude + M.formStreet
+	end
 	local at, look = points[1], Vector3.new(0, 0, -1)
 	for i = 1, #points - 1 do
 		local a, b = points[i], points[i + 1]
@@ -365,6 +376,15 @@ function March.form(teamId: string): boolean
 	if facing.Magnitude > 1 then
 		look = facing.Unit
 	end
+	return at, look
+end
+
+function March.form(teamId: string): boolean
+	local banner = banners[teamId]
+	if not (active and banner) or banner.stage ~= "espera" then
+		return false
+	end
+	local at, look = streetSpot(banner)
 	banner.model.CFrame = CFrame.lookAt(Vector3.new(at.X, banner.model.Position.Y, at.Z), Vector3.new(at.X, banner.model.Position.Y, at.Z) + look)
 	banner.formedAt = os.clock()
 	setStage(banner, "formatura")
