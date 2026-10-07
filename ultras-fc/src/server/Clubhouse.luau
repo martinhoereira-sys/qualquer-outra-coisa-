@@ -497,8 +497,7 @@ end
 	the club's colours. The bikes work; the three say when to come back (what
 	they do belongs to a match day of that club).
 ]]
-function Clubhouse.idle(club: any, at: CFrame, parent: Instance)
-	local outward = Vector3.new(at.ZVector.X, 0, at.ZVector.Z).Unit
+function Clubhouse.idle(club: any, at: CFrame, parent: Instance, inside: CFrame?, own: { Model }?)
 	-- The bikes.
 	local folder = Instance.new("Folder")
 	folder.Name = "Bicicletas"
@@ -518,14 +517,39 @@ function Clubhouse.idle(club: any, at: CFrame, parent: Instance)
 	take.Triggered:Connect(function(player)
 		Bikes.mount(player, club.color)
 	end)
-	-- The three at their desks.
-	local deskAt = at * CFrame.new(-12, 0, 5)
-	Clubhouse.desks(deskAt, parent)
-	for i, title in { TXT.signUp, TXT.shop, TXT.capo2 } do
-		local spot = (deskAt * CFrame.new((i - 2) * 7, 0, -2.6)).Position
-		local root = person(club.color, "NPC_parado_" .. i, title, CFrame.lookAt(spot, spot + outward), parent)
+	--[[
+		The three at their desks, INSIDE the sede: at the desks the sede already
+		has (`own`, the hand-made ones), or at three put in a row at the back
+		of the room (`inside`: the middle of the row, its +Z to the door).
+	]]
+	local titles = { TXT.signUp, TXT.shop, TXT.capo2 }
+	local spots: { CFrame } = {}
+	if own and #own >= 3 then
+		local centre = Vector3.zero
+		for _, d in own do
+			centre += d:GetPivot().Position
+		end
+		centre /= #own
+		local toDesks = Vector3.new(centre.X - at.Position.X, 0, centre.Z - at.Position.Z)
+		local inward = if toDesks.Magnitude > 0.1 then toDesks.Unit else -Vector3.zAxis
+		for i = 1, 3 do
+			local box, size = own[i]:GetBoundingBox()
+			local depth = math.max(math.abs(size.X * inward.X), math.abs(size.Z * inward.Z)) / 2
+			local spot = Vector3.new(box.Position.X, box.Position.Y - size.Y / 2, box.Position.Z) + inward * (depth + 2.2)
+			table.insert(spots, CFrame.lookAt(spot, spot - inward))
+		end
+	elseif inside then
+		Clubhouse.desks(inside, parent)
+		local toDoor = Vector3.new(inside.ZVector.X, 0, inside.ZVector.Z).Unit
+		for i = 1, 3 do
+			local spot = (inside * CFrame.new((i - 2) * 7, 0, -2.6)).Position
+			table.insert(spots, CFrame.lookAt(spot, spot + toDoor))
+		end
+	end
+	for i, where in spots do
+		local root = person(club.color, "NPC_parado_" .. i, titles[i], where, parent)
 		if root then
-			local p = prompt(root, title, club.name, 10)
+			local p = prompt(root, titles[i], club.name, 10)
 			p.Triggered:Connect(function(player)
 				say(player, club.name, { Config.Text.sede.notPlaying })
 			end)

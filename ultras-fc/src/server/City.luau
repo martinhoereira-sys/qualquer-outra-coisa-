@@ -207,6 +207,43 @@ end
 	players' stop `stop`. Returns the points and where the bus waits (on the
 	street nearest the ground).
 ]]
+-- Inside the built sede of `clubId`: the middle of a row of desks at the back of the room, its +Z to the door.
+local function insideOf(clubId: string): CFrame?
+	local grounds = workspace:FindFirstChild("Recintos")
+	local ground = grounds and grounds:FindFirstChild("Recinto_" .. clubId)
+	local sede = ground and ground:FindFirstChild("Sede")
+	if not sede or not sede:IsA("Model") then
+		return nil
+	end
+	local box, size = sede:GetBoundingBox()
+	return CFrame.new(box.Position.X, box.Position.Y - size.Y / 2 + 0.6, box.Position.Z) * box.Rotation * CFrame.new(0, 0, -size.Z * 0.22)
+end
+
+-- The desks a hand-made sede already has, near `door`, left to right for whoever comes in.
+local function ownDesks(door: Vector3): { Model }
+	local desks: { Model } = {}
+	for _, d in workspace:GetDescendants() do
+		if d:IsA("Model") and d.Name == "Desk" and (d:GetPivot().Position - door).Magnitude < 90 then
+			table.insert(desks, d)
+		end
+	end
+	if #desks < 3 then
+		return {}
+	end
+	local centre = Vector3.zero
+	for _, d in desks do
+		centre += d:GetPivot().Position
+	end
+	centre /= #desks
+	local flat = Vector3.new(centre.X - door.X, 0, centre.Z - door.Z)
+	local inward = if flat.Magnitude > 0.1 then flat.Unit else -Vector3.zAxis
+	local right = inward:Cross(Vector3.yAxis)
+	table.sort(desks, function(a, b)
+		return a:GetPivot().Position:Dot(right) < b:GetPivot().Position:Dot(right)
+	end)
+	return { desks[1], desks[2], desks[3] }
+end
+
 function City.dressOthers()
 	local old = workspace:FindFirstChild("SedesParadas")
 	if old then
@@ -249,7 +286,12 @@ function City.dressOthers()
 			local holder = Instance.new("Folder")
 			holder.Name = "Sede_" .. clubId
 			holder.Parent = root
-			task.spawn(Clubhouse.idle, club, frame, holder)
+			-- The people are INSIDE the sede; only the bikes are at the door.
+			if site.existing then
+				task.spawn(Clubhouse.idle, club, frame, holder, nil, ownDesks(frame.Position))
+			else
+				task.spawn(Clubhouse.idle, club, frame, holder, insideOf(clubId), nil)
+			end
 		end
 	end
 end
@@ -315,10 +357,15 @@ function City.place(teamId: string)
 		holder.Parent = workspace
 		table.insert(placed[teamId], holder)
 		spawnPoints[teamId] = doorAt + forward * 4 + Vector3.new(0, 3.5, 0)
-		-- The three at their desks, outside by the door: sign up, shop, capo.
-		local desks = Clubhouse.desks(frame * CFrame.new(-12, 0, 5), holder)
-		Clubhouse.equip(teamId, frame, holder, 0, true)
-		Clubhouse.staff(teamId, desks, -forward, holder)
+		-- The three at their desks, INSIDE the sede: sign up, shop, capo.
+		local inside = insideOf(club.club)
+		if inside then
+			local desks = Clubhouse.desks(inside, holder)
+			Clubhouse.equip(teamId, frame, holder, 0, true)
+			Clubhouse.staff(teamId, desks, -Vector3.new(inside.ZVector.X, 0, inside.ZVector.Z).Unit, holder)
+		else
+			Clubhouse.equip(teamId, frame, holder, 0)
+		end
 		Clubhouse.bikeRack(teamId, frame * CFrame.new(10, 0, 4), holder)
 		routes[teamId] = autoRoute(doorAt, teamId)
 		return
