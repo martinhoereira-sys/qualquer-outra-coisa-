@@ -573,7 +573,7 @@ task.defer(function()
 			else
 				local ground = workspace:FindFirstChild("Recintos") and workspace.Recintos:FindFirstChild("Recinto_" .. clubId)
 				local total = (ground and ground:GetAttribute("Total")) or 86
-				at = Vector3.new(site.x, 4, site.z - total / 2 + 45)
+				at = (CFrame.new(site.x, 4, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0) * CFrame.new(0, 0, -total / 2 + 45)).Position
 			end
 			spot.Position = at
 			spot.Parent = folder

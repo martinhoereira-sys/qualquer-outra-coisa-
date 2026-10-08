@@ -40,7 +40,7 @@ Config.Clubs = {
 		club = "luz",
 		gemellati = "galata", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = -712, z = 510, block = "1_8" }, -- (the sede made by hand stood here until 2026-10-07: now a built one, like every club)
+		site = { x = -712, z = 510, block = "1_8", door = 1 }, -- (the sede made by hand stood here until 2026-10-07: now a built one, like every club)
 		name = "Luz SC",
 		fullName = "Sport Clube da Luz",
 		nameUpper = "LUZ SC",
@@ -87,7 +87,7 @@ Config.Clubs = {
 		club = "alvalade",
 		gemellati = "athinaikos", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = 706, z = -682, block = "9_1" }, -- (the sede made by hand stood here until 2026-10-07: now a built one, like every club)
+		site = { x = 706, z = -682, block = "9_1", door = -1 }, -- (the sede made by hand stood here until 2026-10-07: now a built one, like every club)
 		name = "Alvalade SC",
 		fullName = "Sporting Clube de Alvalade",
 		nameUpper = "ALVALADE SC",
@@ -140,7 +140,7 @@ Config.Clubs = {
 		club = "nervion",
 		gemellati = "pireus", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = -555, z = -525, block = "2_2" },
+		site = { x = -555, z = -525, block = "2_2", door = 1 },
 		name = "Nervión CF",
 		fullName = "Nervión Club de Fútbol",
 		nameUpper = "NERVIÓN CF",
@@ -185,7 +185,7 @@ Config.Clubs = {
 		club = "triana",
 		gemellati = "testaccio", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = 562, z = 374, block = "8_7" },
+		site = { x = 562, z = 374, block = "8_7", door = 1 },
 		name = "Triana Balompié",
 		fullName = "Triana Balompié",
 		nameUpper = "TRIANA BALOMPIÉ",
@@ -239,7 +239,7 @@ Config.Clubs = {
 		club = "testaccio",
 		gemellati = "triana", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = -712, z = -234, block = "1_4" },
+		site = { x = 706, z = 373, block = "9_7", door = -1 },
 		name = "Testaccio",
 		fullName = "Testaccio Calcio",
 		nameUpper = "TESTACCIO",
@@ -290,7 +290,7 @@ Config.Clubs = {
 		club = "flaminio",
 		gemellati = "kadikoy", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = 706, z = -25, block = "9_5" },
+		site = { x = -115, z = -685, block = "5_1", pitchDepth = 74, door = -1 },
 		name = "Flaminio",
 		fullName = "Flaminio Calcio",
 		nameUpper = "FLAMINIO",
@@ -337,7 +337,7 @@ Config.Clubs = {
 		club = "athinaikos",
 		gemellati = "alvalade", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = -264, z = -525, block = "4_2" },
+		site = { x = 562, z = -681, block = "8_1", door = 1 },
 		name = "Athinaikos",
 		fullName = "Athinaikos",
 		nameUpper = "ATHINAIKOS",
@@ -378,7 +378,7 @@ Config.Clubs = {
 		club = "pireus",
 		gemellati = "nervion", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = 413, z = 656, block = "7_9" },
+		site = { x = -407, z = -525, block = "3_2", door = -1 },
 		name = "Pireus FC",
 		fullName = "Pireus FC",
 		nameUpper = "PIREUS FC",
@@ -472,7 +472,7 @@ Config.Clubs = {
 		club = "kadikoy",
 		gemellati = "flaminio", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = 562, z = -682, block = "8_1" },
+		site = { x = -264, z = -681, block = "4_1", door = 1 },
 		name = "Kadiköy SK",
 		fullName = "Kadiköy SK",
 		nameUpper = "KADIKÖY SK",

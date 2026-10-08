@@ -40,7 +40,7 @@ Duas claques de cidades diferentes que são amigas são "gemellate" (nunca se di
 - **Cachecol e bandeira de gemellaggio** (as únicas coisas que misturam dois clubes; um só modelo que lê os dois clubes do Config): só aparecem no inventário (1) como convidado na curva deles, (2) quando o meu clube joga contra o RIVAL dos meus gemellati. Decide o servidor (`Gear.sync`, atributo `Gemellaggio`).
 - **Cortejos que se cruzam** (`March`, `Config.Gemellaggio`): nunca há luta. Gemellati: param, ficam frente a frente e cantam juntos uns segundos. Inimigos: param frente a frente, uma linha de stewards no meio, tochas acesas, meio minuto, e seguem. Os outros: nada. Uma vez por cortejo, só enquanto as duas faixas estão em marcha e a menos de `meetDistance`.
 - **Perfil** (MY CLUB): linhas RIVAL / GEMELLATI / ENEMIES. No cartão do clube: rival e gemellati.
-- **Mapa**: falta pôr os recintos dos gemellati lado a lado e os rivais em lados opostos. Há um plano proposto, à espera de confirmação: ficam Alvalade 9_1, Nervión 2_2 e Triana 8_7; mudam Luz → 1_6, Galata → 2_6, Athinaikos → 8_1, Pireus → 1_2, Testaccio → 8_8, Flaminio → 4_1, Kadiköy → 5_1 (todos quarteirões vazios).
+- **Mapa** (8 de Outubro): os gemellati estão lado a lado e as portas das duas sedes dão para a rua entre elas (`site.door`): Alvalade 9_1 + Athinaikos 8_1, Nervión 2_2 + Pireus 3_2, Triana 8_7 + Testaccio 9_7, Kadiköy 4_1 + Flaminio 5_1 (ponta oeste). Falta o Galata, que ainda está em 4_4: tem de ficar ao lado da Luz (1_8), mas em 1_7 o campo não cabe ao lado da loja de conveniência, que não se tira. Só se removem casas genéricas "Predio".
 
 ## Áudios
 

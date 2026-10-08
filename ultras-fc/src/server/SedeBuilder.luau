@@ -337,6 +337,10 @@ function SedeBuilder.build(clubId: string): number
 		LEAST = Vector3.new(math.min(wasX, length), PITCH_MAX.Y, wasZ)
 		PITCH = Vector3.new(length, PITCH_MAX.Y, math.max(wasZ, math.clamp(roomZ, 30, math.min(PITCH_MAX.Z, length * SHAPE))))
 	end
+	-- (`site.pitchDepth`: never deeper than this, where something of the map stands at the edge of the block.)
+	if site.pitchDepth then
+		PITCH = Vector3.new(PITCH.X, PITCH.Y, math.min(PITCH.Z, site.pitchDepth))
+	end
 	-- Nothing of the map under it: it gives way (to trees, hand-made houses, shops...) until it fits.
 	for _ = 1, 14 do
 		local span = sedeDepth + GAP + PITCH.Z + 4
