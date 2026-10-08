@@ -175,6 +175,11 @@ local function doorOf(clubId: string): (Vector3, Vector3)
 	local built = workspace:FindFirstChild("Recintos") and workspace.Recintos:FindFirstChild("Recinto_" .. clubId)
 	local total = (built and built:GetAttribute("Total")) or 86
 	local xs, zs = streets()
+	-- (`site.door`: 1 or -1 puts the door on that side whatever the streets: the
+	-- sedes of two gemellati look at each other across the street between them.)
+	if site.door then
+		return (base * CFrame.new(36 * site.door, 0, -total / 2 + 21)).Position, base.RightVector * site.door
+	end
 	local best, bestSide, bestDistance = nil :: Vector3?, 1, math.huge
 	for _, side in { 1, -1 } do
 		local at = (base * CFrame.new(36 * side, 0, -total / 2 + 21)).Position
