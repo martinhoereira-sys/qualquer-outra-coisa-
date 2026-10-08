@@ -44,7 +44,7 @@ Duas claques de cidades diferentes que são amigas são "gemellate" (nunca se di
 
 ## Áudios
 
-- **Cânticos do Alvalade** (`Config.Chants.clubs.alvalade`): "Nunca vais acabar" 121342319651900 (31 s, 2×), "Onde tu fores jogar eu vou lá estar" 123151187163093 (84 s, 1×), "O nosso grande amor" 119491230940361 (24 s, 2×). "Leões do Sul" 117456424031203 NÃO carregou no Studio em 8 de Outubro: está comentado no Config.
+- **Cânticos do Alvalade** (`Config.Chants.clubs.alvalade`): "Nunca vais acabar" 121342319651900 (31 s, 2×), "Onde tu fores jogar eu vou lá estar" 123151187163093 (84 s, 1×), "O nosso grande amor" 119491230940361 (24 s, 2×).
 - **Som de golo** (`Config.Chants.goalSounds`): é do clube, não uma lista global. Só o Alvalade tem (119617651245949, 13 s): toca uma vez, para o estádio todo, só quando o Alvalade marca. Clube sem som de golo: não toca nada.
 
 ## Competições

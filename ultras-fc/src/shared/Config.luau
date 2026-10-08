@@ -2158,7 +2158,6 @@ Config.Chants = {
 	clubs = {
 		luz = {},
 		alvalade = {
-			-- { name = "Leões do Sul", id = 117456424031203, seconds = 6.6, repeats = 3 }, -- 2026-10-08: did NOT load in Studio (still being processed, or archived): take the comment away when it plays
 			{ name = "Nunca vais acabar", id = 121342319651900, seconds = 31, repeats = 2 },
 			{ name = "O nosso grande amor", id = 119491230940361, seconds = 24.3, repeats = 2 },
 			{ name = "Onde tu fores jogar eu vou lá estar", id = 123151187163093, seconds = 83.9, repeats = 1 },
