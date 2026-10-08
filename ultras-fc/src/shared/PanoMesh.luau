@@ -26,6 +26,7 @@ export type Design = {
 	short: string?,
 	teamId: string?, -- para o emblema da claque (a aguia, o leao)
 	hoops: boolean?, -- riscas horizontais cor/branco
+	clubs: { any }?, -- the gemellaggio flag: the two clubs
 }
 
 export type Cloth = {
@@ -89,8 +90,9 @@ local function word(img: EditableImage, text: string, cx: number, cy: number, ce
 end
 
 -- Paints the club's emblem (Emblem.colourAt), `size` pixels across, centred at (cx, cy).
-local function stamp(img: EditableImage, teamId: string?, cx: number, cy: number, size: number)
-	local club = if teamId then Config.Teams[teamId] else nil
+local function stamp(img: EditableImage, teamId: any, cx: number, cy: number, size: number)
+	-- (`teamId`: a place of the match, or a club itself.)
+	local club = if type(teamId) == "table" then teamId elseif teamId then Config.Teams[teamId] else nil
 	if not club or not club.emblem then
 		return
 	end
@@ -118,6 +120,15 @@ local function paint(design: Design): EditableImage
 	local img = AssetService:CreateEditableImage({ Size = Vector2.new(W, H) })
 	local c = design.colour
 	rect(img, 0, 0, W, H, c)
+	if design.kind == "gemflag" and design.clubs then
+		-- Half and half, the two emblems side by side.
+		local a, b = design.clubs[1], design.clubs[2]
+		rect(img, 0, 0, W / 2, H, a.color)
+		rect(img, W / 2, 0, W / 2, H, b.color)
+		stamp(img, a, W / 4, H / 2, 100)
+		stamp(img, b, W * 3 / 4, H / 2, 100)
+		return img
+	end
 	if design.kind == "mastro" then
 		if design.hoops then
 			-- Riscas horizontais, cor e branco (a camisola as riscas).

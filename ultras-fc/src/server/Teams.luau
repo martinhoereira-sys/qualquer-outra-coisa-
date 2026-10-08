@@ -71,7 +71,8 @@ end
 
 function Teams.claimLeader(player: Player): boolean
 	local teamId = membership[player]
-	if not teamId or Teams.leader(teamId) then
+	-- (A guest in the curva of the gemellati follows their capo: never is it.)
+	if not teamId or Teams.leader(teamId) or player:GetAttribute("Convidado") ~= nil then
 		return false
 	end
 	leaders[teamId] = player

@@ -130,7 +130,9 @@ function Kit.apply(player: Player)
 		end
 	elseif type(role) == "string" and Config.Teams[role] and player.Character then
 		-- In a claque: the ultra's outfit of that club.
-		Uniform.ultra(player.Character, Config.Teams[role])
+		-- (A guest in the curva of the gemellati wears the outfit of his OWN club.)
+		local own = (Config.Clubs :: any)[player:GetAttribute("Convidado") or ""]
+		Uniform.ultra(player.Character, own or Config.Teams[role])
 	end
 end
 

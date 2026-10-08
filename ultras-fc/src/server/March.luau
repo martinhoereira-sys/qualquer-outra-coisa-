@@ -519,8 +519,88 @@ function March.stage(teamId: string): string?
 	return banner and banner.stage or nil
 end
 
+--[[
+	TWO CORTEI MEET IN THE STREET (Config.Gemellaggio). Never a fight.
+	  gemellati  both stop, face each other and sing together a few seconds;
+	  enemies    both stop face to face, a line of stewards between them,
+	             flares lit, half a minute; the stewards open and on they go;
+	  others     nothing.
+	Once a corteo. The banners say it to every screen (attribute "Encontro":
+	"amigos" or "inimigos"); `meetHook` tells the people (Main).
+]]
+local meeting: { untilAt: number, model: Model? }? = nil
+local met = false
+local meetHook: ((string, string, string) -> ())? = nil
+function March.onMeet(fn: (kind: string, a: string, b: string) -> ())
+	meetHook = fn
+end
+
+local function endMeeting()
+	if meeting and meeting.model then
+		meeting.model:Destroy()
+	end
+	meeting = nil
+	for _, banner in banners do
+		banner.model:SetAttribute("Encontro", nil)
+	end
+end
+
+local function checkMeeting(now: number)
+	if meeting then
+		if now >= meeting.untilAt then
+			endMeeting()
+		end
+		return
+	end
+	if met then
+		return
+	end
+	local a, b = banners.home, banners.away
+	if not a or not b or a.stage ~= "marcha" or b.stage ~= "marcha" then
+		return
+	end
+	local G = Config.Gemellaggio
+	local pa, pb = a.model.Position, b.model.Position
+	local gap = Vector3.new(pb.X - pa.X, 0, pb.Z - pa.Z)
+	if gap.Magnitude > G.meetDistance or gap.Magnitude < 1 then
+		return
+	end
+	met = true
+	local clubA, clubB = Config.Teams.home.club, Config.Teams.away.club
+	local kind = if Config.isGemellati(clubA, clubB) then "amigos" elseif Config.isEnemy(clubA, clubB) then "inimigos" else nil
+	if not kind then
+		return
+	end
+	-- Face to face.
+	a.model.CFrame = CFrame.lookAt(pa, pa + gap.Unit)
+	b.model.CFrame = CFrame.lookAt(pb, pb - gap.Unit)
+	local model: Model? = nil
+	if kind == "inimigos" and root then
+		-- The stewards: a line across, in the middle, one looking each way in turn.
+		local line = Instance.new("Model")
+		line.Name = "Encontro"
+		local middle = Vector3.new((pa.X + pb.X) / 2, 0.6, (pa.Z + pb.Z) / 2)
+		local across = gap.Unit:Cross(Vector3.yAxis)
+		for i = 1, G.stewards do
+			local at = middle + across * ((i - (G.stewards + 1) / 2) * 4)
+			local toward = if i % 2 == 0 then gap.Unit else -gap.Unit
+			steward(CFrame.lookAt(at, at + toward), line)
+		end
+		line.Parent = root
+		model = line
+	end
+	meeting = { untilAt = now + (if kind == "amigos" then G.greetSeconds else G.standoffSeconds), model = model }
+	a.model:SetAttribute("Encontro", kind)
+	b.model:SetAttribute("Encontro", kind)
+	if meetHook then
+		task.spawn(meetHook, kind, clubA, clubB)
+	end
+end
+
 function March.stop()
 	active = false
+	endMeeting()
+	met = false
 	for _, banner in banners do
 		if banner.leader then
 			releaseLeader(banner)
@@ -556,7 +636,12 @@ function March.step(dt: number)
 	end
 
 	local now = os.clock()
+	checkMeeting(now)
 	for teamId, banner in banners do
+		-- (Stopped, face to face with the other corteo.)
+		if meeting then
+			continue
+		end
 		-- Formados e com ordem de sair: saem quando a formatura tiver durado o que deve.
 		if banner.stage == "formatura" and banner.launchPending and now - banner.formedAt >= M.formSeconds then
 			start(banner)

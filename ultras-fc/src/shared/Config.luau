@@ -38,6 +38,7 @@ local NAVY = Color3.fromRGB(20, 34, 84)
 Config.Clubs = {
 	luz = {
 		club = "luz",
+		gemellati = "galata", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = -712, z = 510, block = "1_8" }, -- (the sede made by hand stood here until 2026-10-07: now a built one, like every club)
 		name = "Luz SC",
@@ -84,6 +85,7 @@ Config.Clubs = {
 	},
 	alvalade = {
 		club = "alvalade",
+		gemellati = "athinaikos", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = 706, z = -682, block = "9_1" }, -- (the sede made by hand stood here until 2026-10-07: now a built one, like every club)
 		name = "Alvalade SC",
@@ -136,6 +138,7 @@ Config.Clubs = {
 	},
 	nervion = {
 		club = "nervion",
+		gemellati = "pireus", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = -555, z = -525, block = "2_2" },
 		name = "Nervión CF",
@@ -180,6 +183,7 @@ Config.Clubs = {
 	},
 	triana = {
 		club = "triana",
+		gemellati = "testaccio", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = 562, z = 374, block = "8_7" },
 		name = "Triana Balompié",
@@ -233,6 +237,7 @@ Config.Clubs = {
 	},
 	testaccio = {
 		club = "testaccio",
+		gemellati = "triana", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = -712, z = -234, block = "1_4" },
 		name = "Testaccio",
@@ -283,6 +288,7 @@ Config.Clubs = {
 	},
 	flaminio = {
 		club = "flaminio",
+		gemellati = "kadikoy", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = 706, z = -25, block = "9_5" },
 		name = "Flaminio",
@@ -329,6 +335,7 @@ Config.Clubs = {
 	},
 	athinaikos = {
 		club = "athinaikos",
+		gemellati = "alvalade", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = -264, z = -525, block = "4_2" },
 		name = "Athinaikos",
@@ -369,6 +376,7 @@ Config.Clubs = {
 	},
 	pireus = {
 		club = "pireus",
+		gemellati = "nervion", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = 413, z = 656, block = "7_9" },
 		name = "Pireus FC",
@@ -414,6 +422,7 @@ Config.Clubs = {
 	},
 	galata = {
 		club = "galata",
+		gemellati = "luz", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = -268, z = -234, block = "4_4", maxWidth = 70 }, -- narrower: there is a cash machine at the east edge of the block
 		name = "Galata SK",
@@ -461,6 +470,7 @@ Config.Clubs = {
 	},
 	kadikoy = {
 		club = "kadikoy",
+		gemellati = "flaminio", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
 		site = { x = 562, z = -682, block = "8_1" },
 		name = "Kadiköy SK",
@@ -1106,6 +1116,7 @@ Config.Text = {
 		{ "🛡", "Your ultras' club is kept: it changes at the other clubhouse, in person. The club you play for changes in your profile." },
 		{ "⚽", "You can play for two clubs. The first comes first for a place in the team; the second gets one at kick-off, if one is free." },
 		{ "🚫", "The rival of your club can never be one of your clubs." },
+		{ "🤝", "Gemellaggio: your club has friends in another city. You can be a guest in their curva. Their rival is your enemy too." },
 		{ "🩸", "Changing to your rival makes you a TRAITOR for a few matches." },
 		{ "⏱", "Official matches every 20 minutes, from 09:00 to 01:00." },
 		{ "🌙", "At night there are only friendlies, at the training pitches." },
@@ -1430,6 +1441,19 @@ Config.Text = {
 	hud = {
 		chooseYourClub = "Choose your club",
 		beAnUltra = "BE AN ULTRA",
+		guestOf = "GUEST OF %s",
+		gemellaggio = "gemellaggio",
+		rival = "RIVAL",
+		gemellati = "GEMELLATI",
+		enemies = "ENEMIES",
+		relations = "RIVAL %s  ·  GEMELLATI %s",
+		gemScarf = "Gemellaggio scarf",
+		gemFlag = "Gemellaggio flag",
+		meetFriends = "GEMELLAGGIO",
+		meetFriendsLine = "%s and %s: friends. Greet them and sing together.",
+		meetEnemies = "ENEMIES",
+		meetEnemiesLine = "%s and %s face to face. The stewards are between you: sing louder.",
+		guestNotNow = "Your gemellati play your own club: today everyone is in their own curva.",
 		whatToBe = "WHAT DO YOU WANT TO BE?",
 		chooseClub = "CHOOSE YOUR CLUB",
 		ultra = "ULTRA",
@@ -2134,7 +2158,9 @@ Config.Chants = {
 	clubs = {
 		luz = {},
 		alvalade = {
+			-- { name = "Leões do Sul", id = 117456424031203, seconds = 6.6, repeats = 3 }, -- 2026-10-08: did NOT load in Studio (still being processed, or archived): take the comment away when it plays
 			{ name = "Nunca vais acabar", id = 121342319651900, seconds = 31, repeats = 2 },
+			{ name = "O nosso grande amor", id = 119491230940361, seconds = 24.3, repeats = 2 },
 			{ name = "Onde tu fores jogar eu vou lá estar", id = 123151187163093, seconds = 83.9, repeats = 1 },
 		},
 		nervion = {},
@@ -2145,6 +2171,14 @@ Config.Chants = {
 		pireus = {},
 		galata = {},
 		kadikoy = {},
+	},
+	--[[
+		THE GOAL SOUND of a club (its stadium speaker): not a chant. It plays ONCE,
+		for the whole stadium, when THAT club scores, and never otherwise. A club
+		with none here has no goal sound: nothing plays (no stand-in).
+	]]
+	goalSounds = {
+		alvalade = { id = 119617651245949, volume = 1 },
 	},
 	shared = {
 		{ name = "Tambores da curva", id = 84302571478690, seconds = 70.5, repeats = 1 },
@@ -2848,6 +2882,87 @@ Config.Traitor = {
 	shotPower = 0.75,
 	labelDistance = 120,
 }
+
+--[[
+	GEMELLAGGIO. Two claques of different cities that are friends are
+	"gemellate"; the friendship is the "gemellaggio". Each club has ONE
+	(`gemellati` in its entry in Config.Clubs), never its city rival.
+
+	Only two things are written by hand for a club: its city (the other club of
+	the city is its RIVAL) and its gemellati. The ENEMIES are worked out:
+	my rival, and THE RIVAL OF MY GEMELLATI. No list of enemies anywhere.
+
+	What it gives:
+	  - I can go to their curva in their matches, as a guest: in MY outfit and
+	    with MY gear, counting for their curva and following their capo. I am
+	    still of my own club. Not when the two play each other: then each one
+	    is in its own curva (no tension: they are not enemies).
+	  - the gemellaggio scarf and flag (the only things in the game that mix two
+	    clubs). They are in the bag only as a guest in their curva, or when my
+	    club plays the RIVAL of my gemellati. The server decides.
+	  - when two cortei meet in the street there is NEVER a fight:
+	      gemellati  they stop, face each other, greet and sing together for
+	                 `greetSeconds`, and each goes its way;
+	      enemies    they stop face to face, stewards make a line between them,
+	                 flares are lit, for `standoffSeconds`; then on they go;
+	      others     nothing: they pass.
+	    `meetDistance`: how close the two banners have to come.
+]]
+Config.Gemellaggio = {
+	greetSeconds = 10,
+	standoffSeconds = 30,
+	meetDistance = 70,
+	stewards = 7, -- in the line between two enemies
+}
+
+-- The city rival of a club (the other club of its city), or nil.
+function Config.rivalOf(clubId: string?): string?
+	local club = (Config.Clubs :: any)[clubId or ""]
+	if not club then
+		return nil
+	end
+	for id, other in Config.Clubs :: any do
+		if id ~= clubId and other.city == club.city then
+			return id
+		end
+	end
+	return nil
+end
+
+function Config.gemellatiOf(clubId: string?): string?
+	local club = (Config.Clubs :: any)[clubId or ""]
+	local other = club and club.gemellati
+	-- (Never the city rival, whatever is written.)
+	if other and (Config.Clubs :: any)[other] and (Config.Clubs :: any)[other].city ~= club.city then
+		return other
+	end
+	return nil
+end
+
+function Config.isGemellati(a: string?, b: string?): boolean
+	return a ~= nil and b ~= nil and a ~= b and Config.gemellatiOf(a) == b
+end
+
+-- My enemies: my rival, and the rival of my gemellati.
+function Config.enemiesOf(clubId: string?): { string }
+	local list: { string } = {}
+	local rival = Config.rivalOf(clubId)
+	if rival then
+		table.insert(list, rival)
+	end
+	local theirs = Config.rivalOf(Config.gemellatiOf(clubId))
+	if theirs and theirs ~= clubId and not table.find(list, theirs) then
+		table.insert(list, theirs)
+	end
+	return list
+end
+
+function Config.isEnemy(a: string?, b: string?): boolean
+	if not a or not b or a == b then
+		return false
+	end
+	return table.find(Config.enemiesOf(a), b) ~= nil or table.find(Config.enemiesOf(b), a) ~= nil
+end
 
 function Config.isRival(a: string?, b: string?): boolean
 	local x, y = (Config.Clubs :: any)[a or ""], (Config.Clubs :: any)[b or ""]

@@ -193,6 +193,76 @@ Material.handOf = handOf
 Material.buildHeld = buildHeld
 Material.NECK = NECK
 Material.wearScarf = wearScarf
+
+--[[
+	THE GEMELLAGGIO SCARF: half in the colours of one club, half in the other's,
+	with the two names. One model for every pair: it reads the two clubs.
+]]
+function Material.wearGemScarf(character: Model, a: any, b: any)
+	local old = character:FindFirstChild(NECK)
+	if old then
+		old:Destroy()
+	end
+	local torso = (character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")) :: BasePart?
+	if not torso then
+		return
+	end
+	local model = Instance.new("Model")
+	model.Name = NECK
+	model:SetAttribute("Gemellaggio", true)
+	local top = torso.Size.Y / 2
+	for i, club in { a, b } do
+		local side = if i == 1 then -1 else 1
+		local half = loosePart("Volta", Vector3.new(0.62, 0.3, 1.12), club.color, model)
+		half.Material = Enum.Material.Fabric
+		half.CFrame = torso.CFrame * CFrame.new(side * 0.31, top - 0.02, 0)
+		local strip = loosePart("Ponta", Vector3.new(0.3, 0.5, 0.08), club.color, model)
+		strip.Material = Enum.Material.Fabric
+		strip.CFrame = torso.CFrame * CFrame.new(side * 0.22, top - 0.3, -torso.Size.Z / 2 - 0.1)
+		local fringe = loosePart("Franja", Vector3.new(0.31, 0.09, 0.09), WHITE, model)
+		weldTo(strip, fringe, CFrame.new(0, -0.25, 0))
+		if club.emblem then
+			local gui = Instance.new("SurfaceGui")
+			gui.Name = "Emblema"
+			gui.Face = Enum.NormalId.Front
+			gui.CanvasSize = Vector2.new(60, 100)
+			gui.LightInfluence = 0.7
+			gui.Parent = strip
+			local holder = Instance.new("Frame")
+			holder.BackgroundTransparency = 1
+			holder.Size = UDim2.fromOffset(52, 52)
+			holder.Position = UDim2.fromOffset(4, 40)
+			holder.Parent = gui
+			Emblem.draw(holder, club, { simple = true, year = false })
+		end
+	end
+	-- The two names across the chest, on the scarf.
+	local plate = loosePart("Nomes", Vector3.new(1.3, 0.24, 0.05), Color3.fromRGB(20, 20, 24), model)
+	plate.CFrame = torso.CFrame * CFrame.new(0, top - 0.02, -0.6)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.CanvasSize = Vector2.new(390, 72)
+	gui.LightInfluence = 0.7
+	gui.AutoLocalize = false
+	gui.Parent = plate
+	local words = Instance.new("TextLabel")
+	words.BackgroundTransparency = 1
+	words.Size = UDim2.fromScale(1, 1)
+	words.Font = Enum.Font.GothamBlack
+	words.TextScaled = true
+	words.TextColor3 = WHITE
+	words.Text = a.short .. "  ·  " .. b.short
+	words.Parent = gui
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = torso
+			weld.Part1 = part
+			weld.Parent = part
+		end
+	end
+	model.Parent = character
+end
 Material.drum = drum
 
 return Material

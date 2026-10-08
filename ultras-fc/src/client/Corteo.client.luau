@@ -511,6 +511,14 @@ RunService.RenderStepped:Connect(function(dt)
 		local swayUntil = orders and orders:GetAttribute("Bracos_" .. group.teamId)
 		local crouching = type(crouchUntil) == "number" and serverNow < crouchUntil
 		local swaying = type(swayUntil) == "number" and serverNow < swayUntil
+		-- Face to face with the other corteo (March): friends, arms up together;
+		-- enemies, the flares are lit.
+		local meet = banner:GetAttribute("Encontro")
+		if meet == "amigos" then
+			swaying = true
+		elseif meet == "inimigos" then
+			lighting = true
+		end
 		local farda = orders ~= nil and orders:GetAttribute("Farda_" .. group.teamId) == true
 		if farda ~= group.dressed then
 			group.dressed = farda

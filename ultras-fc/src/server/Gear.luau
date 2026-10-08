@@ -52,7 +52,7 @@ local Gear = {}
 local KINDS = Config.Gear
 
 -- A ordem na barra: tocha, fumo, vela romana, estrobo, cachecol e (lider) tambor.
-local ORDER = { "tocha", "fumo", "vela", "estrobo", "cachecol", "bandeirinha", "bandeira", "mastro", "tambor" }
+local ORDER = { "tocha", "fumo", "vela", "estrobo", "cachecol", "bandeirinha", "bandeira", "mastro", "tambor", "cachecolgem", "gemflag" }
 
 -- O que se acende e se segura no ar.
 local PYRO: { [string]: boolean } = { tocha = true, fumo = true, vela = true, estrobo = true }
@@ -63,7 +63,7 @@ local PYRO: { [string]: boolean } = { tocha = true, fumo = true, vela = true, es
 	A bandeirinha e de toda a gente; a de duas hastes e grande, tem de se ter
 	(dealer ou o lider) e quem a segura fica no lugar.
 ]]
-local FLAGS: { [string]: boolean } = { bandeirinha = true, bandeira = true, mastro = true }
+local FLAGS: { [string]: boolean } = { bandeirinha = true, bandeira = true, mastro = true, gemflag = true }
 
 --[[
 	A bandeira do mastro: a grande, a que se agita por cima da claque. So ha
@@ -81,6 +81,8 @@ local LABEL: { [string]: string } = {
 	bandeira = TXT.bigFlag,
 	mastro = TXT.poleFlag,
 	tambor = TXT.drum,
+	cachecolgem = Config.Text.hud.gemScarf,
+	gemflag = Config.Text.hud.gemFlag,
 }
 
 --[[
@@ -223,6 +225,9 @@ function Gear.remaining(player: Player, kind: string): number
 	local stock = mine and mine[kind]
 	if stock ~= nil then
 		return stock
+	end
+	if not KINDS[kind] then
+		return -1 -- (the gemellaggio scarf and flag: no stock)
 	end
 	local bonus = if bonusHook then bonusHook(player, kind) else 0
 	return KINDS[kind].perMatch + bonus
@@ -621,6 +626,10 @@ local function activate(player: Player, tool: Tool, kind: string)
 		return
 	end
 
+	if kind == "cachecolgem" then
+		return -- worn on the neck while it is in hand: nothing to click
+	end
+
 	-- A bandeira: clicar agita-a com forca; outra vez, volta a so a segurar.
 	if FLAGS[kind] then
 		if raised[tool] then
@@ -691,7 +700,9 @@ end
 --------------------------------------------------------------------------------
 
 local function buildTool(player: Player, kind: string, teamId: string): Tool
-	local colour = Config.Teams[teamId].color
+	-- (A guest in the curva of the gemellati carries his OWN club's colours.)
+	local ownClub = (Config.Clubs :: any)[player:GetAttribute("Convidado") or ""]
+	local colour = if ownClub then ownClub.color else Config.Teams[teamId].color
 	local tool = Instance.new("Tool")
 	tool.Name = LABEL[kind]
 	tool.ToolTip = LABEL[kind]
@@ -716,6 +727,35 @@ local function buildTool(player: Player, kind: string, teamId: string): Tool
 	elseif FLAGS[kind] then
 		tool.Equipped:Connect(function()
 			raiseFlag(player, kind)
+		end)
+	end
+	if kind == "cachecolgem" then
+		-- The gemellaggio scarf: on the neck while it is the thing in hand. The
+		-- SERVER says if it may be worn (the attribute "Gemellaggio": with whom).
+		tool.Equipped:Connect(function()
+			local character = player.Character
+			local mine = (Config.Clubs :: any)[player:GetAttribute("Clube") or ""]
+			local theirs = (Config.Clubs :: any)[player:GetAttribute("Gemellaggio") or ""]
+			if character and mine and theirs then
+				Material.wearGemScarf(character, mine, theirs)
+				local worn = character:FindFirstChild(NECK)
+				if worn then
+					worn:SetAttribute("Team", teamId)
+				end
+			end
+		end)
+		tool.Unequipped:Connect(function()
+			local character = player.Character
+			local worn = character and character:FindFirstChild(NECK)
+			if character and worn and worn:GetAttribute("Gemellaggio") then
+				worn:Destroy()
+				local own = (Config.Clubs :: any)[player:GetAttribute("Convidado") or ""] or Config.Teams[teamId]
+				wearScarf(character, own.color, own)
+				local again = character:FindFirstChild(NECK)
+				if again then
+					again:SetAttribute("Team", teamId)
+				end
+			end
 		end)
 	end
 	tool.Unequipped:Connect(function()
@@ -803,7 +843,8 @@ function Gear.sync(player: Player)
 			scarf:Destroy()
 		end
 		if teamId and not character:FindFirstChild(NECK) then
-			wearScarf(character, Config.Teams[teamId].color, Config.Teams[teamId])
+			local own = (Config.Clubs :: any)[player:GetAttribute("Convidado") or ""] or Config.Teams[teamId]
+			wearScarf(character, own.color, own)
 			local worn = character:FindFirstChild(NECK)
 			if worn then
 				worn:SetAttribute("Team", teamId)
@@ -811,11 +852,37 @@ function Gear.sync(player: Player)
 		end
 	end
 
+	--[[
+		THE GEMELLAGGIO SCARF AND FLAG are in the bag only (decided here, on the
+		server; the attribute "Gemellaggio" says with which club):
+		  1. as a guest in the curva of my gemellati ("Convidado": Main);
+		  2. in my own curva, when my club plays the RIVAL of my gemellati.
+	]]
+	local with: string? = nil
+	do
+		local mineClub = player:GetAttribute("Clube")
+		local friends = Config.gemellatiOf(mineClub)
+		if teamId and friends then
+			local here = Config.Teams[teamId].club
+			local against = Config.Teams[if teamId == "home" then "away" else "home"].club
+			if here == friends and player:GetAttribute("Convidado") == mineClub then
+				with = friends
+			elseif here == mineClub and against == Config.rivalOf(friends) then
+				with = friends
+			end
+		end
+	end
+	if player:GetAttribute("Gemellaggio") ~= with then
+		player:SetAttribute("Gemellaggio", with)
+	end
+
 	for _, kind in ORDER do
 		-- A bandeira grande so aparece a quem tem uma (dealer ou lider).
 		local wanted = teamId ~= nil
 			and (kind ~= "tambor" or Gear.hasDrum(player))
 			and kind ~= "bandeira" -- the big flag (the one that is not on a pole) is out of the game
+			-- The gemellaggio scarf and flag: only when the server says so (Main: "Gemellaggio").
+			and ((kind ~= "cachecolgem" and kind ~= "gemflag") or player:GetAttribute("Gemellaggio") ~= nil)
 			and (kind ~= "mastro" or (teamId ~= nil and mastroHolder[teamId] == player))
 		local tool = mine[kind]
 

@@ -626,12 +626,22 @@ end)
 -- O desenho do pano liso: a cor escolhida no dealer, ou a da claque, e a sigla.
 local function smoothDesign(player: Player, kind: string): PanoMesh.Design
 	local team = Config.Teams[player:GetAttribute("Team") or ""]
+	-- (A guest in the curva of the gemellati carries his OWN club's flags.)
+	local own = (Config.Clubs :: any)[player:GetAttribute("Convidado") or ""]
+	if own then
+		team = own
+	end
 	local chosen = player:GetAttribute("Cor_" .. kind)
+	if kind == "gemflag" then
+		local a = (Config.Clubs :: any)[player:GetAttribute("Clube") or ""]
+		local b = (Config.Clubs :: any)[player:GetAttribute("Gemellaggio") or ""]
+		return { kind = kind, colour = if a then a.color else Color3.new(1, 1, 1), clubs = if a and b then { a, b } else nil }
+	end
 	return {
 		kind = kind,
 		colour = if typeof(chosen) == "Color3" then chosen elseif team then team.color else Color3.new(1, 1, 1),
 		short = if team then team.short else nil,
-		teamId = if team then team.id else nil,
+		teamId = if own then own else (if team then team.id else nil),
 		hoops = if team then team.hoops == true else false,
 	}
 end
@@ -862,6 +872,15 @@ RunService.Stepped:Connect(function()
 			end
 			dropScarf(player)
 			dropFlag(player)
+		elseif hold == "gemflag" then
+			-- The gemellaggio flag: one arm up with the pole, like the small flag.
+			local waving = player:GetAttribute("Wave") == true
+			dropScarf(player)
+			dropFlag(player)
+			local swing = if waving then math.sin(t * 4.2) * math.rad(40) else math.sin(t * 2) * math.rad(6)
+			arm(rig.rightShoulder, 1, RAISED, math.rad(10) + swing)
+			set(rig.rightElbow, CFrame.identity)
+			poseRigFlag(player, character, "gemflag", t)
 		elseif hold == "bandeirinha" then
 			-- O braco direito no ar com o pau; a agitar, vai de um lado ao outro.
 			local waving = player:GetAttribute("Wave") == true

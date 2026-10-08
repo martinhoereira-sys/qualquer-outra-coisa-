@@ -323,6 +323,7 @@ local function toWait(player: Player, clubId: string, role: string)
 	Referee.release(player)
 	Teams.forget(player)
 	player:SetAttribute("Team", nil)
+	player:SetAttribute("Convidado", nil)
 	player:SetAttribute("UpNext", clubId)
 end
 
@@ -369,10 +370,45 @@ local function sendToClubHome(player: Player, clubId: string)
 	end
 end
 
-local function pickClub(player: Player, clubId: string, role: string)
+local pickClub
+function pickClub(player: Player, clubId: string, role: string)
 	if not (Config.Clubs :: any)[clubId] or not canSwitch(player) then
 		return
 	end
+	--[[
+		A GUEST OF THE GEMELLATI ("convidado"): in their curva, in their match,
+		in MY outfit and with MY gear; I am still of my club ("Convidado" = my
+		club). Not when my own club is in this match (also when the two play
+		each other): then everyone is in their own curva.
+	]]
+	if role == "convidado" then
+		local own = Money.clubOf(player)
+		if not own or not Config.isGemellati(own, clubId) then
+			return
+		end
+		if clubPlace(own) then
+			if clubPlace(clubId) then
+				Remotes.Npc:FireClient(player, { title = (Config.Clubs :: any)[clubId].name, lines = { Config.Text.hud.guestNotNow } })
+			end
+			pickClub(player, own, "adepto")
+			return
+		end
+		lastRole[player] = "convidado:" .. clubId
+		atStadium[player] = nil
+		player:SetAttribute("NoEstadio", nil)
+		local place = clubPlace(clubId)
+		if not place then
+			-- Their next match: the choice is kept.
+			toWait(player, clubId, role)
+			return
+		end
+		wish[player] = { club = clubId, role = role }
+		player:SetAttribute("UpNext", nil)
+		player:SetAttribute("Convidado", own)
+		pickTeam(player, place)
+		return
+	end
+	player:SetAttribute("Convidado", nil)
 	local kind = if role == "baliza" then "jogador" else role
 	local changed = lastRole[player] ~= kind .. ":" .. clubId
 	lastRole[player] = kind .. ":" .. clubId
@@ -589,6 +625,11 @@ Teams.onChanged(function(player)
 		if not w or w.club ~= clubId then
 			wish[player] = { club = clubId, role = "adepto" }
 		end
+		-- (In another curva by another way, e.g. the desk: not a guest any more.)
+		local guestOf = player:GetAttribute("Convidado")
+		if guestOf and not Config.isGemellati(guestOf, clubId) then
+			player:SetAttribute("Convidado", nil)
+		end
 		player:SetAttribute("UpNext", nil)
 	end
 end)
@@ -598,6 +639,16 @@ end)
 local function derbyTurn()
 	for _, player in Players:GetPlayers() do
 		local w = wish[player]
+		-- (A guest whose own club plays now goes to their own curva.)
+		if w and w.role == "convidado" then
+			local own = Money.clubOf(player)
+			if own and clubPlace(own) then
+				w = { club = own, role = "adepto" }
+				wish[player] = w
+				player:SetAttribute("Convidado", nil)
+				player:SetAttribute("UpNext", own)
+			end
+		end
 		if w then
 			local place = clubPlace(w.club)
 			if place then
@@ -1363,6 +1414,26 @@ end)
 	o ve.
 ]]
 Football.onGoal(function(teamId, scorer)
+	-- The stadium speaker of the club that scored, if it has one (Config.Chants.goalSounds):
+	-- once, for everyone. A club without one: nothing.
+	do
+		local speaker = (Config.Chants.goalSounds :: any)[Config.Teams[teamId].club]
+		if speaker then
+			local sound = Instance.new("Sound")
+			sound.Name = "SomDeGolo"
+			sound.SoundId = "rbxassetid://" .. tostring(speaker.id)
+			sound.Volume = speaker.volume or 1
+			sound.Looped = false
+			sound.Parent = workspace
+			sound:Play()
+			sound.Ended:Once(function()
+				sound:Destroy()
+			end)
+			task.delay(60, function()
+				sound:Destroy()
+			end)
+		end
+	end
 	local scorerPlayer = if scorer and scorer.player and scorer.teamId == teamId then scorer.player else nil
 	local assist = if scorer and scorerPlayer then Football.assistFor(scorer) else nil
 	Progress.goal(teamId, scorerPlayer, if assist and assist.teamId == teamId then assist.player else nil)
@@ -1950,6 +2021,18 @@ Gear.setPerks(Progress.gearPerks)
 Gear.setDrumRule(Progress.drumWithoutLeader)
 Gear.onIgnite(Progress.ignite)
 March.setHoldRule(Progress.canHoldBanner)
+-- Two cortei met in the street: the people of both are told what is going on.
+March.onMeet(function(kind, a, b)
+	local T = Config.Text.hud
+	local nameA, nameB = (Config.Clubs :: any)[a].name, (Config.Clubs :: any)[b].name
+	local title = if kind == "amigos" then T.meetFriends else T.meetEnemies
+	local line = string.format(if kind == "amigos" then T.meetFriendsLine else T.meetEnemiesLine, nameA, nameB)
+	for _, player in Players:GetPlayers() do
+		if Teams.get(player) then
+			Remotes.Npc:FireClient(player, { title = title, lines = { line } })
+		end
+	end
+end)
 Squad.setPositionHook(Progress.preferredPosition)
 
 -- O aspeto de cada jogador (numero, botas, nome, bracadeira): so aspeto.

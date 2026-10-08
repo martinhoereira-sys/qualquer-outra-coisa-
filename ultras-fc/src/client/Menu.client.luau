@@ -389,7 +389,9 @@ local function drawSchedule(state: Calendar.State)
 		end
 		nightOpen = false
 		local fixture = entry.fixture
-		local involved = fixture ~= nil and (fixture.home == myClub() or fixture.away == myClub() or (fixture.open == true and myClub() ~= nil))
+		-- (My club's matches, and my gemellati's: I can be a guest in their curva.)
+		local friends = Config.gemellatiOf(myClub())
+		local involved = fixture ~= nil and (fixture.home == myClub() or fixture.away == myClub() or (friends ~= nil and (fixture.home == friends or fixture.away == friends)) or (fixture.open == true and myClub() ~= nil))
 		local line = row(page, 0, y, PAGE, ROW, involved, (Config.Clubs :: any)[myClub() or ""])
 		local time = text(line, Schedule.clock(start), "normal", false, U.gap, 0, TIME - U.gap, ROW, Enum.TextXAlignment.Left)
 		time.Font = Enum.Font.GothamBlack

@@ -30,6 +30,23 @@ Ultras FC é um jogo de Roblox sobre ser ultra de um clube, não sobre jogar à 
 - Quem muda de clube da claque para o rival fica **traidor** durante alguns jogos: faixa por cima da cabeça e remate mais fraco.
 - Ninguém apita um jogo em que entre um dos seus clubes.
 
+## Gemellaggio (8 de Outubro de 2026 — escrito, AINDA NÃO TESTADO em Play)
+
+Duas claques de cidades diferentes que são amigas são "gemellate" (nunca se diz "irmãs").
+
+- **Pares**: Luz ↔ Galata, Alvalade ↔ Athinaikos, Nervión ↔ Pireus, Flaminio ↔ Kadiköy, Testaccio ↔ Triana. Nenhum par é de rivais de cidade.
+- **No Config só há duas coisas por clube**: a cidade (o outro clube da cidade é o rival) e `gemellati`. Os **inimigos são calculados** (`Config.enemiesOf`): o meu rival e o rival dos meus gemellati. Não há lista de inimigos escrita.
+- **Convidado**: no menu dos papéis, ao lado de ULTRA, há "GUEST OF <gemellati>". Vou para a curva deles nos jogos deles, com o MEU fato e o MEU material, conto para a barra deles e sigo o capo deles (um convidado nunca é capo). Continuo do meu clube (atributo `Convidado`). Se o meu clube está no jogo (também quando os dois gemellati se defrontam), cada um fica na sua curva. Os jogos dos gemellati aparecem destacados no meu horário.
+- **Cachecol e bandeira de gemellaggio** (as únicas coisas que misturam dois clubes; um só modelo que lê os dois clubes do Config): só aparecem no inventário (1) como convidado na curva deles, (2) quando o meu clube joga contra o RIVAL dos meus gemellati. Decide o servidor (`Gear.sync`, atributo `Gemellaggio`).
+- **Cortejos que se cruzam** (`March`, `Config.Gemellaggio`): nunca há luta. Gemellati: param, ficam frente a frente e cantam juntos uns segundos. Inimigos: param frente a frente, uma linha de stewards no meio, tochas acesas, meio minuto, e seguem. Os outros: nada. Uma vez por cortejo, só enquanto as duas faixas estão em marcha e a menos de `meetDistance`.
+- **Perfil** (MY CLUB): linhas RIVAL / GEMELLATI / ENEMIES. No cartão do clube: rival e gemellati.
+- **Mapa**: falta pôr os recintos dos gemellati lado a lado e os rivais em lados opostos. Há um plano proposto, à espera de confirmação: ficam Alvalade 9_1, Nervión 2_2 e Triana 8_7; mudam Luz → 1_6, Galata → 2_6, Athinaikos → 8_1, Pireus → 1_2, Testaccio → 8_8, Flaminio → 4_1, Kadiköy → 5_1 (todos quarteirões vazios).
+
+## Áudios
+
+- **Cânticos do Alvalade** (`Config.Chants.clubs.alvalade`): "Nunca vais acabar" 121342319651900 (31 s, 2×), "Onde tu fores jogar eu vou lá estar" 123151187163093 (84 s, 1×), "O nosso grande amor" 119491230940361 (24 s, 2×). "Leões do Sul" 117456424031203 NÃO carregou no Studio em 8 de Outubro: está comentado no Config.
+- **Som de golo** (`Config.Chants.goalSounds`): é do clube, não uma lista global. Só o Alvalade tem (119617651245949, 13 s): toca uma vez, para o estádio todo, só quando o Alvalade marca. Clube sem som de golo: não toca nada.
+
 ## Competições
 
 - **Liga**: duas voltas, 36 jornadas; fecha sábado à noite com campeão e cerimónia do troféu.
@@ -46,7 +63,7 @@ Ultras FC é um jogo de Roblox sobre ser ultra de um clube, não sobre jogar à 
 ## O que é provisório
 
 - **Os bonecos de adeptos nas bancadas** existem só para mostrar o jogo enquanto há pouca gente. Vão ser todos retirados mais tarde.
-- Só o Alvalade tem cânticos próprios (dois); os outros clubes usam sons de tambores.
+- Só o Alvalade tem cânticos próprios; os outros clubes usam sons de tambores.
 - As duas sedes mais antigas (Luz e Alvalade) foram feitas à mão e ainda não são iguais às novas.
 
 ## O que falta fazer a seguir

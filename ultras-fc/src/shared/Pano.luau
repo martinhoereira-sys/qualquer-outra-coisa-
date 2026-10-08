@@ -40,6 +40,7 @@ export type Design = {
 	text: string?,
 	short: string?,
 	club: any?, -- the club (for its emblem on the claque's faixa)
+	club2: any?, -- the gemellaggio flag: the other club
 }
 
 export type Cloth = {
@@ -106,6 +107,14 @@ end
 
 -- Desenha `design` a ocupar `canvas` todo (o pano inteiro).
 function Pano.draw(canvas: GuiObject, design: Design)
+	if design.kind == "gemellaggio" and design.club and design.club2 then
+		-- Half and half, an emblem on each.
+		canvas.BackgroundColor3 = design.club.color
+		frame(canvas, design.club2.color, UDim2.fromScale(0.5, 1), UDim2.fromScale(0.5, 0))
+		emblemAt(canvas, design.club, 0.25, 0.5, 0.7)
+		emblemAt(canvas, design.club2, 0.75, 0.5, 0.7)
+		return
+	end
 	local c = design.colour
 	local kind = design.kind
 	canvas.BackgroundTransparency = 0

@@ -17,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Pano = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pano"))
 local PanoRig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PanoRig"))
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local Rigs = {}
 
@@ -36,6 +37,8 @@ export type FlagSpec = {
 -- As medidas de cada bandeira (Gear: "mastro" e "bandeirinha").
 Rigs.FLAGS = {
 	mastro = { name = "Bandeira", pole = 14, thick = 0.34, width = 9, height = 9, columns = 12, rows = 12, design = "mastro", grip = 0.4 } :: FlagSpec,
+	-- The gemellaggio flag: the two emblems side by side, the two clubs' colours behind.
+	gemflag = { name = "Gemellaggio", pole = 8, thick = 0.2, width = 6, height = 3.6, columns = 10, rows = 5, design = "gemellaggio", grip = 0.5 } :: FlagSpec,
 	bandeirinha = { name = "Bandeirinha", pole = 4.5, thick = 0.14, width = 3.2, height = 2.1, columns = 8, rows = 3, design = "bandeirinha", grip = 0.5 } :: FlagSpec,
 }
 
@@ -94,6 +97,18 @@ function Rigs.flag(character: Model, kind: string, teamId: string, colour: Color
 	local design = Pano.designFor(spec.design, teamId)
 	if colour then
 		design.colour = colour
+	end
+	if kind == "gemflag" then
+		-- The two clubs: mine and my gemellati (the server said which: "Gemellaggio").
+		local owner = game:GetService("Players"):GetPlayerFromCharacter(character)
+		local a = owner and (Config.Clubs :: any)[owner:GetAttribute("Clube") or ""]
+		local b = owner and (Config.Clubs :: any)[owner:GetAttribute("Gemellaggio") or ""]
+		if not a or not b then
+			return nil
+		end
+		design.club = a
+		design.club2 = b
+		design.colour = a.color
 	end
 	PanoRig.build(model, pole, {
 		name = spec.name,

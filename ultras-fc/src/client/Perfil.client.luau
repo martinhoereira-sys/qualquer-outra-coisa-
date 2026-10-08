@@ -672,10 +672,25 @@ end)
 			{ TXT.titlesHead, string.format(TXT.titlesLine, won[1], won[2], won[3]) },
 			{ TXT.ultrasHead, if mine then mine.claque else "-" },
 		}
+		-- RIVAL, GEMELLATI, ENEMIES: the enemies are worked out (Config.enemiesOf), never written.
+		if mine then
+			local H = Config.Text.hud
+			local function nameOf(id: string?): string
+				local c = (Config.Clubs :: any)[id or ""]
+				return if c then c.name else "-"
+			end
+			local enemies = {}
+			for _, id in Config.enemiesOf(mine.club) do
+				table.insert(enemies, nameOf(id))
+			end
+			table.insert(blocks, { H.rival, nameOf(Config.rivalOf(mine.club)) })
+			table.insert(blocks, { H.gemellati, nameOf(Config.gemellatiOf(mine.club)) })
+			table.insert(blocks, { H.enemies, if #enemies > 0 then table.concat(enemies, "  ·  ") else "-" })
+		end
 		for i, entry in blocks do
-			local y = 232 + (i - 1) * 46
-			line(entry[1], 13, MUTED, 0, y + 6, 150, Enum.Font.GothamBlack)
-			line(entry[2], 20, TEXT, 160, y, 620, Enum.Font.GothamBold, i == 3)
+			local y = 232 + (i - 1) * 30
+			line(entry[1], 13, MUTED, 0, y + 4, 150, Enum.Font.GothamBlack)
+			line(entry[2], 18, TEXT, 160, y, 620, Enum.Font.GothamBold, i >= 3)
 		end
 	end
 

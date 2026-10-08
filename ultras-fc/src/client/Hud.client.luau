@@ -328,6 +328,15 @@ do
 		y += U.small + 6 + HALF
 		proper(UI.label(who, club.bairro .. "  ·  " .. club.city, "small", true, true)).Position = UDim2.fromOffset(0, y)
 		y += U.small + 6 + U.gap
+		do
+			-- Its rival and its gemellati.
+			local rival = (Config.Clubs :: any)[Config.rivalOf(club.club) or ""]
+			local friends = (Config.Clubs :: any)[Config.gemellatiOf(club.club) or ""]
+			local l = UI.label(who, string.format(TXT.relations, if rival then rival.name else "-", if friends then friends.name else "-"), "small", true, true)
+			l.Name = "Relacoes"
+			l.Position = UDim2.fromOffset(0, y)
+			y += U.small + 6 + HALF
+		end
 		local mine = player:GetAttribute("Clube") == club.club
 		if mine or today then
 			UI.label(who, if mine then TXT.yourClub else TXT.todaysDerby, "small").Position = UDim2.fromOffset(0, y)
@@ -693,6 +702,21 @@ do
 			end)
 			b.Name = "Papel_adepto"
 			UI.outline(b, (Config.Clubs :: any)[ultra].color)
+			-- GEMELLAGGIO: beside it, a guest in the curva of my gemellati (the server
+			-- says yes or no: not when my own club is in the match).
+			local friends = Config.gemellatiOf(ultra)
+			if friends then
+				local half = (width - HALF) / 2
+				b.Size = UDim2.fromOffset(half, U.button)
+				y -= U.button + HALF
+				local guest = row(string.format(TXT.guestOf, (Config.Clubs :: any)[friends].nameUpper), U.icons.supporter, TXT.gemellaggio, playing(ultra), function()
+					pick("clube:" .. friends .. ":convidado")
+				end)
+				guest.Name = "Papel_convidado"
+				guest.Position = UDim2.fromOffset(x + half + HALF, guest.Position.Y.Offset)
+				guest.Size = UDim2.fromOffset(half, U.button)
+				UI.outline(guest, (Config.Clubs :: any)[friends].color)
+			end
 		end
 		--[[
 			The clubs I play for (two at most: the first, and a second one), one
