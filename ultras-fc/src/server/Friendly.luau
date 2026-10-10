@@ -119,8 +119,22 @@ local function finish(pitch: Pitch, reason: string?)
 	show(pitch)
 end
 
+-- Has chosen to be a PLAYER (on the pitch, or with a club to play for and not in a curva now).
+local function isPlayer(player: Player): boolean
+	local team = player:GetAttribute("Team")
+	if team == "jogador" then
+		return true
+	end
+	return player:GetAttribute("Clube2") ~= nil and (Config.Teams :: any)[team or ""] == nil
+end
+
 local function start(pitch: Pitch, by: Player)
 	if pitch.endsAt or not Friendly.allowed() then
+		return
+	end
+	-- Only a player starts a friendly; the people of the claque can join one that is on, or watch.
+	if not isPlayer(by) then
+		Remotes.Npc:FireClient(by, { title = TXT.friendly, lines = { TXT.onlyPlayers } })
 		return
 	end
 	-- Everyone on the pitch plays: one team per half.
@@ -242,6 +256,13 @@ local function setup(ground: Instance, club: any)
 		local root = player and rootOf(player)
 		if not player or not root then
 			return
+		end
+		-- A friendly is on and this one came on to the pitch: in, for the half they are in.
+		if pitch.endsAt and not pitch.players[player] then
+			local at = onPitch(pitch, root.Position, 2)
+			if at then
+				pitch.players[player] = if at.X < 0 then 1 else 2
+			end
 		end
 		local now = os.clock()
 		if (pitch.lastKick[player] or 0) + F.kickCooldown > now then

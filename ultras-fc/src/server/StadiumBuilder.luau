@@ -448,8 +448,8 @@ local function buildStand(alongZ: boolean, side: number, run: number, blocks: nu
 
 	-- A frente: guarda de vidro com corrimao, a toda a largura.
 	local frontAcross = (inner - 0.3) * side
-	place("GuardaVidro", run, 0.2, 3.2, 0, frontAcross, S.rowHeight + 1.6, RAIL, { material = Enum.Material.Glass, transparency = 0.55, shadow = false })
-	place("GuardaCorrimao", run, 0.35, 0.3, 0, frontAcross, S.rowHeight + 3.3, RAIL, { material = Enum.Material.Metal })
+	place("GuardaVidro", run, 0.2, 9, 0, frontAcross, S.rowHeight + 4.5, RAIL, { material = Enum.Material.Glass, transparency = 0.55, shadow = false })
+	place("GuardaCorrimao", run, 0.35, 0.3, 0, frontAcross, S.rowHeight + 9.1, RAIL, { material = Enum.Material.Metal })
 
 	-- Vomitorios: rampa por baixo das filas, corrimaos na boca, placa do setor por cima.
 	local backAcross = (inner + Plan.backAt) * side
@@ -579,8 +579,8 @@ local function buildCurve(cx: number, cz: number, claque: string?, parent: Insta
 
 	-- A frente.
 	if team then
-		ring("VedacaoMalha", cx, cz, 0, 1, R - 1.6, R - 1.4, 0, 6, RAIL, folder, { material = Enum.Material.DiamondPlate, transparency = 0.6, collide = true, shadow = false })
-		ring("VedacaoTopo", cx, cz, 0, 1, R - 1.7, R - 1.3, 6, 6.3, RAIL, folder, { material = Enum.Material.Metal })
+		ring("VedacaoMalha", cx, cz, 0, 1, R - 1.6, R - 1.4, 0, 10, RAIL, folder, { material = Enum.Material.DiamondPlate, transparency = 0.6, collide = true, shadow = false })
+		ring("VedacaoTopo", cx, cz, 0, 1, R - 1.7, R - 1.3, 10, 10.3, RAIL, folder, { material = Enum.Material.Metal })
 		-- As faixas da claque, atadas a vedacao, sao de pano: Faixas (no arranque).
 
 		-- As pontas vedadas: o setor e so da claque.
@@ -588,15 +588,15 @@ local function buildCurve(cx: number, cz: number, claque: string?, parent: Insta
 			local out = Plan.dir(cx, cz, t)
 			for row = 1, S.rows do
 				local topY = row * S.rowHeight
-				local centre = Plan.curvePoint(cx, cz, t, Plan.rowRadius(row), topY + 3.5)
-				part("VedacaoSetor", Vector3.new(0.15, 7, S.rowDepth), CFrame.lookAt(centre, centre + out), RAIL, folder, { material = Enum.Material.DiamondPlate, transparency = 0.6, shadow = false })
-				local rail = Plan.curvePoint(cx, cz, t, Plan.rowRadius(row), topY + 7.1)
+				local centre = Plan.curvePoint(cx, cz, t, Plan.rowRadius(row), topY + 5)
+				part("VedacaoSetor", Vector3.new(0.15, 10, S.rowDepth), CFrame.lookAt(centre, centre + out), RAIL, folder, { material = Enum.Material.DiamondPlate, transparency = 0.6, shadow = false })
+				local rail = Plan.curvePoint(cx, cz, t, Plan.rowRadius(row), topY + 10.1)
 				part("VedacaoSetorTopo", Vector3.new(0.4, 0.3, S.rowDepth), CFrame.lookAt(rail, rail + out), team.color, folder, { material = Enum.Material.Metal })
 			end
 		end
 	else
-		ring("GuardaVidro", cx, cz, 0, 1, R - 0.4, R - 0.2, S.rowHeight, S.rowHeight + 3.2, RAIL, folder, { material = Enum.Material.Glass, transparency = 0.55, shadow = false })
-		ring("GuardaCorrimao", cx, cz, 0, 1, R - 0.45, R - 0.15, S.rowHeight + 3.2, S.rowHeight + 3.5, RAIL, folder, { material = Enum.Material.Metal })
+		ring("GuardaVidro", cx, cz, 0, 1, R - 0.4, R - 0.2, S.rowHeight, S.rowHeight + 9, RAIL, folder, { material = Enum.Material.Glass, transparency = 0.55, shadow = false })
+		ring("GuardaCorrimao", cx, cz, 0, 1, R - 0.45, R - 0.15, S.rowHeight + 9, S.rowHeight + 9.3, RAIL, folder, { material = Enum.Material.Metal })
 	end
 
 	-- Por tras: fachada em curva, aberta a meio na porta do vomitorio.

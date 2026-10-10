@@ -139,7 +139,14 @@ local function sendToClaque(player: Player, teamId: string, toStadium: boolean?)
 		player:SetAttribute("NoEstadio", atStadium[player])
 	end
 	local there = atStadium[player] == slotNow()
-	local point = if there then Stadium.spawnPoint(teamId) else City.spawnPoint(teamId) or Stadium.spawnPoint(teamId)
+	if there then
+		-- At the stadium one comes in by the ENTRANCE of one's curva and walks to
+		-- one's row: nobody appears in a place.
+		local gate = StadiumPlan.claqueGate(teamId)
+		placeAt(player, gate + Vector3.new(0, 3, 0), Vector3.new(0, gate.Y + 3, 0))
+		return
+	end
+	local point = City.spawnPoint(teamId) or Stadium.spawnPoint(teamId)
 	if point then
 		placeAt(player, point, Vector3.new(0, point.Y - 8, 0))
 	end
@@ -1163,6 +1170,20 @@ if not workspace:FindFirstChild("Transportes") then
 end
 Academy.start()
 Transit.start()
+-- A corteo in the street: the buses stop and wait for it to go by (never into it).
+Transit.setYield(function(at: Vector3): boolean
+	if not March.isActive() then
+		return false
+	end
+	for _, teamId in Config.TeamOrder do
+		local stage = March.stage(teamId)
+		local banner = March.bannerPosition(teamId)
+		if banner and (stage == "formatura" or stage == "marcha" or stage == "corrida") and (banner - at).Magnitude < Config.March.busYield then
+			return true
+		end
+	end
+	return false
+end)
 -- Antes do jogo, quem joga aparece na academia.
 Squad.setStartOverride(function(f)
 	if f.player and Academy.isOpen(f.teamId) then
@@ -1850,6 +1871,29 @@ Remotes.Home.OnServerEvent:Connect(function(player, where)
 	lastHome[player] = now
 	-- "jogo": the match of my club is about to start: to the corteo if it is on
 	-- its way, or to my stand.
+	--[[
+		ALWAYS MY CURVA. The server reads the club kept in the profile: the place
+		I am taken to has to be my club's (or my gemellati's, as their guest).
+		Club not loaded, or the place is not mine: nobody is moved, a notice says so.
+		Never a curva by default.
+	]]
+	if where == "jogo" or where == "estadio" then
+		local slot = Teams.get(player)
+		if slot then
+			local saved = Money.clubOf(player)
+			local here = Config.Teams[slot].club
+			local guest = player:GetAttribute("Convidado") == saved and Config.isGemellati(saved, here)
+			if not saved or (here ~= saved and not guest) then
+				Remotes.Npc:FireClient(player, { title = Config.Text.hud.stadium, lines = { Config.Text.hud.clubNotReady } })
+				if saved then
+					-- (In the wrong place: put right, in my own club's.)
+					switchedAt[player] = nil
+					task.spawn(pickClub, player, saved, "adepto")
+				end
+				return
+			end
+		end
+	end
 	if where == "jogo" then
 		local mine = Teams.get(player)
 		if mine then
@@ -1957,6 +2001,7 @@ Lider.start({
 	end,
 	phase = MatchLoop.phase,
 	xp = Progress.capo,
+	cheer = Atmosphere.cheer,
 })
 -- A roupa muda com o papel: ultra, jogador ou arbitro.
 Kit.start()

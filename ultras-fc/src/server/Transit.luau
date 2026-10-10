@@ -322,6 +322,12 @@ end
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
+-- A rule from outside (Main: a corteo near): the bus at `at` stops and waits.
+local yieldRule: ((Vector3) -> boolean)? = nil
+function Transit.setYield(fn: (Vector3) -> boolean)
+	yieldRule = fn
+end
+
 -- Tem alguem (uma pessoa ou outro autocarro) mesmo a frente?
 local function blocked(bus: Bus, heading: Vector3, reach: number): boolean
 	local front = bus.chassis.Position + heading * (bus.halfLength + 0.5) + Vector3.new(0, 1.5, 0)
@@ -403,7 +409,7 @@ local function step(bus: Bus, dt: number, now: number)
 			end
 		end
 		local heading = headingAt(path, bus.s)
-		if blocked(bus, heading, math.max(8, bus.v * 1.4)) then
+		if blocked(bus, heading, math.max(8, bus.v * 1.4)) or (yieldRule ~= nil and yieldRule(bus.chassis.Position)) then
 			want = 0
 		end
 		local rate = if want > bus.v then T.accel else T.brake

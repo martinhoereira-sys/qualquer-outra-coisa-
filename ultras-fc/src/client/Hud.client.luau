@@ -696,6 +696,29 @@ do
 			return b
 		end
 		local ultra, plays, whistle = clubOfRole("adepto"), clubOfRole("jogador"), clubOfRole("arbitro")
+		--[[
+			FROM THE CURVA TO THE PITCH WHILE THE MATCH IS ON: one would leave the
+			stand and not play (the places are taken until the next match). The
+			button says so first; a second click does it.
+		]]
+		local function toPitch(b: TextButton, what: string)
+			local moment = ScheduleClock.at(ScheduleClock.gameTime())
+			local on = not moment.night and (moment.phase == "first" or moment.phase == "halftime" or moment.phase == "second")
+			local inCurva = (Config.Teams :: any)[player:GetAttribute("Team") or ""] ~= nil
+			if on and inCurva and not b:GetAttribute("Sure") then
+				b:SetAttribute("Sure", true)
+				local note = b:FindFirstChild("Nota") :: TextLabel?
+				local word = b:FindFirstChild("Palavra") :: TextLabel?
+				local target = note or word
+				if target then
+					target.Text = TXT.matchOnSure
+					target.TextColor3 = U.bad
+					target.TextWrapped = true
+				end
+				return
+			end
+			pick(what)
+		end
 		if ultra then
 			local b = row(TXT.ultra, U.icons.supporter, TXT.inCurva, false, function()
 				pick("clube:" .. ultra .. ":adepto")
@@ -727,14 +750,16 @@ do
 			if clubId ~= "" then
 				local name = (Config.Clubs :: any)[clubId].nameUpper
 				local half = (width - HALF) / 2
-				local outfield = row(TXT.playerRole, U.icons.player, string.format(TXT.forClub, name), false, function()
-					pick("clube:" .. clubId .. ":jogador")
+				local outfield: TextButton
+				outfield = row(TXT.playerRole, U.icons.player, string.format(TXT.forClub, name), false, function()
+					toPitch(outfield, "clube:" .. clubId .. ":jogador")
 				end)
 				outfield.Name = "Papel_jogador" .. n
 				outfield.Size = UDim2.fromOffset(half, U.button)
 				y -= U.button + HALF -- the goalkeeper goes on the same line
-				local keeper = row(TXT.goalkeeper, U.icons.keeper, " ", false, function()
-					pick("clube:" .. clubId .. ":baliza")
+				local keeper: TextButton
+				keeper = row(TXT.goalkeeper, U.icons.keeper, " ", false, function()
+					toPitch(keeper, "clube:" .. clubId .. ":baliza")
 				end)
 				keeper.Name = "Papel_baliza" .. n
 				keeper.Position = UDim2.fromOffset(x + half + HALF, keeper.Position.Y.Offset)

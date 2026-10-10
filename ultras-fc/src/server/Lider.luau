@@ -37,6 +37,7 @@ local Lider = {}
 
 export type Deps = {
 	level: (Player) -> number, -- o nivel de adepto
+	cheer: ((string, number) -> ())?, -- the ambience bar: someone really did the order (the place, the share of the curva)
 	xp: ((Player, string) -> ())?, -- the capo's XP for leading ("follow", "chant")
 	phase: () -> string,
 }
@@ -219,6 +220,7 @@ local TEXTS = {
 	farda = TXT.theCapoCalledUniformOn,
 	agachar = TXT.theCapoCalledCrouchEverybody,
 	bracos = TXT.theCapoCalledSwayYour,
+	palmas = TXT.theCapoCalledClap,
 }
 
 local function invite(leader: Player, teamId: string, order: string)
@@ -261,6 +263,37 @@ local function slotFor(teamId: string): Vector3?
 	return (banner.CFrame * CFrame.new(side, 0, 3 + row * 2.6 + 1.3)).Position
 end
 
+--[[
+	DOING AN ORDER (jump, clap, crouch, sway): the capo who called it, at once,
+	and each real person who chose to join in. Nobody is ever moved by force.
+	THE AMBIENCE BAR counts who really did it: each one adds their share of the
+	curva (Config.Lider.orderGain when everybody does it; half of it if half do).
+]]
+local MOVES: { [string]: string } = { saltar = "saltar", palmas = "aplaudir", agachar = "agachado", bracos = "balancar" }
+local function perform(player: Player, order: string, teamId: string)
+	local emote = MOVES[order]
+	if not emote or player:GetAttribute("Riding") then
+		return
+	end
+	player:SetAttribute("Emote", emote)
+	-- Uma ordem do lider: andar so a pausa (Poses.client), nao a acaba.
+	player:SetAttribute("EmoteUntil", workspace:GetServerTimeNow() + L.jumpSeconds)
+	task.delay(L.jumpSeconds, function()
+		if player:GetAttribute("Emote") == emote then
+			player:SetAttribute("Emote", nil)
+		end
+	end)
+	if deps and deps.cheer then
+		local people = 0
+		for _, other in Players:GetPlayers() do
+			if Teams.get(other) == teamId then
+				people += 1
+			end
+		end
+		deps.cheer(teamId, 1 / math.max(people, 1))
+	end
+end
+
 local function accept(player: Player, id: number)
 	local entry = invites[id]
 	if not entry or os.clock() > entry.untilAt or entry.taken[player] or Teams.get(player) ~= entry.teamId then
@@ -278,28 +311,8 @@ local function accept(player: Player, id: number)
 		if spot then
 			Remotes.Lider:FireClient(player, { kind = "ir", at = spot })
 		end
-	elseif order == "saltar" then
-		if not player:GetAttribute("Riding") then
-			player:SetAttribute("Emote", "saltar")
-			-- Uma ordem do lider: andar so a pausa (Poses.client), nao a acaba.
-			player:SetAttribute("EmoteUntil", workspace:GetServerTimeNow() + L.jumpSeconds)
-			task.delay(L.jumpSeconds, function()
-				if player:GetAttribute("Emote") == "saltar" then
-					player:SetAttribute("Emote", nil)
-				end
-			end)
-		end
-	elseif order == "agachar" or order == "bracos" then
-		if not player:GetAttribute("Riding") then
-			local emote = if order == "agachar" then "agachado" else "balancar"
-			player:SetAttribute("Emote", emote)
-			player:SetAttribute("EmoteUntil", workspace:GetServerTimeNow() + L.jumpSeconds)
-			task.delay(L.jumpSeconds, function()
-				if player:GetAttribute("Emote") == emote then
-					player:SetAttribute("Emote", nil)
-				end
-			end)
-		end
+	elseif MOVES[order] then
+		perform(player, order, entry.teamId)
 	elseif order == "acender" then
 		task.spawn(function()
 			local lit = Gear.lightNow(player)
@@ -501,11 +514,19 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 	elseif order == "saltar" then
 		botOrder(teamId, "Saltar", L.jumpSeconds)
 		invite(player, teamId, "saltar")
+		perform(player, "saltar", teamId) -- the capo does it at once
 		tell(player, TXT.theUltrasJump)
+	elseif order == "palmas" then
+		-- (The figures have no clapping: they put their arms up to the beat.)
+		botOrder(teamId, "Bracos", L.jumpSeconds)
+		invite(player, teamId, "palmas")
+		perform(player, "palmas", teamId)
+		tell(player, TXT.theUltrasClap)
 	elseif order == "agachar" or order == "bracos" then
 		-- As coreografias: a bancada inteira ao mesmo tempo, ao ritmo do tambor.
 		botOrder(teamId, if order == "agachar" then "Agachar" else "Bracos", L.jumpSeconds)
 		invite(player, teamId, order)
+		perform(player, order, teamId)
 		tell(player, if order == "agachar" then TXT.theUltrasCrouch else TXT.theUltrasSwayTheirArms)
 	elseif order == "farda" then
 		botOrder(teamId, "Farda", nil)

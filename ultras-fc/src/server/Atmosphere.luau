@@ -60,6 +60,14 @@ function Atmosphere.registerDrum(teamId: string)
 	levels[teamId] = math.min(levels[teamId] + gain, Config.Atmosphere.max)
 end
 
+-- An order of the capo that someone really did: `share` is that person's part of the curva.
+function Atmosphere.cheer(teamId: string, share: number)
+	if levels[teamId] == nil then
+		return
+	end
+	levels[teamId] = math.min(levels[teamId] + Config.Lider.orderGain * share, Config.Atmosphere.max)
+end
+
 --[[
 	Chamado todos os frames. A descida constante e o que obriga a manter o ritmo.
 

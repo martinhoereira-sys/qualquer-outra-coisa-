@@ -133,7 +133,7 @@ local cardStroke = Instance.new("UIStroke")
 cardStroke.Thickness = 3
 cardStroke.Parent = card
 
-local cardTitle = label(card, "", 20, TEXT)
+local cardTitle = label(card, "", 34, TEXT) -- the order, big
 cardTitle.Font = Enum.Font.GothamBlack
 cardTitle.Position = UDim2.fromOffset(16, 10)
 cardTitle.Size = UDim2.new(1, -170, 0, 48)
@@ -383,7 +383,7 @@ end
 -- ORDERS: by the moment they are for; the moment it is now comes first.
 local MOMENTS = {
 	{ id = "before", title = TXT.before, orders = { { "formar", TXT.formUp }, { "marchar", TXT.march }, { "farda", TXT.uniform } } },
-	{ id = "during", title = TXT.during, orders = { { "saltar", TXT.jump }, { "bracos", TXT.arms }, { "agachar", TXT.crouch }, { "acender", TXT.lightUp } } },
+	{ id = "during", title = TXT.during, orders = { { "saltar", TXT.jump }, { "palmas", TXT.clap }, { "bracos", TXT.arms }, { "agachar", TXT.crouch }, { "acender", TXT.lightUp } } },
 }
 local function momentNow(): string
 	local moment = Schedule.at(Schedule.gameTime())
