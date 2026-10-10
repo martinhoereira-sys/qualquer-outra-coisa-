@@ -422,6 +422,17 @@ end
 
 --------------------------------------------------------------------------------
 
+-- The match changed: the people behind each banner are made again in the colours of the club that has it now.
+require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Derby")).onChanged(function()
+	for banner, group in groups do
+		groups[banner] = nil
+		group.folder:Destroy()
+		if banner.Parent then
+			task.defer(track, banner)
+		end
+	end
+end)
+
 local moveParts: { BasePart } = {}
 local moveFrames: { CFrame } = {}
 local nextExclude = 0

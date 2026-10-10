@@ -115,6 +115,15 @@ stadium.DescendantAdded:Connect(function(d)
 	task.defer(adopt, d)
 end)
 
+-- The match changed: every sheet is drawn again with the clubs that are on now.
+require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Derby")).onChanged(function()
+	for d, sheet in sheets do
+		sheets[d] = nil
+		PanoMesh.destroy(sheet.cloth)
+		task.defer(adopt, d)
+	end
+end)
+
 local last = 0
 RunService.RenderStepped:Connect(function()
 	if next(sheets) == nil then

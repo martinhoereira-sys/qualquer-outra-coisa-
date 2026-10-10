@@ -565,6 +565,10 @@ local function checkMeeting(now: number)
 	if gap.Magnitude > G.meetDistance or gap.Magnitude < 1 then
 		return
 	end
+	-- Only in the last part of the way, in the streets round the stadium: never in the middle of the city.
+	if Vector3.new(pa.X, 0, pa.Z).Magnitude > G.nearStadium or Vector3.new(pb.X, 0, pb.Z).Magnitude > G.nearStadium then
+		return
+	end
 	met = true
 	local clubA, clubB = Config.Teams.home.club, Config.Teams.away.club
 	local kind = if Config.isGemellati(clubA, clubB) then "amigos" elseif Config.isEnemy(clubA, clubB) then "inimigos" else nil

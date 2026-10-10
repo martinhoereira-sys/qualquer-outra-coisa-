@@ -58,6 +58,15 @@ local BUILT = {
 	},
 }
 
+-- The derby this side was built with (1 on the server; on a screen, the one that was on when it came in).
+local BUILT_WITH: number = (Config :: any).BuiltWithDerby or 1
+-- On a screen things are drawn with the colours of the clubs of that derby, not with the ones saved in the map.
+if BUILT_WITH ~= 1 then
+	for _, slot in SLOTS do
+		(BUILT :: any)[slot].color = Config.Teams[slot].color
+	end
+end
+
 type ColourEntry = { inst: Instance, prop: string, slot: string }
 type TextEntry = { inst: Instance, template: string }
 
@@ -285,7 +294,7 @@ function Derby.follow(roots: { Instance })
 		root.DescendantAdded:Connect(function(inst)
 			-- Built later. With Derby 1 applied it is recognised like the rest;
 			-- otherwise it already has today's clubs and there is nothing to remember.
-			if Config.Derby == 1 then
+			if Config.Derby == BUILT_WITH then
 				look(inst)
 			else
 				seen[inst] = true

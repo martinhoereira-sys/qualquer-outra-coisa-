@@ -765,7 +765,30 @@ function Config.applyDerby(n: number): boolean
 	home.keeperColor, away.keeperColor = Config.pickKeepers(home.kit, away.kit)
 	return true
 end
-Config.applyDerby(1)
+--[[
+	NO CLUBS BY DEFAULT ON A SCREEN. The server starts with derby 1 and says
+	which match is on in the workspace attribute "Derby". A screen waits for
+	it HERE, before any of its scripts reads Config.Teams: nothing is ever
+	drawn with the clubs of derby 1 while the real ones are on their way.
+	`Config.BuiltWithDerby`: the derby this side started with (Derby).
+]]
+do
+	local RunService = game:GetService("RunService")
+	local first = 1
+	if RunService:IsClient() and RunService:IsRunning() and not RunService:IsServer() then
+		local n = workspace:GetAttribute("Derby")
+		local waited = 0
+		while type(n) ~= "number" and waited < 20 do
+			waited += task.wait(0.1)
+			n = workspace:GetAttribute("Derby")
+		end
+		if type(n) == "number" and Config.Derbies[n] then
+			first = n
+		end
+	end
+	Config.applyDerby(first)
+	Config.BuiltWithDerby = first
+end
 
 -- Ordem fixa, para a UI nao andar a saltar.
 Config.TeamOrder = { "home", "away" }
@@ -969,6 +992,7 @@ Config.Competitions = {
 	win = 3,
 	draw = 1,
 	modoDaLiga = "jornadas",
+	duracaoDaJornada = 280, -- minutes, in real time: round k of the league opens (k - 1) times this after the week starts, never before, even with every match of the round before played
 	minimoDeJogos = 20,
 	voltasDaLiga = 2,
 	slots = { "liga", "liga", "taca" },
@@ -2918,7 +2942,8 @@ Config.Traitor = {
 Config.Gemellaggio = {
 	greetSeconds = 10,
 	standoffSeconds = 30,
-	meetDistance = 70,
+	meetDistance = 120,
+	nearStadium = 320, -- two cortei only meet in the last part of the way: both banners this close to the middle of the stadium
 	stewards = 7, -- in the line between two enemies
 }
 

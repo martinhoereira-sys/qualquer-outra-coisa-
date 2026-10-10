@@ -458,6 +458,7 @@ export type Window = {
 	index: number, -- 0 in the hours of official matches, -1 at night
 	kind: string, -- what this slot is for: "liga" or "taca"
 	leagueSlot: number, -- how many league slots the week has had before this one
+	leagueRound: number, -- the round of the league that is open now, by the clock (Config.Competitions.duracaoDaJornada)
 	cupSlot: number, -- the same for the cup
 	semis: boolean, -- the semi-finals are due
 	final: boolean, -- the final is due
@@ -489,6 +490,7 @@ function Calendar.window(slot: number): Window
 		index = -1,
 		kind = kindOf(slot),
 		leagueSlot = 0,
+		leagueRound = 1,
 		cupSlot = 0,
 		semis = false,
 		final = false,
@@ -498,6 +500,9 @@ function Calendar.window(slot: number): Window
 		return w
 	end
 	w.index = 0
+	-- THE ROUND OF THE LEAGUE GOES BY THE CLOCK: one more every Config.Competitions.duracaoDaJornada
+	-- minutes of real time since the week started, whatever has been played.
+	w.leagueRound = math.floor((day * DAY + game % DAY) / 60 / math.max(1, C.duracaoDaJornada or 280)) + 1
 	local hour = math.floor(game % DAY / 3600)
 	local minute = math.floor(game % 3600 / 60)
 	if day >= 6 then
@@ -560,7 +565,7 @@ end
 local function leagueDue(w: Window, state: State): { Fixture }
 	local list: { Fixture } = {}
 	if not openLeague() then
-		left(leagueRounds, openRounds(leagueRounds, w.leagueSlot), state, list)
+		left(leagueRounds, math.min(#leagueRounds, w.leagueRound), state, list)
 	end
 	return list
 end
