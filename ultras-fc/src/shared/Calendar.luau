@@ -502,7 +502,7 @@ function Calendar.window(slot: number): Window
 	w.index = 0
 	-- THE ROUND OF THE LEAGUE GOES BY THE CLOCK: one more every Config.Competitions.duracaoDaJornada
 	-- minutes of real time since the week started, whatever has been played.
-	w.leagueRound = math.floor((day * DAY + game % DAY) / 60 / math.max(1, C.duracaoDaJornada or 280)) + 1
+	w.leagueRound = math.floor((day * DAY + game % DAY) / 60 / math.max(1, C.duracaoDaJornada or 240)) + 1
 	local hour = math.floor(game % DAY / 3600)
 	local minute = math.floor(game % 3600 / 60)
 	if day >= 6 then
