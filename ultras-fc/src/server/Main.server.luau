@@ -1426,12 +1426,14 @@ Transit.setYield(function(at: Vector3): number?
 	end
 	local nearest: number? = nil
 	for _, teamId in Config.TeamOrder do
+		-- (Also while the claque is still waiting in the road, before it leaves: it is people in the street.)
 		local stage = March.stage(teamId)
-		local banner = March.bannerPosition(teamId)
-		if banner and (stage == "formatura" or stage == "marcha" or stage == "corrida") then
-			local distance = (banner - at).Magnitude
-			if distance < Config.March.busYield and (nearest == nil or distance < nearest) then
-				nearest = distance
+		if stage == "espera" or stage == "formatura" or stage == "marcha" or stage == "corrida" then
+			for _, spot in March.crowdSpots(teamId) do
+				local distance = Vector3.new(spot.X - at.X, 0, spot.Z - at.Z).Magnitude
+				if distance < Config.March.busYield and (nearest == nil or distance < nearest) then
+					nearest = distance
+				end
 			end
 		end
 	end

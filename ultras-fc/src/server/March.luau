@@ -681,6 +681,16 @@ function March.bannerPosition(teamId: string): Vector3?
 	return banner and banner.model.Position or nil
 end
 
+-- Where the people of a corteo are: the banner, and the block that stands or walks behind it.
+function March.crowdSpots(teamId: string): { Vector3 }
+	local banner = banners[teamId]
+	if not banner then
+		return {}
+	end
+	local cf = banner.model.CFrame
+	return { cf.Position, (cf * CFrame.new(0, 0, 18)).Position, (cf * CFrame.new(0, 0, 36)).Position }
+end
+
 function March.step(dt: number)
 	if not active then
 		return

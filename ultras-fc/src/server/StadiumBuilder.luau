@@ -544,6 +544,66 @@ end
 	bancada de pe das claques, "safe standing"), vedacao nas duas pontas para
 	o setor ser so dela, e a vedacao alta a frente com a tarja.
 ]]
+--[[
+	THE STAIRS OF A CLAQUE'S CURVE. Every row has a waist-high bar along its
+	front; the bars are open at two stairways (a quarter and three quarters of
+	the way round) and, above the exit row, at the mouth of the tunnel. Between
+	rows one goes by those openings only (Builder.rowBarriers puts the walls
+	nobody sees over the bars). `barArcs(row)`: the stretches of bar of a row.
+]]
+local STAIRS_AT = { 0.25, 0.75 }
+local function barArcs(row: number): { { number } }
+	local radius = R + (row - 0.5) * S.rowDepth
+	local half = Plan.vomitoryHalfT(radius)
+	local gaps: { { number } } = {}
+	for _, t in STAIRS_AT do
+		table.insert(gaps, { t - half, t + half })
+	end
+	if row > Plan.exitRow then
+		table.insert(gaps, { 0.5 - half, 0.5 + half })
+	end
+	table.sort(gaps, function(a, b)
+		return a[1] < b[1]
+	end)
+	local arcs: { { number } } = {}
+	local from = 0
+	for _, gap in gaps do
+		if gap[1] - from > 0.01 then
+			table.insert(arcs, { from, gap[1] })
+		end
+		from = gap[2]
+	end
+	if 1 - from > 0.01 then
+		table.insert(arcs, { from, 1 })
+	end
+	return arcs
+end
+
+-- Makes the bars of the claques' curves again, in a stadium that is already in the map.
+function Builder.claqueBars(root: Instance): number
+	local made = 0
+	for _, teamId in Config.TeamOrder do
+		local folder = root:FindFirstChild("Curva_" .. teamId)
+		if folder then
+			for _, d in folder:GetChildren() do
+				if d.Name == "Barreira" then
+					d:Destroy()
+				end
+			end
+			local cx, cz = Plan.claqueCorner(teamId)
+			for row = 1, S.rows do
+				local r0 = R + (row - 1) * S.rowDepth
+				local topY = row * S.rowHeight
+				for _, arc in barArcs(row) do
+					ring("Barreira", cx, cz, arc[1], arc[2], r0 + 0.2, r0 + 0.45, topY + 0.95, topY + 1.2, RAIL, folder, { material = Enum.Material.Metal })
+					made += 1
+				end
+			end
+		end
+	end
+	return made
+end
+
 local function buildCurve(cx: number, cz: number, claque: string?, parent: Instance)
 	local folder = folderIn(parent, if claque then "Curva_" .. claque else "Curva")
 	local exitRow = Plan.exitRow
@@ -557,11 +617,16 @@ local function buildCurve(cx: number, cz: number, claque: string?, parent: Insta
 		local topY = row * S.rowHeight
 		local hw = Plan.vomitoryHalfT((r0 + r1) / 2)
 		local arcs = if row <= exitRow then { { 0, 1 } } else { { 0, 0.5 - hw }, { 0.5 + hw, 1 } }
+		if team then
+			-- A barra de cada fila, a frente do degrau, a altura da cintura: aberta nas escadas.
+			for _, arc in barArcs(row) do
+				ring("Barreira", cx, cz, arc[1], arc[2], r0 + 0.2, r0 + 0.45, topY + 0.95, topY + 1.2, RAIL, folder, { material = Enum.Material.Metal })
+			end
+		end
 		for _, arc in arcs do
 			ring("Degrau", cx, cz, arc[1], arc[2], r0, r1, 0, topY, STEP, folder)
 			if team then
-				-- A barra de cada fila, a frente do degrau, a altura da cintura.
-				ring("Barreira", cx, cz, arc[1], arc[2], r0 + 0.2, r0 + 0.45, topY + 0.95, topY + 1.2, RAIL, folder, { material = Enum.Material.Metal })
+				-- (the bars are above)
 			else
 				ring("Cadeiras", cx, cz, arc[1], arc[2], r0 + 0.4, r1 - 0.4, topY, topY + 0.4, (row % 2 == 0) and SEAT_A or SEAT_B, folder, { material = Enum.Material.SmoothPlastic })
 			end
@@ -846,7 +911,10 @@ function Builder.rowBarriers(root: Instance): number
 		p.CanQuery = false
 		p.CanTouch = false
 		p.CastShadow = false
-		p.Size = size
+		-- (Thin as paper and with no grip: the row between two of them stays its full depth to walk and turn in.)
+		local thin = 0.06
+		p.Size = if size.X <= size.Z then Vector3.new(math.min(size.X, thin), size.Y, size.Z) else Vector3.new(size.X, size.Y, math.min(size.Z, thin))
+		p.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0, 0, 100, 1)
 		p.CFrame = cf
 		p.Parent = folder
 		made += 1
