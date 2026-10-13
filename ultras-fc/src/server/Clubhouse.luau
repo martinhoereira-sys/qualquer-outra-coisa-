@@ -457,7 +457,7 @@ function Clubhouse.bikeRack(teamId: string, at: CFrame, parent: Instance)
 	local bar = fixture("Suporte", Vector3.new(8, 0.3, 0.3), at * CFrame.new(0, 1.5, 0), Color3.fromRGB(60, 62, 68), folder)
 	bar.Material = Enum.Material.Metal
 	for i = -1, 1 do
-		local bike = Bikes.build(team.color, at * CFrame.new(i * 2.6, 1.2, 0) * CFrame.Angles(0, math.rad(90), 0), folder)
+		local bike = Bikes.build(team.color, at * Bikes.rackSpot(i), folder)
 		for _, d in bike:GetDescendants() do
 			if d:IsA("BasePart") then
 				d.Anchored = true
@@ -506,7 +506,7 @@ function Clubhouse.idle(club: any, at: CFrame, parent: Instance, inside: CFrame?
 	local bar = fixture("Suporte", Vector3.new(8, 0.3, 0.3), rackAt * CFrame.new(0, 1.5, 0), Color3.fromRGB(60, 62, 68), folder)
 	bar.Material = Enum.Material.Metal
 	for i = -1, 1 do
-		local bike = Bikes.build(club.color, rackAt * CFrame.new(i * 2.6, 1.2, 0) * CFrame.Angles(0, math.rad(90), 0), folder)
+		local bike = Bikes.build(club.color, rackAt * Bikes.rackSpot(i), folder)
 		for _, d in bike:GetDescendants() do
 			if d:IsA("BasePart") then
 				d.Anchored = true

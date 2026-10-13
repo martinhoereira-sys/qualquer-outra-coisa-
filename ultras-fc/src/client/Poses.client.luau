@@ -775,6 +775,7 @@ end
 
 --------------------------------------------------------------------------------
 
+local scooterJoints: { [Model]: { Instance } } = setmetatable({}, { __mode = "k" }) :: any
 local wheelTurn: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 local wheelAt: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -863,14 +864,26 @@ RunService.Stepped:Connect(function()
 					end
 				end
 			end
-			set(rig.rightHip, CFrame.Angles(math.rad(10), 0, 0))
-			set(rig.leftHip, CFrame.Angles(math.rad(-8), 0, 0))
-			set(rig.rightKnee, CFrame.Angles(math.rad(-6), 0, 0))
-			set(rig.leftKnee, CFrame.Angles(math.rad(-10), 0, 0))
-			set(rig.waist, CFrame.Angles(math.rad(-8), 0, 0))
+			-- STILL, like on a real one: the motor moves it, the body does not walk. Every joint of the
+			-- body is put straight each frame (no steps, no bobbing up and down), then the pose.
+			local joints = scooterJoints[character]
+			if not joints then
+				joints = {}
+				for _, d in character:GetDescendants() do
+					if (d:IsA("Motor6D") or d:IsA("AnimationConstraint")) and not d:FindFirstAncestorOfClass("Tool") and not d:FindFirstAncestorOfClass("Accessory") then
+						table.insert(joints, d)
+					end
+				end
+				scooterJoints[character] = joints
+			end
+			for _, joint in joints do
+				(joint :: any).Transform = CFrame.identity
+			end
+			set(rig.rightHip, CFrame.Angles(math.rad(3), 0, 0))
+			set(rig.leftHip, CFrame.Angles(math.rad(-3), 0, 0))
 			if hold == nil then
-				arm(rig.rightShoulder, 1, math.rad(52), 0, 0.15)
-				arm(rig.leftShoulder, -1, math.rad(52), 0, 0.15)
+				arm(rig.rightShoulder, 1, math.rad(36), 0, 0.1)
+				arm(rig.leftShoulder, -1, math.rad(36), 0, 0.1)
 			end
 		elseif riding then
 			local speed = Vector3.new(v.X, 0, v.Z).Magnitude

@@ -185,6 +185,18 @@ function Bikes.build(colour: Color3, base: CFrame, parent: Instance): Model
 	return model
 end
 
+--[[
+	Where the one number `i` (-1, 0, 1) stands at a rack, from the middle of its bar.
+	The scooters stand SIDE BY SIDE, each across the bar with the front wheel at it;
+	the bicycles of parts stand along it, as they always did.
+]]
+function Bikes.rackSpot(i: number): CFrame
+	if scooterMould() then
+		return CFrame.new(i * 2.7, 1.2, 2.5)
+	end
+	return CFrame.new(i * 2.6, 1.2, 0) * CFrame.Angles(0, math.rad(90), 0)
+end
+
 function Bikes.isRiding(player: Player): boolean
 	return riding[player] ~= nil
 end
