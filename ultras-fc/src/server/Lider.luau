@@ -492,6 +492,25 @@ local function onOrder(player: Player, order: any, a: any, b: any)
 		return
 	end
 
+	if order == "partida" then
+		-- THE CAPO CHOOSES WHERE THE CORTEO STARTS: where he stands now, near the clubhouse.
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local site = Config.Teams[teamId].site
+		if not root or not site or not March.isActive() or March.stage(teamId) ~= "espera" then
+			tell(player, TXT.startTooLate)
+			return
+		end
+		if Vector3.new(root.Position.X - site.x, 0, root.Position.Z - site.z).Magnitude > Config.March.startReach then
+			tell(player, TXT.startTooFar)
+			return
+		end
+		if March.setStart(teamId, root.Position) then
+			notice(teamId, TXT.theCapoChoseStart, player)
+			tell(player, TXT.startSet)
+		end
+		return
+	end
 	if order == "formar" then
 		if not March.isActive() then
 			tell(player, TXT.youOnlyFormUpBefore)

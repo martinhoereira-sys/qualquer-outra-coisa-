@@ -166,6 +166,33 @@ local function myBanner(): BasePart?
 	return if found and found:IsA("BasePart") then found else nil
 end
 
+-- Where the corteo starts: an arrow over it, seen from anywhere.
+local startMark = Instance.new("Part")
+startMark.Name = "PartidaDoCortejo"
+startMark.Anchored = true
+startMark.CanCollide = false
+startMark.CanQuery = false
+startMark.CanTouch = false
+startMark.Transparency = 1
+startMark.Size = Vector3.new(1, 1, 1)
+do
+	local board = Instance.new("BillboardGui")
+	board.AlwaysOnTop = true
+	board.Size = UDim2.fromOffset(72, 72)
+	board.StudsOffset = Vector3.new(0, 8, 0)
+	board.MaxDistance = math.huge
+	board.Parent = startMark
+	local arrow = Instance.new("TextLabel")
+	arrow.BackgroundTransparency = 1
+	arrow.Size = UDim2.fromScale(1, 1)
+	arrow.Font = Enum.Font.GothamBlack
+	arrow.TextScaled = true
+	arrow.TextColor3 = Color3.fromRGB(255, 208, 60)
+	arrow.TextStrokeTransparency = 0.2
+	arrow.Text = "▼"
+	arrow.Parent = board
+end
+
 task.spawn(function()
 	while true do
 		task.wait(0.5)
@@ -177,8 +204,17 @@ task.spawn(function()
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		-- Arrived: inside the ground of the stadium.
 		local far = root ~= nil and Vector3.new(root.Position.X, 0, root.Position.Z).Magnitude > Config.Rota.arrivedWithin
-		toggle.Visible = banner ~= nil and onTheWay and far
-		if banner and onTheWay and far and wanted and type(route) == "string" then
+		-- (During the corteo only the CAPO sees the arrows of the way: the others follow the claque.)
+		local capo = player:GetAttribute("Leader") == true
+		toggle.Visible = banner ~= nil and onTheWay and far and capo
+		-- Before it leaves: an arrow over where it starts, for the whole claque.
+		if banner and (stage == "espera" or stage == "formatura") and root and (banner.Position - root.Position).Magnitude > 25 then
+			startMark.CFrame = CFrame.new(banner.Position)
+			startMark.Parent = workspace
+		else
+			startMark.Parent = nil
+		end
+		if banner and onTheWay and far and wanted and capo and type(route) == "string" then
 			if drawnFor ~= route then
 				local teamId = player:GetAttribute("Team") :: string
 				draw(route, Config.Teams[teamId].color:Lerp(Color3.new(1, 1, 1), 0.55))

@@ -382,7 +382,7 @@ end
 
 -- ORDERS: by the moment they are for; the moment it is now comes first.
 local MOMENTS = {
-	{ id = "before", title = TXT.before, orders = { { "formar", TXT.formUp }, { "marchar", TXT.march }, { "farda", TXT.uniform } } },
+	{ id = "before", title = TXT.before, orders = { { "partida", TXT.startHere }, { "formar", TXT.formUp }, { "marchar", TXT.march }, { "farda", TXT.uniform } } },
 	{ id = "during", title = TXT.during, orders = { { "saltar", TXT.jump }, { "palmas", TXT.clap }, { "bracos", TXT.arms }, { "agachar", TXT.crouch }, { "acender", TXT.lightUp } } },
 }
 local function momentNow(): string

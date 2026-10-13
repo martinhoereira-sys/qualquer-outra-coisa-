@@ -290,7 +290,7 @@ Config.Clubs = {
 		club = "flaminio",
 		gemellati = "kadikoy", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = -115, z = -685, block = "5_1", pitchDepth = 74, door = -1 },
+		site = { x = 34, z = -681, block = "5_1", pitchDepth = 74, door = -1 },
 		name = "Flaminio",
 		fullName = "Flaminio Calcio",
 		nameUpper = "FLAMINIO",
@@ -472,7 +472,7 @@ Config.Clubs = {
 		club = "kadikoy",
 		gemellati = "flaminio", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = -264, z = -681, block = "4_1", door = 1 },
+		site = { x = -104, z = -676, block = "5_1", door = 1 },
 		name = "Kadiköy SK",
 		fullName = "Kadiköy SK",
 		nameUpper = "KADIKÖY SK",
@@ -1096,8 +1096,17 @@ Config.Match = {
 	-- The break before a match (5 minutes): the clubhouse, then the corteo.
 	-- The match (15 minutes): wait 20 s, entrance 40 s, two halves of 6:35,
 	-- half-time 30 s, full time 20 s. They must add up to the slot (Config.Schedule).
-	clubhouseLength = 120, -- na sede: material, lider, e esperar pelos outros
-	corteoLength = 180, -- a caminhada ate ao estadio: ~1200 studs a 7 studs/s, mais a espera e a formatura
+	--[[
+		THE CORTEO HAS TO BE AT THE STADIUM AT LEAST 2 MINUTES BEFORE KICK-OFF.
+		Kick-off is 360 s after the break starts. The longest way on the map is
+		about 1740 studs (measured 2026-10-13: 445 to 1740, by club and by stand).
+		It leaves by itself 28 s into the corteo (March.autoStartAfter + formSeconds)
+		and walks at Config.March.speed. With 60 s of clubhouse and 12 studs/s the
+		longest one arrives 129 s before kick-off, the others 148 to 220 s before.
+		(It was 120 s of clubhouse and 7 studs/s: the longest arrived 31 s AFTER it.)
+	]]
+	clubhouseLength = 60, -- na sede: material, lider, e esperar pelos outros
+	corteoLength = 240, -- a caminhada ate ao estadio, mais a espera e a formatura
 	waitLength = 20, -- no maximo, a espera de que as bancadas estejam nos seus lugares
 	entranceLength = 40, -- do tunel ao apito: saida, fila e cada um ao seu lugar
 	halfLength = 395, -- each half: six minutes and thirty-five seconds
@@ -1799,6 +1808,11 @@ Config.Text = {
 		nobodyElseInTheUltras = "Nobody else in the ultras yet.",
 		pickThePersonFirst = "Pick the person first.",
 		formUp = "FORM UP",
+		startHere = "START HERE",
+		startSet = "The corteo starts here. The claque has been told.",
+		startTooFar = "Too far from the clubhouse to start the corteo here.",
+		startTooLate = "The corteo has already formed up.",
+		theCapoChoseStart = "The capo chose where the corteo starts: follow the arrow.",
 		march = "MARCH",
 		jump = "JUMP",
 		clap = "CLAP",
@@ -2116,11 +2130,13 @@ Config.March = {
 	bots = Config.Bonecos.cortejo, -- bonecos que marcham atras de cada faixa (Config.Bonecos)
 	columns = 10, -- quantos lado a lado, da largura da faixa: a rua cheia de parede a parede
 	busYield = 60, -- a bus this close to the banner of a corteo stops and waits for it to go by
-	leaderSpeed = 11, -- o lider a guiar anda a este passo, para o grupo o acompanhar
+	startReach = 350, -- the capo chooses where the corteo starts: no further than this from the clubhouse
+	sharedStreet = 80, -- two claques that can meet (gemellati or enemies) both come by the street this far past the home gate: a stretch in common by the stadium
+	leaderSpeed = 13, -- o lider a guiar anda a este passo, para o grupo o acompanhar
 	leadDistance = 8, -- a faixa vai estes studs a frente do lider
 	takeRadius = 20, -- o lider a esta distancia da faixa passa a guia-la
 	arriveRadius = 30, -- a esta distancia da porta da claque, o corteo chegou
-	speed = 10, -- passo da faixa, em studs por segundo: o de quem vai a pe, devagar, nunca a correr
+	speed = 12, -- passo da faixa, em studs por segundo: o de quem vai a pe, devagar, nunca a correr
 	spacing = 2.4, -- studs between two people side by side in the block
 	-- The banner that opens the corteo: three players wide, half a player tall,
 	-- straight, held at chest height by the two at its ends; it barely moves.

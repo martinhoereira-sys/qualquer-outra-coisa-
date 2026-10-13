@@ -165,6 +165,61 @@ local function makeWalker(index: number, colour: Color3, parent: Instance, drum:
 	}
 end
 
+-- The bus of an away corteo: simple, in the club's colours, the emblem on both sides. Its pivot is on the ground, in the middle.
+local function buildCorteoBus(teamId: string): Model
+	local team = Config.Teams[teamId]
+	local model = Instance.new("Model")
+	model.Name = "AutocarroDoCortejo"
+	local function piece(name: string, size: Vector3, offset: CFrame, colour: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Size = size
+		p.Color = colour
+		p.Material = material or Enum.Material.SmoothPlastic
+		if shape then
+			p.Shape = shape
+		end
+		p.CFrame = offset
+		p.Parent = model
+		return p
+	end
+	local base = piece("Base", Vector3.new(1, 1, 1), CFrame.new(), team.color)
+	base.Transparency = 1
+	model.PrimaryPart = base
+	local body = piece("Corpo", Vector3.new(10, 8.6, 34), CFrame.new(0, 6, 0), team.color)
+	piece("Vidros", Vector3.new(10.1, 3, 30), CFrame.new(0, 7.6, 0), Color3.fromRGB(26, 30, 38), Enum.Material.Glass)
+	piece("ParaBrisas", Vector3.new(9, 3.6, 0.3), CFrame.new(0, 7.2, -17.05), Color3.fromRGB(26, 30, 38), Enum.Material.Glass)
+	piece("Tecto", Vector3.new(10.2, 0.5, 34.2), CFrame.new(0, 10.5, 0), Color3.fromRGB(240, 240, 240))
+	for _, z in { -11, 11 } do
+		for _, x in { -4.6, 4.6 } do
+			piece("Roda", Vector3.new(1.2, 3.4, 3.4), CFrame.new(x, 1.7, z), Color3.fromRGB(16, 16, 18), nil, Enum.PartType.Cylinder)
+		end
+	end
+	-- The emblem on each side.
+	for _, face in { Enum.NormalId.Left, Enum.NormalId.Right } do
+		local gui = Instance.new("SurfaceGui")
+		gui.Name = "Emblema"
+		gui.Face = face
+		gui.CanvasSize = Vector2.new(680, 172)
+		gui.LightInfluence = 1
+		gui.Parent = body
+		local holder = Instance.new("Frame")
+		holder.BackgroundTransparency = 1
+		holder.AnchorPoint = Vector2.new(0.5, 0.5)
+		holder.Position = UDim2.fromScale(0.5, 0.78)
+		holder.Size = UDim2.fromOffset(70, 70)
+		holder.Parent = gui
+		pcall(function()
+			require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Emblem")).draw(holder, team, { simple = true, year = false })
+		end)
+	end
+	return model
+end
+
 local function track(banner: Instance)
 	if not banner:IsA("BasePart") or groups[banner] then
 		return
@@ -479,6 +534,21 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 		local inside = group.arrivedAt ~= nil and now - group.arrivedAt > 4
 		group.folder.Parent = if inside then nil else workspace
+		--[[
+			AN AWAY MATCH: the team's bus, in the colours of the club and with its
+			emblem, goes in front of the corteo, and the claque walks with it all
+			the way (the banner says so: "Fora"). At home it is on foot, as always.
+		]]
+		if banner:GetAttribute("Fora") == true then
+			local bus = group.folder:FindFirstChild("AutocarroDoCortejo") :: Model?
+			if not bus then
+				bus = buildCorteoBus(group.teamId)
+				bus.Parent = group.folder
+			end
+			local ground = here.Y - 3
+			local at = Vector3.new(here.X, ground, here.Z) + forward * 30
+			bus:PivotTo(CFrame.lookAt(at, at + forward))
+		end
 		if inside then
 			continue
 		end

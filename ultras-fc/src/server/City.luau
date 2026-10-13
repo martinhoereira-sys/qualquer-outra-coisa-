@@ -213,7 +213,8 @@ end
 	the street beside the stadium on the gate's side, and down it to the gate.
 	(The gate itself is added by March.)
 ]]
-local function autoRoute(door: Vector3, teamId: string): { Vector3 }
+local autoRoute: (Vector3, string) -> { Vector3 }
+function autoRoute(door: Vector3, teamId: string): { Vector3 }
 	local xs, zs = streets()
 	if #xs == 0 or #zs == 0 then
 		return {}
@@ -229,6 +230,18 @@ local function autoRoute(door: Vector3, teamId: string): { Vector3 }
 		local length = math.abs(door.Z - line) + math.abs(line - gate.Z)
 		if length < shortest then
 			cross, shortest = line, length
+		end
+	end
+	--[[
+		A STRETCH IN COMMON BY THE STADIUM. The two claques of a match that can
+		meet (gemellati, or enemies) both come along the SAME street beside the
+		stadium, so they do come face to face there (March: the meeting). The
+		others keep the shortest way and never cross.
+	]]
+	do
+		local a, b = Config.Teams.home.club, Config.Teams.away.club
+		if Config.isGemellati(a, b) or Config.isEnemy(a, b) then
+			cross = nearest(zs, StadiumPlan.claqueGate("home").Z + Config.March.sharedStreet)
 		end
 	end
 	local list: { Vector3 } = {}
@@ -601,6 +614,13 @@ function City.build(_parent: Instance)
 	for _, spot in spots do
 		Clubhouse.dealer(spot, dealers)
 	end
+end
+
+-- The way to the stadium from any point `at` of the city (the capo chose where the corteo starts).
+function City.routeFrom(at: Vector3, teamId: string): { Vector3 }
+	local list = autoRoute(at, teamId)
+	table.insert(list, 1, Vector3.new(at.X, 3, at.Z))
+	return list
 end
 
 return City

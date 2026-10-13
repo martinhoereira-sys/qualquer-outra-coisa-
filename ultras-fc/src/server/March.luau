@@ -55,6 +55,7 @@ type Banner = {
 	launchPending: boolean, -- ja tem ordem de sair: sai quando acabar a formatura
 	heading: Vector3, -- para onde o lider vai, alisado
 	lastLeaderAt: Vector3,
+	custom: boolean?, -- the capo chose where it starts: it forms up right there
 }
 
 local banners: { [string]: Banner } = {}
@@ -166,16 +167,32 @@ local function buildBanner(teamId: string, at: Vector3, parent: Instance): Part
 	banner:SetAttribute("Arrived", false)
 	banner.Parent = parent
 
-	-- O pano (com o nome da claque) e um rig com juntas pendurado desta peca
-	-- (Rigs.faixa): cada ecra ondula-o, ou toca a animacao "faixapano". Aqui
-	-- a peca so marca o sitio e brilha.
-	local pano = Instance.new("Model")
-	pano.Name = "FaixaPano_" .. teamId
-	Rigs.faixa(pano, banner, teamId)
-	pano.Parent = parent
-	banner.Transparency = 1
-
-	-- It is cloth: no light, no glow.
+	--[[
+		THE BANNER AT THE FRONT IS A STIFF, STRAIGHT PIECE: no cloth, no joints,
+		no waving, and it goes through nobody. Two ultras carry it, one at each
+		end (Corteo.client). The claque's name is written on both faces.
+	]]
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+		local gui = Instance.new("SurfaceGui")
+		gui.Name = "Nome"
+		gui.Face = face
+		gui.CanvasSize = Vector2.new(1000, 200)
+		gui.LightInfluence = 1
+		gui.AutoLocalize = false
+		gui.Parent = banner
+		local words = Instance.new("TextLabel")
+		words.BackgroundTransparency = 1
+		words.Size = UDim2.fromScale(0.94, 0.86)
+		words.Position = UDim2.fromScale(0.03, 0.07)
+		words.Font = Enum.Font.GothamBlack
+		words.TextScaled = true
+		local c = team.color
+		words.TextColor3 = if c.R * 0.299 + c.G * 0.587 + c.B * 0.114 > 0.6 then Color3.fromRGB(16, 16, 20) else Color3.fromRGB(250, 250, 250)
+		words.Text = team.claque
+		words.Parent = gui
+	end
+	-- An away match: the team's bus goes in front of the corteo (Corteo.client draws it).
+	banner:SetAttribute("Fora", teamId == "away")
 
 	return banner
 end
@@ -379,13 +396,50 @@ function streetSpot(banner: Banner): (Vector3, Vector3)
 	return at, look
 end
 
+--[[
+	THE CAPO CHOOSES WHERE THE CORTEO STARTS: the banner goes to `at` and the
+	way to the stadium is worked out from there. Only before it has formed up.
+]]
+function March.setStart(teamId: string, at: Vector3): boolean
+	local banner = banners[teamId]
+	if not (active and banner) or banner.stage ~= "espera" then
+		return false
+	end
+	local points = City.routeFrom(at, teamId)
+	if #points < 2 then
+		return false
+	end
+	table.insert(points, StadiumPlan.claqueGate(teamId))
+	local length = 0
+	for i = 2, #points do
+		length += (points[i] - points[i - 1]).Magnitude
+	end
+	banner.waypoints = points
+	banner.leg = 1
+	banner.seconds = length / M.speed
+	banner.custom = true
+	progress[teamId] = nil
+	local y = banner.model.Position.Y
+	local from = Vector3.new(at.X, y, at.Z)
+	local towards = Vector3.new(points[2].X, y, points[2].Z)
+	if (towards - from).Magnitude < 1 and points[3] then
+		towards = Vector3.new(points[3].X, y, points[3].Z)
+	end
+	banner.model.CFrame = if (towards - from).Magnitude > 0.5 then CFrame.lookAt(from, towards) else CFrame.new(from)
+	banner.model:SetAttribute("Partida", true)
+	publishRoute(banner)
+	return true
+end
+
 function March.form(teamId: string): boolean
 	local banner = banners[teamId]
 	if not (active and banner) or banner.stage ~= "espera" then
 		return false
 	end
-	local at, look = streetSpot(banner)
-	banner.model.CFrame = CFrame.lookAt(Vector3.new(at.X, banner.model.Position.Y, at.Z), Vector3.new(at.X, banner.model.Position.Y, at.Z) + look)
+	if not banner.custom then
+		local at, look = streetSpot(banner)
+		banner.model.CFrame = CFrame.lookAt(Vector3.new(at.X, banner.model.Position.Y, at.Z), Vector3.new(at.X, banner.model.Position.Y, at.Z) + look)
+	end
 	banner.formedAt = os.clock()
 	setStage(banner, "formatura")
 	return true
