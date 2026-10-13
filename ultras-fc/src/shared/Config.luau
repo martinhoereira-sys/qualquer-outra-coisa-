@@ -1167,6 +1167,20 @@ Config.Text = {
 		cup = "CUP",
 		supercup = "SUPERCUP",
 		honour = "HONOUR",
+		stats = "STATS",
+		statsScorers = "TOP SCORERS",
+		statsAssists = "MOST ASSISTS",
+		statsBest = "BEST PLAYER",
+		statsAll = "ALL",
+		statsMine = "MY CLUB",
+		statsNone = "Nobody yet.",
+		awards = "SEASON AWARDS",
+		awardScorer = "Top scorer: %s (%d)",
+		awardAssists = "Most assists: %s (%d)",
+		awardBest = "Best player: %s (%d pts)",
+		awardTeam = "Team of the season: %s",
+		boardClub = "BEST OF %s",
+		boardAll = "BEST OF ALL",
 		yourClub = "YOUR CLUB PLAYS AT %s  ·  %s",
 		noMatch = "%s: no match in the next 24 hours",
 		scheduleNote = "THE NEXT 24 HOURS  ·  the order can change with who is online",
@@ -2531,6 +2545,22 @@ Config.Emotes = {
 	DataStore, `attribute` the name of the field: both have to be the same as
 	what is typed in the dashboard.
 ]]
+--[[
+	THE RANKINGS OF THE PLAYERS (server/Stats): goals, assists and wins in
+	official matches, by season. Figures are never in them.
+	BEST PLAYER is points: each goal `goal`, each assist `assist`, each win `win`.
+	`showOverall` / `showClub`: how many names each list has (everyone / one club).
+	`teamOfTheSeason`: how many players the team of the season has (the best by points).
+]]
+Config.Stats = {
+	store = "UltrasFC_Stats_v1",
+	flushSeconds = 60,
+	points = { goal = 3, assist = 2, win = 1 },
+	showOverall = 10,
+	showClub = 5,
+	teamOfTheSeason = 5,
+}
+
 Config.Matchmaking = {
 	store = "PlayerAttributes",
 	attribute = "Club",

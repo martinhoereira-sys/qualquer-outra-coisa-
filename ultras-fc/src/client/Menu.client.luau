@@ -152,7 +152,7 @@ close.Name = "Fechar"
 close.AutoLocalize = false
 close.Size = UDim2.fromOffset(U.button, U.button)
 
-local TABS = { "schedule", "league", "cup", "supercup", "honour" }
+local TABS = { "schedule", "league", "cup", "supercup", "stats", "honour" }
 local tabButtons: { [string]: TextButton } = {}
 local tabLines: { [string]: UIStroke } = {}
 local TOP = 20 + (U.button + U.gap) * 2
@@ -463,6 +463,18 @@ local function drawSupercup(state: Calendar.State)
 	note.TextWrapped = true
 end
 
+-- The rankings of the players, as the server last said them (nil: not yet).
+local function playerStats(): any
+	local raw = workspace:GetAttribute("Estatisticas")
+	if type(raw) ~= "string" then
+		return nil
+	end
+	local ok, data = pcall(function()
+		return HttpService:JSONDecode(raw)
+	end)
+	return if ok then data else nil
+end
+
 local function drawHonour(state: Calendar.State)
 	local data: any = state
 	local month = tostring(Schedule.month(Schedule.gameTime()))
@@ -509,7 +521,86 @@ local function drawHonour(state: Calendar.State)
 		tallest = math.max(tallest, list((i - 1) * (third + U.gap), y, entry[2] :: string, counts, third))
 	end
 	y += tallest + U.gap
-	list(0, y, T.honourOverall, total, PAGE)
+	y += list(0, y, T.honourOverall, total, PAGE) + U.gap
+	-- THE AWARDS of the last season: best scorer, most assists, best player, the team of the season.
+	local awards = playerStats()
+	awards = awards and awards.premios
+	if type(awards) == "table" then
+		y = section(y, T.awards)
+		local lines = {}
+		if type(awards.scorer) == "table" then
+			table.insert(lines, string.format(T.awardScorer, tostring(awards.scorer.n), tonumber(awards.scorer.v) or 0))
+		end
+		if type(awards.assists) == "table" then
+			table.insert(lines, string.format(T.awardAssists, tostring(awards.assists.n), tonumber(awards.assists.v) or 0))
+		end
+		if type(awards.best) == "table" then
+			table.insert(lines, string.format(T.awardBest, tostring(awards.best.n), tonumber(awards.best.v) or 0))
+		end
+		if type(awards.team) == "table" and #awards.team > 0 then
+			local names = {}
+			for _, entry in awards.team do
+				table.insert(names, tostring(entry.n))
+			end
+			table.insert(lines, string.format(T.awardTeam, table.concat(names, ", ")))
+		end
+		for _, line in lines do
+			text(page, line, "small", false, 0, y, PAGE, U.small + 6, Enum.TextXAlignment.Left, true)
+			y += U.small + 6 + HALF
+		end
+	end
+end
+
+--[[
+	STATS: the best scorers, most assists and best player (points: goals,
+	assists and wins: Config.Stats), of everyone or of my club. The server
+	works them out (server/Stats) and says them in the attribute "Estatisticas".
+]]
+local statsOfMine = false
+local redraw: () -> () = function() end
+
+local function drawStats(_state: Calendar.State)
+	local data = playerStats()
+	local club = myClub()
+	local buttonW = 220
+	for i, entry in { { false, T.statsAll }, { true, T.statsMine } } do
+		local b = UI.button(page, entry[2] :: string)
+		b.Name = if entry[1] then "DoMeuClube" else "DeTodos"
+		b.Position = UDim2.fromOffset((i - 1) * (buttonW + HALF), 0)
+		b.Size = UDim2.fromOffset(buttonW, U.button)
+		b.BackgroundColor3 = if statsOfMine == entry[1] then MINE else U.panel
+		b.Activated:Connect(function()
+			statsOfMine = entry[1] :: boolean
+			redraw()
+		end)
+	end
+	local source: any = {}
+	if type(data) == "table" then
+		if statsOfMine then
+			source = if club and type(data.clubes) == "table" and type(data.clubes[club]) == "table" then data.clubes[club] else {}
+		else
+			source = if type(data.geral) == "table" then data.geral else {}
+		end
+	end
+	local third = (PAGE - U.gap * 2) / 3
+	local top = U.button + U.gap
+	for i, entry in { { "goals", T.statsScorers }, { "assists", T.statsAssists }, { "best", T.statsBest } } do
+		local x = (i - 1) * (third + U.gap)
+		text(page, entry[2], "small", false, x, top, third, U.small + 6, Enum.TextXAlignment.Left)
+		local list = if type(source[entry[1]]) == "table" then source[entry[1]] else {}
+		local line = top + U.small + 6 + HALF
+		if #list == 0 then
+			text(page, T.statsNone, "small", true, x, line, third, U.small + 6, Enum.TextXAlignment.Left)
+		end
+		for n, who in list do
+			local r = row(page, x, line, third, ROW, false, (Config.Clubs :: any)[who.c or ""])
+			text(r, n .. ".  " .. tostring(who.n), "small", false, HALF, 0, third - 70, ROW, Enum.TextXAlignment.Left, true)
+			local value = text(r, tostring(who.v), "normal", false, third - 60, 0, 50, ROW)
+			value.Font = Enum.Font.GothamBlack
+			value.AutoLocalize = false
+			line += STEP
+		end
+	end
 end
 
 local DRAW: { [string]: (Calendar.State) -> () } = {
@@ -518,6 +609,7 @@ local DRAW: { [string]: (Calendar.State) -> () } = {
 	cup = drawCup,
 	supercup = drawSupercup,
 	honour = drawHonour,
+	stats = drawStats,
 }
 
 local function draw()
@@ -559,6 +651,8 @@ local function draw()
 	end
 	DRAW[current](state)
 end
+
+redraw = draw
 
 for _, name in TABS do
 	local b = UI.button(panel, (T :: any)[name])

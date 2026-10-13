@@ -1193,6 +1193,18 @@ MatchLoop.onChange(function(snapshot)
 				end
 				local fixture = now.fixture
 				Competition.record(snapshot.score.home, snapshot.score.away, penalties)
+				-- The rankings: a win for each real person on the winning side.
+				do
+					local won = if snapshot.score.home > snapshot.score.away then "home" elseif snapshot.score.away > snapshot.score.home then "away" else nil
+					if won then
+						local Stats = require(script.Parent:WaitForChild("Stats"))
+						for _, f in Squad.team(won) do
+							if f.player then
+								Stats.win(f.player)
+							end
+						end
+					end
+				end
 				-- The cup final and the supercup end with a trophy.
 				if fixture.id == "F" or fixture.id == "S" then
 					local winner = Calendar.winner(fixture, { h = snapshot.score.home, a = snapshot.score.away, p = penalties })
@@ -1222,6 +1234,34 @@ MatchLoop.onChange(function(snapshot)
 			local wait = if last and last.fixture.id == "F" then Config.Trophy.seconds else Config.Competitions.closeWait
 			task.delay(wait, function()
 				local champion = Competition.closeLeague()
+				-- THE AWARDS OF THE SEASON, with the trophy: best scorer, most assists, best player, the team of the season.
+				do
+					local Stats = require(script.Parent:WaitForChild("Stats"))
+					local awards = Stats.close()
+					local M2 = Config.Text.menu
+					local lines = {}
+					if awards.scorer then
+						table.insert(lines, string.format(M2.awardScorer, awards.scorer.n, awards.scorer.v))
+					end
+					if awards.assists then
+						table.insert(lines, string.format(M2.awardAssists, awards.assists.n, awards.assists.v))
+					end
+					if awards.best then
+						table.insert(lines, string.format(M2.awardBest, awards.best.n, awards.best.v))
+					end
+					if #awards.team > 0 then
+						local names = {}
+						for _, entry in awards.team do
+							table.insert(names, entry.n)
+						end
+						table.insert(lines, string.format(M2.awardTeam, table.concat(names, ", ")))
+					end
+					if #lines > 0 then
+						task.delay(Config.Trophy.seconds, function()
+							Remotes.Npc:FireAllClients({ title = M2.awards, lines = lines })
+						end)
+					end
+				end
 				if champion then
 					ceremony("liga", champion)
 					for _, teamId in Config.TeamOrder do
@@ -1285,6 +1325,99 @@ if not workspace:FindFirstChild("Transportes") then
 	TransitBuilder.build(workspace)
 end
 Academy.start()
+--[[
+	THE RANKINGS (server/Stats), and THE BOARDS IN THE CITY: one at each
+	clubhouse with the best of that club, one in front of the stadium with the
+	best of all. They are written again each time the numbers are worked out.
+]]
+do
+	local Stats = require(script.Parent:WaitForChild("Stats"))
+	Stats.setClubOf(function(player)
+		return (Money.clubOf(player))
+	end)
+	local boards: { { label: TextLabel, club: string? } } = {}
+	local function board(at: CFrame, title: string, colour: Color3, club: string?, parent: Instance)
+		local part = Instance.new("Part")
+		part.Name = "QuadroDosMelhores"
+		part.Anchored = true
+		part.CanCollide = false
+		part.Size = Vector3.new(12, 7, 0.3)
+		part.Color = Color3.fromRGB(20, 22, 28)
+		part.Material = Enum.Material.SmoothPlastic
+		part.CFrame = at
+		part:SetAttribute("Fixo", true)
+		part.Parent = parent
+		for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+			local gui = Instance.new("SurfaceGui")
+			gui.Face = face
+			gui.CanvasSize = Vector2.new(600, 350)
+			gui.LightInfluence = 0.4
+			gui.AutoLocalize = false
+			gui.Parent = part
+			local head = Instance.new("TextLabel")
+			head.Size = UDim2.new(1, 0, 0, 50)
+			head.BackgroundColor3 = colour
+			head.BorderSizePixel = 0
+			head.Font = Enum.Font.GothamBlack
+			head.TextScaled = true
+			head.TextColor3 = if colour.R * 0.299 + colour.G * 0.587 + colour.B * 0.114 > 0.6 then Color3.fromRGB(16, 16, 20) else Color3.fromRGB(250, 250, 250)
+			head.Text = title
+			head.Parent = gui
+			local body = Instance.new("TextLabel")
+			body.Name = "Linhas"
+			body.BackgroundTransparency = 1
+			body.Position = UDim2.fromOffset(16, 58)
+			body.Size = UDim2.new(1, -32, 1, -66)
+			body.Font = Enum.Font.GothamBold
+			body.TextSize = 26
+			body.TextXAlignment = Enum.TextXAlignment.Left
+			body.TextYAlignment = Enum.TextYAlignment.Top
+			body.TextColor3 = Color3.fromRGB(240, 240, 240)
+			body.Text = ""
+			body.Parent = gui
+			table.insert(boards, { label = body, club = club })
+		end
+	end
+	local function write()
+		local M2 = Config.Text.menu
+		for _, entry in boards do
+			local lines = {}
+			for _, kind in { { "goals", M2.statsScorers }, { "assists", M2.statsAssists }, { "best", M2.statsBest } } do
+				local first = Stats.top(kind[1], entry.club, 3)
+				local names = {}
+				for i, who in first do
+					table.insert(names, string.format("%d. %s  %d", i, who.n, who.v))
+				end
+				table.insert(lines, kind[2] .. "\n" .. (if #names > 0 then table.concat(names, "    ") else M2.statsNone))
+			end
+			entry.label.Text = table.concat(lines, "\n\n")
+		end
+	end
+	Stats.onPublished(write)
+	task.delay(6, function()
+		local folder = Instance.new("Folder")
+		folder.Name = "QuadrosDosMelhores"
+		folder.Parent = workspace
+		local M2 = Config.Text.menu
+		-- On the front wall of each clubhouse, beside the door.
+		for _, clubId in Config.ClubOrder do
+			local club = (Config.Clubs :: any)[clubId]
+			local site = club.site
+			local ground = workspace:FindFirstChild("Recintos") and workspace.Recintos:FindFirstChild("Recinto_" .. clubId)
+			if site and ground then
+				local total = ground:GetAttribute("Total") or 86
+				local base = CFrame.new(site.x, site.y or 0.7, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0)
+				board(base * CFrame.new(19, 7, -total / 2 + 42 + 0.5), string.format(M2.boardClub, club.nameUpper), club.color, clubId, folder)
+			end
+		end
+		-- In front of the stadium, on the side of the main stand.
+		local _, _, zMain = StadiumPlan.grounds()
+		board(CFrame.new(0, 8, -(zMain + 10)), M2.boardAll, Color3.fromRGB(200, 164, 60), nil, folder)
+		write()
+	end)
+	Stats.start()
+end
+
 Transit.start()
 -- A corteo in the street: the buses stop and wait for it to go by (never into it).
 Transit.setYield(function(at: Vector3): boolean
@@ -1574,6 +1707,19 @@ Football.onGoal(function(teamId, scorer)
 	local scorerPlayer = if scorer and scorer.player and scorer.teamId == teamId then scorer.player else nil
 	local assist = if scorer and scorerPlayer then Football.assistFor(scorer) else nil
 	Progress.goal(teamId, scorerPlayer, if assist and assist.teamId == teamId then assist.player else nil)
+	-- The rankings: goals and assists of real people, in matches that count.
+	do
+		local official = Competition.playing()
+		if official and official.counts then
+			local Stats = require(script.Parent:WaitForChild("Stats"))
+			if scorerPlayer then
+				Stats.goal(scorerPlayer)
+			end
+			if assist and assist.teamId == teamId and assist.player then
+				Stats.assist(assist.player)
+			end
+		end
+	end
 	-- O festejo desbloqueado pelo nivel de jogador (so aspeto): maos no ar, depois saltos.
 	if scorerPlayer then
 		local level = Progress.level(scorerPlayer, "jogador")

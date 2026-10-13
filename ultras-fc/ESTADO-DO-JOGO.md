@@ -47,6 +47,20 @@ Duas claques de cidades diferentes que são amigas são "gemellate" (nunca se di
 - **Cânticos do Alvalade** (`Config.Chants.clubs.alvalade`): "Nunca vais acabar" 121342319651900 (31 s, 2×), "Onde tu fores jogar eu vou lá estar" 123151187163093 (84 s, 1×), "O nosso grande amor" 119491230940361 (24 s, 2×).
 - **Som de golo** (`Config.Chants.goalSounds`): é do clube, não uma lista global. Só o Alvalade tem (119617651245949, 13 s): toca uma vez, para o estádio todo, só quando o Alvalade marca. Clube sem som de golo: não toca nada.
 
+## Bloco da semana (13 de Outubro de 2026 — escrito, AINDA NÃO TESTADO em Play)
+
+- **Tirar a bola, sem sorte** (`Football.tackle`, `Football.slide`, `Config.Rules`): pela frente ou pelo lado, tocar na bola é ficar com ela; ir contra as costas de quem a tem é falta; TACKLE (Q, X do comando, botão no telemóvel) é um carrinho: se chega primeiro à bola ganha-a, se chega primeiro ao jogador é falta. Quem ganha a bola fica protegido 1 s. Cartões só por contagem: a cada `foulsForYellow` faltas do mesmo jogador, amarelo.
+- **Telemóvel e tablet**: só dois botões, que mudam com a bola (SHOOT/SPRINT ou TACKLE/SPRINT; na baliza DIVE). SHOOT: toque rápido é passe curto; manter e arrastar dá a direção e a força, com uma linha no relvado.
+- **Emprestado**: quem tem o clube fora do jogo pode jogar por um dos dois que jogam (nunca um inimigo), só em lugares de bots, depois dos jogadores do próprio clube; ON LOAN por cima da cabeça; volta sozinho no fim.
+- **Um clube só** (`Money`): o clube do coração é o da curva e o de jogar. Quem tinha vários ficou com o primeiro. Mudar de clube só na janela de transferências (domingo, depois do fecho da liga) e uma vez por época. Com o clube fora do jogo, pode-se apoiar um dos dois que jogam, como convidado (nunca um inimigo).
+- **Primeira entrada**: título ULTRAS / START, três cartões de papel, grelha dos clubes, CHOOSE (guarda logo), ecrã de boas-vindas nas cores do clube. **Primeiros passos** (`client/Tutorial`): seta e uma frase de cada vez, SKIP, guardado no perfil.
+- **Nascer**: sempre na sede do clube; a meio de um jogo, na entrada da curva.
+- **Cortejo**: 60 s de sede + 240 s de cortejo, faixa a 12 studs/s: o percurso mais longo (1740 studs) chega 129 s antes do apito. Claques que se podem cruzar (gemellati ou inimigos) vêm pela mesma rua junto ao estádio. O capo escolhe onde começa (START HERE) e só ele vê as setas do caminho. A faixa da frente é uma peça rígida. Jogo fora: o autocarro da equipa vai à frente do cortejo.
+- **Barra de material** (`Config.GearBar`): o que está a zero sai, ordem fixa, bandeira grande para todos com máximo de 6 levantadas por curva. Os botões redondos escondem-se com um painel aberto.
+- **Servidores**: o servidor com mais adeptos pede primeiro um jogo oficial; botão GO TO MY CLUB'S MATCH quando o jogo do meu clube está noutro servidor; o clube de cada pessoa é escrito na DataStore `PlayerAttributes` para o Custom Matchmaking; convite a amigos quando a curva tem mais bonecos do que pessoas.
+- **Estatísticas** (`server/Stats`, `Config.Stats`): golos, assistências e vitórias de pessoas a sério em jogos oficiais; melhor jogador = golos×3 + assistências×2 + vitórias×1. Separador STATS no menu, quadros nas sedes e à frente do estádio, prémios da época na cerimónia e no quadro de honra.
+- **NÃO FEITO deste bloco**: um só futebol nas academias e amigáveis (1.1: é uma reescrita do futebol para correr em vários campos; precisa de bloco próprio com testes); academias todas iguais (4.1: o modelo do Flaminio, 138×124, só cabe no quarteirão 5_1); Galata ao lado da Luz (4.2: depende do tamanho normal). Os recintos do Flaminio e do Kadiköy foram mexidos à mão no mapa: o Config segue agora onde estão.
+
 ## Competições
 
 - **Liga**: duas voltas, 36 jornadas; fecha sábado à noite com campeão e cerimónia do troféu.
