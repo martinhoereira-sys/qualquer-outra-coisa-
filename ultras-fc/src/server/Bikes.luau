@@ -22,7 +22,7 @@ local Bikes = {}
 
 local B = Config.Bikes
 
-local riding: { [Player]: { bike: Model, humanoid: Humanoid, colour: Color3 } } = {}
+local riding: { [Player]: { bike: Model, humanoid: Humanoid, colour: Color3, lift: number } } = {}
 
 -- A bicicleta que cada um deixou parada na rua (so uma por pessoa).
 local parkedBy: { [Player]: Model } = {}
@@ -65,7 +65,53 @@ end
 	guiador. `base` e o centro, ao nivel do eixo das rodas, virada para -Z.
 	Serve tanto para as do suporte (paradas) como para a que se leva.
 ]]
+-- The scooter made in Blender, if the map has it (Config.Bikes.scooter).
+local function scooterMould(): Model?
+	local S = B.scooter
+	local store = S and game:GetService("ServerStorage"):FindFirstChild("Modelos3D")
+	local mould = store and store:FindFirstChild(S.model)
+	return if mould and mould:IsA("Model") then mould else nil
+end
+
 function Bikes.build(colour: Color3, base: CFrame, parent: Instance): Model
+	local mould = scooterMould()
+	if mould then
+		-- THE SCOOTER: a copy of the mould, painted, with the same invisible centre
+		-- the bicycle has (where it is welded to whoever rides). `base` is 1.2 above the ground.
+		local model = Instance.new("Model")
+		model.Name = TXT.bike
+		local frame = piece("Quadro", Vector3.new(0.2, 0.2, 0.2), colour, model)
+		frame.Transparency = 1
+		frame.CFrame = base * CFrame.new(0, 0.9, 0)
+		model.PrimaryPart = frame
+		local copy = mould:Clone()
+		copy.Name = "Scooter"
+		copy:PivotTo(base * CFrame.new(0, -1.2, 0))
+		for _, d in copy:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.Anchored = false
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CanTouch = false
+				d.Massless = true
+				d.Material = if d.Name == "Farol" then Enum.Material.Neon else Enum.Material.SmoothPlastic
+				local paint = B.scooter.paint[d.Name]
+				if paint then
+					d.Color = paint
+				end
+				d:SetAttribute("Fixo", true) -- its own colours: never repainted with the match (Derby)
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = frame
+				weld.Part1 = d
+				weld.Parent = d
+			elseif d:IsA("LuaSourceContainer") then
+				d:Destroy()
+			end
+		end
+		copy.Parent = model
+		model.Parent = parent
+		return model
+	end
 	local model = Instance.new("Model")
 	model.Name = TXT.bike
 
@@ -210,6 +256,10 @@ function Bikes.dismount(player: Player, leave: boolean?)
 	local frame = ride.bike.PrimaryPart
 	local at = if frame then frame.CFrame else nil
 	ride.bike:Destroy()
+	-- (Down from the board of the scooter.)
+	if ride.lift > 0 and ride.humanoid.Parent then
+		ride.humanoid.HipHeight -= ride.lift
+	end
 	-- Descer (botao, F, entrar em campo) deixa-a parada; morrer ou sair nao.
 	if leave ~= false and at and ride.humanoid.Parent and ride.humanoid.Health > 0 then
 		park(player, ride.colour, at)
@@ -235,17 +285,21 @@ function Bikes.mount(player: Player, colour: Color3): boolean
 
 	-- As rodas no chao: o eixo fica a meio metro do chao, por baixo da anca.
 	local toGround = humanoid.HipHeight + root.Size.Y / 2
-	local bike = Bikes.build(colour, root.CFrame * CFrame.new(0, -toGround + 1.2, 0), character)
+	-- On the scooter one STANDS on the board: the scooter is made that much lower, and the
+	-- legs made that much longer bring it up to the ground with the feet on the board.
+	local lift = if scooterMould() then B.scooter.deck else 0
+	local bike = Bikes.build(colour, root.CFrame * CFrame.new(0, -toGround - lift + 1.2, 0), character)
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = root
 	weld.Part1 = bike.PrimaryPart
 	weld.Parent = bike
 
 	humanoid.WalkSpeed = B.speed
+	humanoid.HipHeight += lift
 	-- Ninguem pedala de emote, nem de tocha na mao.
 	player:SetAttribute("Emote", nil)
 	humanoid:UnequipTools()
-	riding[player] = { bike = bike, humanoid = humanoid, colour = colour }
+	riding[player] = { bike = bike, humanoid = humanoid, colour = colour, lift = lift }
 	player:SetAttribute("Riding", true)
 
 	-- Morrer ou renascer tira a bicicleta.

@@ -845,7 +845,18 @@ RunService.Stepped:Connect(function()
 		end
 
 		-- De bicicleta: sentado, as pernas a pedalar e as maos no guiador.
-		if riding then
+		if riding and Config.Bikes.scooter and character:FindFirstChild("Scooter", true) then
+			-- On the scooter: standing on the board, one foot a little ahead, the hands on the handlebar.
+			set(rig.rightHip, CFrame.Angles(math.rad(10), 0, 0))
+			set(rig.leftHip, CFrame.Angles(math.rad(-8), 0, 0))
+			set(rig.rightKnee, CFrame.Angles(math.rad(-6), 0, 0))
+			set(rig.leftKnee, CFrame.Angles(math.rad(-10), 0, 0))
+			set(rig.waist, CFrame.Angles(math.rad(-8), 0, 0))
+			if hold == nil then
+				arm(rig.rightShoulder, 1, math.rad(52), 0, 0.15)
+				arm(rig.leftShoulder, -1, math.rad(52), 0, 0.15)
+			end
+		elseif riding then
 			local speed = Vector3.new(v.X, 0, v.Z).Magnitude
 			local crank = now * (2 + speed * 0.25)
 			set(rig.rightHip, CFrame.Angles(math.rad(70) + math.sin(crank) * 0.45, 0, 0))

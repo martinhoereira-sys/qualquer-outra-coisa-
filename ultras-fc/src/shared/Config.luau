@@ -1448,8 +1448,8 @@ Config.Text = {
 		bus = "Bus ",
 	},
 	bikes = {
-		takeABike = "Take a bike",
-		bike = "Bike",
+		takeABike = "Take a scooter",
+		bike = "Scooter",
 	},
 	kit = {
 		referee = "REFEREE",
@@ -2619,6 +2619,30 @@ Config.Transit = {
 -- As bicicletas das sedes: a velocidade de quem pedala (a pe e 16).
 Config.Bikes = {
 	speed = 34,
+	--[[
+		THE SCOOTER (the model made in Blender: ServerStorage.Modelos3D.<model>,
+		a copy of the mould kept in Workspace.Oficina3D). It takes the place of
+		the bicycles; without the model in the map, the bicycle of parts is used.
+		`paint`: the colour of each part of the model (a part not here keeps its own).
+		`deck`: how high the board is: whoever rides stands on it.
+	]]
+	scooter = {
+		model = "scooter_v1",
+		deck = 0.77,
+		paint = {
+			Corpo = Color3.fromRGB(22, 30, 54), -- dark blue
+			Forqueta = Color3.fromRGB(22, 30, 54),
+			GuardaLamas = Color3.fromRGB(22, 30, 54),
+			Guiador = Color3.fromRGB(18, 18, 22),
+			Punhos = Color3.fromRGB(12, 12, 14),
+			Tapete = Color3.fromRGB(12, 12, 14),
+			RodaFrente = Color3.fromRGB(16, 16, 18),
+			RodaTras = Color3.fromRGB(16, 16, 18),
+			JanteFrente = Color3.fromRGB(176, 180, 188),
+			JanteTras = Color3.fromRGB(176, 180, 188),
+			Farol = Color3.fromRGB(255, 236, 150),
+		},
+	},
 }
 
 -- Quantos dealers ha na rua, se o mapa nao tiver pecas "Dealer" a dizer onde.
