@@ -52,7 +52,7 @@ local Gear = {}
 local KINDS = Config.Gear
 
 -- A ordem na barra: tocha, fumo, vela romana, estrobo, cachecol e (lider) tambor.
-local ORDER = { "tocha", "fumo", "vela", "estrobo", "cachecol", "bandeirinha", "bandeira", "mastro", "tambor", "cachecolgem", "gemflag" }
+local ORDER: { string } = Config.GearBar.order
 
 -- O que se acende e se segura no ar.
 local PYRO: { [string]: boolean } = { tocha = true, fumo = true, vela = true, estrobo = true }
@@ -70,6 +70,8 @@ local FLAGS: { [string]: boolean } = { bandeirinha = true, bandeira = true, mast
 	uma por claque, e quem a segura e quem o lider escolher (DAR MATERIAL).
 ]]
 local mastroHolder: { [string]: Player } = {}
+-- THE BIG FLAGS UP in each curva, now: at most Config.GearBar.maxBandeirasGrandes at a time.
+local bigUp: { [string]: { [Player]: boolean } } = {}
 
 local LABEL: { [string]: string } = {
 	tocha = TXT.flare,
@@ -269,6 +271,12 @@ end
 
 -- Mais stock deste material (comprado a um dealer, por exemplo).
 function Gear.give(player: Player, kind: string, amount: number)
+	-- (What was at zero comes back to the bar, in its place.)
+	task.defer(function()
+		if player.Parent then
+			Gear.sync(player)
+		end
+	end)
 	if not (PYRO[kind] or FLAGS[kind]) or Config.GearStock.unlimited then
 		return
 	end
@@ -545,6 +553,12 @@ local function extinguish(entry: Lit)
 	if entry.player:GetAttribute("Hold") == entry.kind then
 		setHold(entry.player, nil)
 	end
+	-- (If that was the last one, it leaves the bar now that it is out.)
+	task.defer(function()
+		if entry.player.Parent then
+			Gear.sync(entry.player)
+		end
+	end)
 end
 
 --[[
@@ -558,6 +572,35 @@ local function raiseFlag(player: Player, kind: string)
 	-- da personagem (animaveis; Rigs). A de duas hastes desenha-a cada ecra.
 	local character = player.Character
 	local teamId = Teams.get(player)
+	if kind == "mastro" and teamId then
+		--[[
+			Whoever raises a big flag keeps it up as long as they like, the whole
+			match if they want. But a curva has room for only so many at a time:
+			with all of them up, the next one waits for someone to lower theirs.
+		]]
+		local up = bigUp[teamId] or {}
+		bigUp[teamId] = up
+		local count = 0
+		for other in up do
+			if other ~= player and other.Parent and Teams.get(other) == teamId then
+				count += 1
+			else
+				up[other] = if other == player then up[other] else nil
+			end
+		end
+		if count >= Config.GearBar.maxBandeirasGrandes then
+			setHold(player, nil)
+			Remotes.Npc:FireClient(player, { title = LABEL.mastro, lines = { TXT.curvaFullOfFlags } })
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				task.defer(function()
+					humanoid:UnequipTools()
+				end)
+			end
+			return
+		end
+		up[player] = true
+	end
 	if character and teamId and Rigs.FLAGS[kind] then
 		Rigs.flag(character, kind, teamId, Gear.colourFor(player, kind, teamId))
 	end
@@ -570,6 +613,12 @@ local function raiseFlag(player: Player, kind: string)
 end
 
 local function lowerFlag(player: Player, kind: string)
+	if kind == "mastro" then
+		-- (A place for another big flag in the curva.)
+		for _, up in bigUp do
+			up[player] = nil
+		end
+	end
 	local spec = Rigs.FLAGS[kind]
 	local model = spec and player.Character and player.Character:FindFirstChild(spec.name .. "_Rig")
 	if model then
@@ -883,8 +932,11 @@ function Gear.sync(player: Player)
 			and kind ~= "bandeira" -- the big flag (the one that is not on a pole) is out of the game
 			-- The gemellaggio scarf and flag: only when the server says so (Main: "Gemellaggio").
 			and ((kind ~= "cachecolgem" and kind ~= "gemflag") or player:GetAttribute("Gemellaggio") ~= nil)
-			and (kind ~= "mastro" or (teamId ~= nil and mastroHolder[teamId] == player))
 		local tool = mine[kind]
+		-- WHAT IS AT ZERO IS NOT ON THE BAR (unless it is burning in the hand right now).
+		if wanted and PYRO[kind] and Gear.remaining(player, kind) == 0 and not (tool and lit[tool]) then
+			wanted = false
+		end
 
 		-- Mudou de lado: o material do outro lado tinha a cor errada.
 		if tool and tool:GetAttribute("Team") ~= teamId then
@@ -910,6 +962,28 @@ function Gear.sync(player: Player)
 	end
 
 	if touched then
+		--[[
+			THE ORDER OF THE BAR IS FIXED (Config.GearBar.order), and its numbers
+			count from 1 with what there is: whatever comes back goes to its own
+			place, never to the end. The bar of the phone or the keys 1, 2, 3...
+			follow the order things are put in the bag: so they are all put in
+			again, in order.
+		]]
+		if backpack then
+			local inBag: { Tool } = {}
+			for _, kind in ORDER do
+				local tool = mine[kind]
+				if tool and tool.Parent == backpack then
+					table.insert(inBag, tool)
+				end
+			end
+			for _, tool in inBag do
+				tool.Parent = nil
+			end
+			for _, tool in inBag do
+				tool.Parent = backpack
+			end
+		end
 		announce(player)
 	end
 end

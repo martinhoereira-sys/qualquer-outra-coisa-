@@ -1483,7 +1483,8 @@ Config.Text = {
 		scarf = "Scarf",
 		smallFlag = "Small flag",
 		bigFlag = "Big flag",
-		poleFlag = "Pole flag",
+		poleFlag = "Big flag",
+		curvaFullOfFlags = "The curva is full of big flags",
 		drum = "Drum",
 	},
 	hud = {
@@ -2508,6 +2509,19 @@ Config.Emotes = {
 	resto compra-se aos dealers na rua, com o dinheiro do jogo (Config.Money).
 	`GearStock.unlimited` = true poe tudo sem limite, para testes.
 ]]
+--[[
+	THE BAR (the bag of a supporter). The order is fixed: what is at zero is
+	not on it, the numbers count from 1 with what is left, and what comes back
+	goes to its own place. (The gemellaggio scarf and flag come after the
+	scarf, when they are there at all.)
+	`maxBandeirasGrandes`: how many big flags can be up at the same time in one
+	curva. Small flags and scarves have no limit.
+]]
+Config.GearBar = {
+	order = { "tocha", "fumo", "vela", "estrobo", "mastro", "bandeirinha", "cachecol", "cachecolgem", "gemflag", "tambor" },
+	maxBandeirasGrandes = 6,
+}
+
 Config.GearStock = {
 	unlimited = false,
 }
