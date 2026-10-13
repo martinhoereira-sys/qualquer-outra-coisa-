@@ -24,8 +24,16 @@ local Bots = {}
 
 local F = Config.Football
 local S = Config.Stadium
-local HALF = S.pitchLength / 2
-local WIDTH2 = S.pitchWidth / 2
+local Pitch = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pitch"))
+-- Where the pitch is comes from shared/Pitch: `L` a place of the world as the pitch sees it, `W` the other way (see Football).
+local function L(p: Vector3): Vector3
+	return p - Pitch.centre
+end
+local function W(p: Vector3): Vector3
+	return p + Pitch.centre
+end
+local HALF = Pitch.length / 2
+local WIDTH2 = Pitch.width / 2
 
 local nextThink: { [Footballer]: number } = {}
 local accumulator = 0
@@ -48,11 +56,9 @@ local function moveTo(f: Footballer, at: Vector3, sprint: boolean)
 	if holdTeam and holdSide and f.teamId ~= holdTeam and Football.inBox(at, holdSide) then
 		at = Football.outOfBox(at, holdSide)
 	end
-	local target = Vector3.new(
-		math.clamp(at.X, -HALF - 2, HALF + 2),
-		root.Position.Y,
-		math.clamp(at.Z, -WIDTH2 - 2, WIDTH2 + 2)
-	)
+	local onPitch = L(at)
+	local clamped = W(Vector3.new(math.clamp(onPitch.X, -HALF - 2, HALF + 2), 0, math.clamp(onPitch.Z, -WIDTH2 - 2, WIDTH2 + 2)))
+	local target = Vector3.new(clamped.X, root.Position.Y, clamped.Z)
 	if flatDistance(target, root.Position) < 1.2 then
 		humanoid:Move(Vector3.zero)
 		return
@@ -91,11 +97,12 @@ end
 	bola e empurrada para a frente quando a equipa ataca.
 ]]
 local function shapeSpot(f: Footballer, ballAt: Vector3, attacking: boolean): Vector3
-	local home = Squad.homeSpot(f)
+	local home = L(Squad.homeSpot(f))
+	local ball = L(ballAt)
 	local sign = Squad.attackSign(f.teamId)
-	local x = home.X + ballAt.X * 0.45 + (if attacking then sign * HALF * 0.18 else 0)
-	local z = home.Z * 0.85 + ballAt.Z * 0.25
-	return Vector3.new(math.clamp(x, -HALF + 6, HALF - 6), 0, math.clamp(z, -WIDTH2 + 6, WIDTH2 - 6))
+	local x = home.X + ball.X * 0.45 + (if attacking then sign * HALF * 0.18 else 0)
+	local z = home.Z * 0.85 + ball.Z * 0.25
+	return W(Vector3.new(math.clamp(x, -HALF + 6, HALF - 6), 0, math.clamp(z, -WIDTH2 + 6, WIDTH2 - 6)))
 end
 
 local function opponentsNear(f: Footballer, radius: number, ahead: Vector3?): number
@@ -185,17 +192,18 @@ end
 --------------------------------------------------------------------------------
 
 -- No sitio dele: na linha, a acompanhar a bola de um poste ao outro.
-local BOX_DEPTH_GK = S.pitchLength * 16.5 / 105
-local BOX_WIDTH_GK = S.pitchWidth * 40.3 / 68
+local BOX_DEPTH_GK = Pitch.length * 16.5 / 105
+local BOX_WIDTH_GK = Pitch.width * 40.3 / 68
 
 local function keeperSpot(f: Footballer, ballAt: Vector3): Vector3
 	local side = -Squad.attackSign(f.teamId)
-	local z = math.clamp(ballAt.Z * 0.5, -F.goalHalfWidth + 1.5, F.goalHalfWidth - 1.5)
-	return Vector3.new(side * (HALF - 3), 0, z)
+	local z = math.clamp(L(ballAt).Z * 0.5, -F.goalHalfWidth + 1.5, F.goalHalfWidth - 1.5)
+	return W(Vector3.new(side * (HALF - 3), 0, z))
 end
 
 local function inOwnBox(f: Footballer, at: Vector3): boolean
 	local side = -Squad.attackSign(f.teamId)
+	at = L(at)
 	return at.X * side > HALF - BOX_DEPTH_GK and math.abs(at.Z) < BOX_WIDTH_GK / 2
 end
 
@@ -239,8 +247,8 @@ end
 --------------------------------------------------------------------------------
 
 local R = Config.Rules
-local BOX_DEPTH = S.pitchLength * 16.5 / 105
-local BOX_WIDTH = S.pitchWidth * 40.3 / 68
+local BOX_DEPTH = Pitch.length * 16.5 / 105
+local BOX_WIDTH = Pitch.width * 40.3 / 68
 
 local GAP: { [string]: number } = {
 	lancamento = R.throwInGap,
@@ -256,9 +264,10 @@ local function keepOut(f: Footballer, target: Vector3, piece: Football.SetPiece)
 	local spot = piece.spot
 	if piece.kind == "penalti" then
 		-- Toda a gente, das duas equipas, fora da area e atras da bola.
-		local side = math.sign(spot.X)
-		if target.X * side > HALF - BOX_DEPTH - 2 then
-			return Vector3.new(side * (HALF - BOX_DEPTH - 4), 0, math.clamp(target.Z, -BOX_WIDTH / 2, BOX_WIDTH / 2))
+		local side = math.sign(L(spot).X)
+		local t = L(target)
+		if t.X * side > HALF - BOX_DEPTH - 2 then
+			return W(Vector3.new(side * (HALF - BOX_DEPTH - 4), 0, math.clamp(t.Z, -BOX_WIDTH / 2, BOX_WIDTH / 2)))
 		end
 		return target
 	end
@@ -274,9 +283,10 @@ local function keepOut(f: Footballer, target: Vector3, piece: Football.SetPiece)
 		end
 	elseif piece.kind == "baliza" then
 		-- Fora da grande area de quem bate.
-		local side = math.sign(spot.X)
-		if target.X * side > HALF - BOX_DEPTH - 2 and math.abs(target.Z) < BOX_WIDTH / 2 + 2 then
-			return Vector3.new(side * (HALF - BOX_DEPTH - 4), 0, target.Z)
+		local side = math.sign(L(spot).X)
+		local t = L(target)
+		if t.X * side > HALF - BOX_DEPTH - 2 and math.abs(t.Z) < BOX_WIDTH / 2 + 2 then
+			return W(Vector3.new(side * (HALF - BOX_DEPTH - 4), 0, t.Z))
 		end
 	end
 	return target
@@ -292,11 +302,11 @@ local function takePiece(f: Footballer, piece: Football.SetPiece, now: number)
 	local kind = piece.kind
 
 	if kind == "canto" then
-		local side = math.sign(piece.spot.X)
-		local target = Vector3.new(side * (HALF - 20), 0, (math.random() * 2 - 1) * 10)
+		local side = math.sign(L(piece.spot).X)
+		local target = W(Vector3.new(side * (HALF - 20), 0, (math.random() * 2 - 1) * 10))
 		Football.kick(f, 0.45, 0, 0.8, target - here)
 	elseif kind == "baliza" then
-		local target = Vector3.new(0, 0, (math.random() * 2 - 1) * 35)
+		local target = W(Vector3.new(0, 0, (math.random() * 2 - 1) * 35))
 		Football.kick(f, 0.85, 0, 0.35, target - here)
 	elseif kind == "penalti" then
 		local goal = Football.goalFor(f.teamId)

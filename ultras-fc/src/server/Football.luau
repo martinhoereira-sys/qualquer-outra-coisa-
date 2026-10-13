@@ -23,12 +23,27 @@ type Footballer = Squad.Footballer
 local Football = {}
 
 local F = Config.Football
-local S = Config.Stadium
-local HALF = S.pitchLength / 2
-local WIDTH2 = S.pitchWidth / 2
+local Pitch = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pitch"))
+--[[
+	WHERE THE PITCH IS comes from shared/Pitch, never from here. The lines, the
+	goals and the boxes are worked out in the pitch's own coordinates: `L` turns
+	a place of the world into one of the pitch (its middle is 0, 0, 0), `W` the
+	other way. What is kept and passed about (the ball, people, the spot of a
+	restart, where a foul was) is always a place of the WORLD.
+]]
+local CENTRE = Pitch.centre
+local GROUND = CENTRE.Y -- the top of the grass
+local function L(p: Vector3): Vector3
+	return p - CENTRE
+end
+local function W(p: Vector3): Vector3
+	return p + CENTRE
+end
+local HALF = Pitch.length / 2
+local WIDTH2 = Pitch.width / 2
 local R = F.ballSize / 2
-local BOX_DEPTH = S.pitchLength * 16.5 / 105
-local BOX_WIDTH = S.pitchWidth * 40.3 / 68
+local BOX_DEPTH = Pitch.length * 16.5 / 105
+local BOX_WIDTH = Pitch.width * 40.3 / 68
 
 local ball: Part? = nil
 -- Desde quando cada pessoa esta na area do guarda-redes que tem a bola.
@@ -198,10 +213,10 @@ function Football.build(parent: Instance)
 	local endX = HALF + F.goalDepth + 1.5
 	local sideZ = WIDTH2 + 4
 	for _, sign in { 1, -1 } do
-		wall("BallWallX", Vector3.new(2, 80, sideZ * 2 + 4), Vector3.new(sign * (endX + 1), 40, 0), folder)
-		wall("BallWallZ", Vector3.new(endX * 2 + 4, 80, 2), Vector3.new(0, 40, sign * (sideZ + 1)), folder)
+		wall("BallWallX", Vector3.new(2, 80, sideZ * 2 + 4), W(Vector3.new(sign * (endX + 1), 40, 0)), folder)
+		wall("BallWallZ", Vector3.new(endX * 2 + 4, 80, 2), W(Vector3.new(0, 40, sign * (sideZ + 1))), folder)
 	end
-	wall("BallCeiling", Vector3.new(endX * 2 + 4, 2, sideZ * 2 + 4), Vector3.new(0, 70, 0), folder)
+	wall("BallCeiling", Vector3.new(endX * 2 + 4, 2, sideZ * 2 + 4), W(Vector3.new(0, 70, 0)), folder)
 
 	Budget.take("Jogo")
 	local b = Instance.new("Part")
@@ -212,7 +227,7 @@ function Football.build(parent: Instance)
 	b.Material = Enum.Material.SmoothPlastic
 	b.CustomPhysicalProperties = PhysicalProperties.new(0.35, 0.25, 0.5, 1, 1)
 	b.CollisionGroup = "Ball"
-	b.CFrame = CFrame.new(0, R + 0.05, 0)
+	b.CFrame = CFrame.new(W(Vector3.new(0, R + 0.05, 0)))
 	b.Parent = folder
 	b:SetNetworkOwner(nil)
 	ball = b
@@ -248,18 +263,20 @@ end
 
 -- Dentro da grande area do lado `side` (sinal de X)?
 function Football.inBox(at: Vector3, side: number): boolean
+	at = L(at)
 	return at.X * side > HALF - BOX_DEPTH and math.abs(at.Z) < BOX_WIDTH / 2
 end
 
 -- O ponto fora da area mais perto de `at` (com folga).
 function Football.outOfBox(at: Vector3, side: number): Vector3
+	at = L(at)
 	local toFront = at.X * side - (HALF - BOX_DEPTH) -- quanto ha que andar para sair pela frente
 	local toSide = BOX_WIDTH / 2 - math.abs(at.Z)
 	if toFront <= toSide then
-		return Vector3.new(side * (HALF - BOX_DEPTH - 2), at.Y, at.Z)
+		return W(Vector3.new(side * (HALF - BOX_DEPTH - 2), at.Y, at.Z))
 	end
 	local zSign = if at.Z >= 0 then 1 else -1
-	return Vector3.new(at.X, at.Y, zSign * (BOX_WIDTH / 2 + 2))
+	return W(Vector3.new(at.X, at.Y, zSign * (BOX_WIDTH / 2 + 2)))
 end
 
 function Football.carrier(): Footballer?
@@ -272,7 +289,7 @@ end
 
 -- A baliza que esta equipa ataca.
 function Football.goalFor(teamId: string): Vector3
-	return Vector3.new(Squad.attackSign(teamId) * HALF, 0, 0)
+	return W(Vector3.new(Squad.attackSign(teamId) * HALF, 0, 0))
 end
 
 --------------------------------------------------------------------------------
@@ -310,7 +327,7 @@ local function release(f: Footballer, direction: Vector3, speed: number, lift: n
 	if not inPlace then
 		-- De onde quem chuta estava no seu ecra (se o disse), senao de onde o servidor o ve.
 		local from = fromAt or root.Position
-		b.CFrame = CFrame.new(from.X + dir.X * F.dribbleDistance, R + 0.1, from.Z + dir.Z * F.dribbleDistance)
+		b.CFrame = CFrame.new(from.X + dir.X * F.dribbleDistance, GROUND + R + 0.1, from.Z + dir.Z * F.dribbleDistance)
 	end
 	b.AssemblyAngularVelocity = Vector3.zero
 	b.AssemblyLinearVelocity = dir * speed + Vector3.new(0, lift, 0)
@@ -458,7 +475,7 @@ local function placeBall(at: Vector3)
 	if not b then
 		return
 	end
-	b.CFrame = CFrame.new(at.X, R + 0.1, at.Z)
+	b.CFrame = CFrame.new(at.X, GROUND + R + 0.1, at.Z)
 	state.curve = 0
 	b.AssemblyLinearVelocity = Vector3.zero
 	b.AssemblyAngularVelocity = Vector3.zero
@@ -489,7 +506,7 @@ function Football.kickOff(teamId: string)
 	state.afterWait = nil
 	state.waitUntil = 0
 	table.clear(state.noClaim)
-	placeBall(Vector3.zero)
+	placeBall(CENTRE)
 	Squad.placeForKickoff(teamId)
 	Squad.setFrozen(true)
 	state.kickingTeam = teamId
@@ -520,7 +537,7 @@ function Football.setPhase(phase: string)
 		state.waitUntil = 0
 		state.afterWait = nil
 		workspace:SetAttribute("Restart", nil)
-		placeBall(Vector3.zero)
+		placeBall(CENTRE)
 	end
 end
 
@@ -569,7 +586,8 @@ end
 -- Golo e a bola TODA para la da linha, entre os postes e por baixo da barra
 -- (a regra). Enquanto nao passou toda, esta em jogo e pode-se jogar.
 local GOAL_MARGIN = 0
-local function checkGoal(p: Vector3): boolean
+local function checkGoal(world: Vector3): boolean
+	local p = L(world)
 	if math.abs(p.X) < HALF + R + GOAL_MARGIN or math.abs(p.Z) > F.goalHalfWidth or p.Y > F.goalHeight then
 		return false
 	end
@@ -585,7 +603,7 @@ local function checkGoal(p: Vector3): boolean
 	if not state.live then
 		-- Na sede e no corteo joga-se a brincar: a bola volta ao centro e pronto.
 		hold(F.goalPause, function()
-			placeBall(Vector3.zero)
+			placeBall(CENTRE)
 		end)
 		return true
 	end
@@ -595,12 +613,12 @@ local function checkGoal(p: Vector3): boolean
 		marcou corre de bracos abertos para a sua claque, que fica atras da
 		baliza onde marcou; os colegas vao atras.
 	]]
-	local who = scorerFor(scorer, p)
+	local who = scorerFor(scorer, world)
 	local length = Config.Match.celebrationLength
 	state.celebration = {
 		team = scorer,
 		scorer = who,
-		spot = Vector3.new(side * (HALF - 4), 0, if p.Z >= 0 then 12 else -12),
+		spot = W(Vector3.new(side * (HALF - 4), 0, if p.Z >= 0 then 12 else -12)),
 		endsAt = os.clock() + length,
 	}
 	workspace:SetAttribute("Celebration", scorer)
@@ -650,7 +668,7 @@ function Football.startSetPiece(kind: string, team: string, spot: Vector3, aim: 
 	local piece: SetPiece = {
 		kind = kind,
 		team = team,
-		spot = Vector3.new(spot.X, 0, spot.Z),
+		spot = Vector3.new(spot.X, GROUND, spot.Z),
 		aim = flat(aim),
 		deadline = 0,
 		taker = nil,
@@ -729,10 +747,11 @@ end
 	- pela linha de fundo, se o ultimo toque foi de quem defende essa baliza,
 	  canto para quem ataca; se foi de quem ataca, pontape de baliza.
 ]]
-local SMALL_BOX_DEPTH = S.pitchLength * 5.5 / 105
-local PENALTY_MARK = S.pitchLength * 11 / 105
+local SMALL_BOX_DEPTH = Pitch.length * 5.5 / 105
+local PENALTY_MARK = Pitch.length * 11 / 105
 
-local function checkOut(p: Vector3): boolean
+local function checkOut(world: Vector3): boolean
+	local p = L(world)
 	local last = state.lastTouch
 	local kind, team, spot, aim
 
@@ -773,7 +792,8 @@ local function checkOut(p: Vector3): boolean
 
 	state.carrier = nil
 	hold(Config.Rules.outDelay, function()
-		Football.startSetPiece(kind, team, spot, aim, Config.Rules.restartTime)
+		-- (`spot` was worked out on the pitch: the restart is given a place of the world.)
+		Football.startSetPiece(kind, team, W(spot), aim, Config.Rules.restartTime)
 	end)
 	return true
 end
@@ -815,6 +835,7 @@ end
 -- Na area que este jogador defende: a do seu guarda-redes.
 local function inOwnBox(f: Footballer, at: Vector3): boolean
 	local side = -Squad.attackSign(f.teamId)
+	at = L(at)
 	return at.X * side > HALF - BOX_DEPTH and math.abs(at.Z) < BOX_WIDTH / 2
 end
 
@@ -833,7 +854,7 @@ end
 local function claim(b: BasePart, now: number)
 	-- Passou TODA a linha de baliza: e golo ou fora, ja nao e de ninguem (nem
 	-- do guarda-redes, dentro da baliza). Em cima da linha ainda se joga.
-	if math.abs(b.Position.X) >= HALF + R then
+	if math.abs(L(b.Position).X) >= HALF + R then
 		return
 	end
 	--[[
@@ -845,7 +866,7 @@ local function claim(b: BasePart, now: number)
 		(A ball lying still on the line can still be played.)
 	]]
 	do
-		local p, v = b.Position, b.AssemblyLinearVelocity
+		local p, v = L(b.Position), b.AssemblyLinearVelocity
 		local overEnd = math.abs(p.X) > HALF and v.X * p.X > 1
 		local overSide = math.abs(p.Z) > WIDTH2 and v.Z * p.Z > 1
 		if overEnd or overSide then
@@ -858,7 +879,7 @@ local function claim(b: BasePart, now: number)
 		local root = f.root :: BasePart
 		local reach, height = reachFor(f, b.Position, now)
 		local d = horizontal(root.Position, b.Position)
-		if d <= reach and d < bestDistance and b.Position.Y - R <= height and canPlay(f, now) then
+		if d <= reach and d < bestDistance and b.Position.Y - GROUND - R <= height and canPlay(f, now) then
 			bestDistance = d
 			best = f
 		end
@@ -965,6 +986,7 @@ local RULES = Config.Rules
 -- Na area que esta equipa ataca, e se esta tao perto da linha que fica em duvida.
 local function boxCheck(teamId: string, at: Vector3): (boolean, boolean)
 	local side = Squad.attackSign(teamId)
+	at = L(at)
 	local depthInside = at.X * side - (HALF - BOX_DEPTH) -- positivo: para dentro da linha da area
 	local widthInside = BOX_WIDTH / 2 - math.abs(at.Z)
 	local inside = depthInside > 0 and widthInside > 0
@@ -1005,7 +1027,7 @@ local function callFoul(fouled: Footballer, fouler: Footballer, at: Vector3, beh
 	local foul: Foul = {
 		fouled = fouled,
 		fouler = fouler,
-		at = Vector3.new(at.X, 0, at.Z),
+		at = Vector3.new(at.X, GROUND, at.Z),
 		fromBehind = behind,
 		inBox = inBox,
 		nearLine = nearLine,
@@ -1066,7 +1088,7 @@ function Football.resume(action: string, foul: Foul)
 	local goal = Football.goalFor(team)
 	if action == "penalti" then
 		local side = Squad.attackSign(team)
-		local mark = Vector3.new(side * (HALF - PENALTY_MARK), 0, 0)
+		local mark = W(Vector3.new(side * (HALF - PENALTY_MARK), 0, 0))
 		Football.startSetPiece("penalti", team, mark, goal - mark, RULES.penaltyTime, foul.fouled)
 	else
 		-- Um livre na duvida da linha da area fica fora dela.
@@ -1074,7 +1096,7 @@ function Football.resume(action: string, foul: Foul)
 		local inside, _ = boxCheck(team, at)
 		if inside then
 			local side = Squad.attackSign(team)
-			at = Vector3.new(side * (HALF - BOX_DEPTH - 1.5), 0, at.Z)
+			at = W(Vector3.new(side * (HALF - BOX_DEPTH - 1.5), 0, L(at).Z))
 		end
 		Football.startSetPiece("livre", team, at, goal - at, RULES.restartTime)
 	end
@@ -1097,7 +1119,7 @@ local function autoPenalty(piece: SetPiece)
 	state.lastTouch = piece.team
 	state.flightUntil = os.clock() + F.kickFlight
 	state.curve = 0
-	b.CFrame = CFrame.new(piece.spot.X, R + 0.1, piece.spot.Z)
+	b.CFrame = CFrame.new(piece.spot.X, GROUND + R + 0.1, piece.spot.Z)
 	b.AssemblyLinearVelocity = dir * speed + Vector3.new(0, speed * F.liftNeutral, 0)
 end
 
@@ -1191,7 +1213,7 @@ function Football.slide(f: Footballer, direction: Vector3?): boolean
 		return math.max(along - math.sqrt(radius * radius - side * side), 0)
 	end
 
-	local toBall = if b.Position.Y - R <= F.claimHeight then reached(b.Position, R + RULES.slideWidth) else nil
+	local toBall = if b.Position.Y - GROUND - R <= F.claimHeight then reached(b.Position, R + RULES.slideWidth) else nil
 	local carrier = state.carrier
 	local won = false
 	if carrier and carrier.teamId ~= f.teamId and carrier.root and state.heldBy ~= carrier then
@@ -1340,7 +1362,7 @@ local function syncMarks()
 		local other = if piece.team == Config.TeamOrder[1] then Config.TeamOrder[2] else Config.TeamOrder[1]
 		p.Color = Config.Teams[other].color
 		p.Size = Vector3.new(0.12, gap * 2, gap * 2)
-		p.CFrame = CFrame.new(piece.spot.X, 0.08, piece.spot.Z) * CFrame.Angles(0, 0, math.rad(90))
+		p.CFrame = CFrame.new(piece.spot.X, GROUND + 0.08, piece.spot.Z) * CFrame.Angles(0, 0, math.rad(90))
 		p.Transparency = 0.72
 	elseif p.Transparency < 1 then
 		p.Transparency = 1
@@ -1384,8 +1406,8 @@ function Football.step(dt: number)
 	end
 
 	-- A bola caiu do mundo: volta ao centro.
-	if b.Position.Y < -20 then
-		placeBall(Vector3.zero)
+	if b.Position.Y < GROUND - 20 then
+		placeBall(CENTRE)
 	end
 
 	if state.waitUntil > 0 then
@@ -1441,7 +1463,7 @@ function Football.step(dt: number)
 			state.carrier = nil
 			state.noClaim[keeper] = now + 1.2
 			local look = flat(root.CFrame.LookVector)
-			b.CFrame = CFrame.new(root.Position.X + look.X * 3, R + 0.1, root.Position.Z + look.Z * 3)
+			b.CFrame = CFrame.new(root.Position.X + look.X * 3, GROUND + R + 0.1, root.Position.Z + look.Z * 3)
 			b.AssemblyLinearVelocity = look * 6
 		else
 			-- Nas maos, a altura do peito.
@@ -1485,7 +1507,7 @@ function Football.step(dt: number)
 		elseif piece then
 			-- Na reposicao a bola nao anda com os pes: fica no ponto ate ser
 			-- batida. Quem se afasta dela larga-a.
-			b.CFrame = CFrame.new(piece.spot.X, R + 0.05, piece.spot.Z)
+			b.CFrame = CFrame.new(piece.spot.X, GROUND + R + 0.05, piece.spot.Z)
 			b.AssemblyLinearVelocity = Vector3.zero
 			b.AssemblyAngularVelocity = Vector3.zero
 			if horizontal(root.Position, piece.spot) > F.claimRange + 1.5 then
@@ -1495,7 +1517,9 @@ function Football.step(dt: number)
 			carrier = tackle(carrier, now)
 			local r = carrier.root :: BasePart
 			local look = flat(r.CFrame.LookVector)
-			local at = r.Position + look * F.dribbleDistance
+			-- (On the pitch: the lines are its own.)
+			local at = L(r.Position + look * F.dribbleDistance)
+			local feet = L(r.Position)
 			local v = r.AssemblyLinearVelocity
 			--[[
 				The ball goes out when whoever has it takes it out, not because
@@ -1504,26 +1528,26 @@ function Football.step(dt: number)
 				the goal it is free: walking it in is a goal.)
 			]]
 			local x, z = at.X, at.Z
-			if math.abs(r.Position.Z) < WIDTH2 then
+			if math.abs(feet.Z) < WIDTH2 then
 				z = math.clamp(z, -WIDTH2, WIDTH2)
 			end
-			if math.abs(r.Position.X) < HALF and math.abs(z) > F.goalHalfWidth then
+			if math.abs(feet.X) < HALF and math.abs(z) > F.goalHalfWidth then
 				x = math.clamp(x, -HALF, HALF)
 			end
-			at = Vector3.new(x, at.Y, z)
-			b.CFrame = CFrame.new(at.X, R + 0.05, at.Z)
+			at = W(Vector3.new(x, 0, z))
+			b.CFrame = CFrame.new(at.X, GROUND + R + 0.05, at.Z)
 			b.AssemblyLinearVelocity = Vector3.new(v.X, 0, v.Z)
 			b.AssemblyAngularVelocity = Vector3.new(v.Z, 0, -v.X) / R
 		end
 	elseif piece then
-		b.CFrame = CFrame.new(piece.spot.X, R + 0.05, piece.spot.Z)
+		b.CFrame = CFrame.new(piece.spot.X, GROUND + R + 0.05, piece.spot.Z)
 		b.AssemblyLinearVelocity = Vector3.zero
 	else
 		-- O travao: um atrito certo no chao mais o ar (proporcional a velocidade).
 		-- A bola corre depressa e so perto do fim e que abranda, como a serio;
 		-- antes era so proporcional, e a bola arrastava-se em camara lenta.
 		local v = b.AssemblyLinearVelocity
-		local onGround = b.Position.Y < R + 0.4
+		local onGround = b.Position.Y < GROUND + R + 0.4
 		local flatV = Vector3.new(v.X, 0, v.Z)
 		local speed = flatV.Magnitude
 		local slow = (if onGround then F.rollFriction + F.rollDrag * speed else F.airDrag * speed) * dt
@@ -1558,7 +1582,7 @@ function Football.step(dt: number)
 		local at = b.Position
 		local v = b.AssemblyLinearVelocity
 		local flatV = Vector3.new(v.X, 0, v.Z)
-		if flatV.Magnitude > 6 and at.Y - R <= F.bodyHeight then
+		if flatV.Magnitude > 6 and at.Y - GROUND - R <= F.bodyHeight then
 			for _, f in Squad.active() do
 				local root = f.root
 				local kicked = lastKick ~= nil and lastKick.f == f and now - lastKick.at < 0.5

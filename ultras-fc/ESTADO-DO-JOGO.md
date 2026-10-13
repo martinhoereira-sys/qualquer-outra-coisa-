@@ -67,9 +67,10 @@ Duas claques de cidades diferentes que são amigas são "gemellate" (nunca se di
 - **SUPPORT não é gemellaggio**: só o convidado dos gemellati recebe as ordens do capo; quem foi apoiar outro clube não.
 - **Autocarros da cidade** (`Transit`): não param dentro de um cruzamento (saem dele devagar primeiro), nunca se sobrepõem (param atrás do da frente, `busGap`), esperam se estiverem presos, e arrancam pela ordem em que chegaram.
 - **Filas da bancada**: 400 paredes invisíveis (`Estadio.BarreirasInvisiveis`, `StadiumBuilder.rowBarriers`) à frente de cada fila, mais altas do que um salto; entre filas só pelas escadas.
-- **Barra de ambiente: NÃO foi tirada.** Dela dependem a XP de adepto no fim do jogo (`Progress`, média do ambiente) e o volume do som da multidão (`Audio.client`). À espera de decisão.
-- **Academias iguais: paradas.** O maior relvado comum que cabe nos quarteirões atuais é 96×51 (limitam: Triana 8_7 e Testaccio 9_7 no fundo, Athinaikos 8_1 e Triana na largura), abaixo dos 100×60 pedidos. Galata depende disto.
-- **Um só futebol nas academias**: há um plano por etapas à espera de aprovação; nada foi mexido.
+- **Barra de ambiente: saiu de vez**, com o cálculo (`server/Atmosphere` apagado). XP de adepto: `curvaXP` por ter estado na curva e `orderXP` por cada ordem do capo seguida (até `orderCap`), em `Config.Progress.adepto`. Som da multidão (`Audio.client`): pelo número de pessoas e bonecos nas curvas, sobe nos golos e nas ordens do capo.
+- **Academias iguais**: nove recintos refeitos com o mesmo tamanho, relvado 96×51 (`Config.Grounds`, recinto 104×101). Falta o Galata (ainda em 4_4, com o tamanho antigo): não cabe em 1_7 nem em 2_8 (a leste da Luz) sem tirar coisas que não são "Predio"; à espera de sítio.
+- **Um só futebol nas academias**: plano de cinco etapas aprovado. **Etapa 1 feita** (por testar): `shared/Pitch` diz onde é o campo; `Football`, `Bots` e `Squad` fazem as contas de linhas, balizas e áreas nas coordenadas do campo. O estádio é o único campo. As etapas 2 a 5 só depois de um jogo oficial inteiro testado. Nos amigáveis os bots completam as equipas.
+- **Bancada**: duas escadas em cada curva de claque (as barras abrem a um quarto e a três quartos); as paredes invisíveis entre filas são finas e sem atrito.
 - A pasta antiga `modelos` foi apagada. `Config.Futuro.bandeirasGrandes = false`.
 - **Onde fica guardado**: clube, tutorial feito e semana da última mudança de clube no perfil (`UltrasFC_Perfil_v1`, chave `u_<UserId>`); estatísticas da época em `UltrasFC_Stats_v1`, chave `s_<semana>`, e prémios na chave `awards` (escritos de minuto a minuto e ao fechar o servidor); clube para o matchmaking em `PlayerAttributes`, chave UserId.
 

@@ -28,7 +28,8 @@ local Squad = {}
 
 local F = Config.Football
 local S = Config.Stadium
-local HALF = S.pitchLength / 2
+local Pitch = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Pitch"))
+local HALF = Pitch.length / 2
 
 export type Footballer = {
 	teamId: string,
@@ -95,11 +96,12 @@ end
 function Squad.homeSpot(f: Footballer): Vector3
 	local spot = F.formation[f.slot]
 	local sign = Squad.attackSign(f.teamId)
-	return Vector3.new(-sign * HALF * spot.x, 0, spot.z * S.pitchWidth)
+	-- (Worked out on the pitch, given as a place of the world: shared/Pitch.)
+	return Pitch.toWorld(Vector3.new(-sign * HALF * spot.x, 0, spot.z * Pitch.width))
 end
 
 local function groundCFrame(at: Vector3, facing: Vector3, height: number): CFrame
-	local here = Vector3.new(at.X, height, at.Z)
+	local here = Vector3.new(at.X, Pitch.centre.Y + height, at.Z)
 	return CFrame.lookAt(here, here + Vector3.new(facing.X, 0, facing.Z))
 end
 
@@ -160,7 +162,7 @@ function Squad.place(f: Footballer, at: Vector3, facingDir: Vector3?)
 	end
 	local humanoid = f.humanoid
 	if humanoid and not f.player then
-		humanoid:MoveTo(Vector3.new(at.X, 0, at.Z))
+		humanoid:MoveTo(Vector3.new(at.X, Pitch.centre.Y, at.Z))
 	end
 end
 
@@ -227,13 +229,13 @@ end
 	o avancado do outro lado fica fora do circulo.
 ]]
 function Squad.placeForKickoff(kickingTeam: string)
-	local radius = S.pitchLength * 9.15 / 105
+	local radius = Pitch.length * 9.15 / 105
 	for teamId, list in slots do
 		local sign = Squad.attackSign(teamId)
 		for _, f in list do
 			local at = Squad.homeSpot(f)
 			if f.slot == 1 then
-				at = if teamId == kickingTeam then Vector3.new(-sign * 2.6, 0, 0) else Vector3.new(-sign * (radius + 2), 0, 0)
+				at = Pitch.toWorld(if teamId == kickingTeam then Vector3.new(-sign * 2.6, 0, 0) else Vector3.new(-sign * (radius + 2), 0, 0))
 			end
 			Squad.place(f, at)
 		end
