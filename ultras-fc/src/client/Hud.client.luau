@@ -783,6 +783,39 @@ do
 				end).Name = "Juntar_" .. role.id
 			end
 		end
+		--[[
+			ON LOAN: my club is not in this match. I can play it for one of the two
+			that are (never an enemy), in a place a figure would have had. One line,
+			a club on each half. The server says yes or no.
+		]]
+		do
+			local own = plays or ultra
+			if own and not playing(own) then
+				local clubs = {}
+				for _, clubId in { match.home, match.away } do
+					if not Config.isEnemy(own, clubId) then
+						table.insert(clubs, clubId)
+					end
+				end
+				local half = (width - HALF) / 2
+				for n, clubId in clubs do
+					local club = (Config.Clubs :: any)[clubId]
+					local b = row(string.format(TXT.onLoanFor, club.nameUpper), U.icons.player, TXT.onLoanNote, false, function()
+						pick("clube:" .. clubId .. ":emprestado")
+					end)
+					b.Name = "Papel_emprestado" .. n
+					UI.outline(b, club.color)
+					if #clubs == 2 then
+						b.Size = UDim2.fromOffset(half, U.button)
+						if n == 1 then
+							y -= U.button + HALF -- the other club goes on the same line
+						else
+							b.Position = UDim2.fromOffset(x + half + HALF, b.Position.Y.Offset)
+						end
+					end
+				end
+			end
+		end
 		-- A second club to play for, once there is a first.
 		if plays and not playsToo then
 			row(TXT.addSecond, U.icons.player, " ", true, function()

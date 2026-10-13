@@ -163,6 +163,8 @@ export type Foul = {
 }
 
 local onFoul: ((Foul) -> ())? = nil
+-- How many fouls each one has made in this match (the cards come from the count).
+local foulCount: { [any]: number } = {}
 
 function Football.onFoul(fn: (Foul) -> ())
 	onFoul = fn
@@ -503,6 +505,9 @@ end
 ]]
 function Football.setPhase(phase: string)
 	state.live = phase == "first" or phase == "second"
+	if phase == "clubhouse" then
+		table.clear(foulCount) -- a new match: nobody has fouled yet
+	end
 	local wasPlaying = state.botsPlay
 	state.botsPlay = state.live or phase == "clubhouse" or phase == "corteo"
 	if not state.botsPlay and wasPlaying then
@@ -977,36 +982,25 @@ local function boxCheck(teamId: string, at: Vector3): (boolean, boolean)
 end
 
 --[[
-	Foi falta? Decide-se no momento do roubo. Por tras e muito mais provavel do
-	que de frente: e o que um arbitro ve de longe. Sendo, o jogo para ja — tudo
-	quieto, bola no sitio — e quem decide o resto e o arbitro.
+	A FOUL. Nothing here is left to chance: a foul comes only from the rules
+	of taking the ball (see `tackle` and Football.slide):
+	  - running into the back of whoever has the ball;
+	  - a slide (TACKLE) that reaches the man before the ball.
+	Inside the box it is a penalty, outside a free kick (the whistle: Whistle).
+	THE CARDS come only from these fouls, by count: each player's
+	Config.Rules.foulsForYellow-th foul of the match is a yellow card.
 ]]
-local function checkFoul(fouled: Footballer, fouler: Footballer, at: Vector3, look: Vector3, from: Vector3)
-	local toTackler = Vector3.new(from.X - at.X, 0, from.Z - at.Z)
-	local facing = Vector3.new(look.X, 0, look.Z)
-	local behind = toTackler.Magnitude > 0.1 and facing.Magnitude > 0.1
-		and toTackler.Unit:Dot(facing.Unit) < RULES.behindDot
-	state.steals += 1
-	local chance = if behind then RULES.foulBehind else RULES.foulFront
-	-- Depois de uma falta ha um intervalo sem nenhuma: o jogo tem de correr.
-	if os.clock() - state.lastFoulAt < RULES.foulGap or math.random() >= chance then
+foulCount = setmetatable({}, { __mode = "k" }) :: any
+
+local function callFoul(fouled: Footballer, fouler: Footballer, at: Vector3, behind: boolean)
+	if not state.live then
 		return
 	end
 	state.lastFoulAt = os.clock()
 	state.fouls += 1
-
-	local card = "nada"
-	local roll = math.random()
-	if behind then
-		if roll < RULES.redBehind then
-			card = "vermelho"
-		elseif roll < RULES.redBehind + RULES.yellowBehind then
-			card = "amarelo"
-		end
-	elseif roll < RULES.yellowFront then
-		card = "amarelo"
-	end
-
+	local count = (foulCount[fouler] or 0) + 1
+	foulCount[fouler] = count
+	local card = if count % math.max(1, RULES.foulsForYellow) == 0 then "amarelo" else "nada"
 	local inBox, nearLine = boxCheck(fouled.teamId, at)
 	local foul: Foul = {
 		fouled = fouled,
@@ -1021,6 +1015,13 @@ local function checkFoul(fouled: Footballer, fouler: Footballer, at: Vector3, lo
 	if onFoul then
 		onFoul(foul)
 	end
+end
+
+-- Is `from` behind whoever stands at `at` looking along `look`?
+local function isBehind(at: Vector3, look: Vector3, from: Vector3): boolean
+	local toOther = Vector3.new(from.X - at.X, 0, from.Z - at.Z)
+	local facing = Vector3.new(look.X, 0, look.Z)
+	return toOther.Magnitude > 0.1 and facing.Magnitude > 0.1 and toOther.Unit:Dot(facing.Unit) < RULES.behindDot
 end
 
 --[[
@@ -1101,8 +1102,11 @@ local function autoPenalty(piece: SetPiece)
 end
 
 --[[
-	Roubar: encostar a quem tem a bola chega. Quem a perdeu cai; quem a ganhou
-	fica um segundo imune, senao a bola andava de pe em pe sem ninguem a jogar.
+	TAKING THE BALL, with no button: whoever gets to it from the FRONT or from
+	the SIDE of the one who has it, and touches it, has it. Whoever wins it is
+	safe for a second (Config.Football.tackleImmunity).
+	FROM BEHIND there is no taking it: running into his back is a FOUL (a
+	person; a figure never goes through a back: it has to get round).
 ]]
 local function tackle(carrier: Footballer, now: number): Footballer
 	-- Com a bola nas maos do guarda-redes ninguem lha tira.
@@ -1113,7 +1117,16 @@ local function tackle(carrier: Footballer, now: number): Footballer
 	for _, f in Squad.active() do
 		if f.teamId ~= carrier.teamId and canPlay(f, now) then
 			local other = (f.root :: BasePart).Position
-			if horizontal(other, root.Position) <= F.tackleRange then
+			local distance = horizontal(other, root.Position)
+			if distance <= F.tackleRange then
+				if isBehind(root.Position, root.CFrame.LookVector, other) then
+					if f.player and distance <= RULES.bumpRange then
+						-- Into his back: a foul, and he does not get the ball for it.
+						state.noClaim[f] = now + RULES.bumpLockout
+						callFoul(carrier, f, root.Position, true)
+					end
+					continue
+				end
 				Squad.fall(carrier, now)
 				state.noClaim[carrier] = now + F.fallTime
 				f.immuneUntil = now + F.tackleImmunity
@@ -1121,15 +1134,95 @@ local function tackle(carrier: Footballer, now: number): Footballer
 				state.lastTouch = f.teamId
 				state.lastToucher = f
 				lastKick = nil
+				state.steals += 1
 				if state.live then
 					emit("steal", f)
-					checkFoul(carrier, f, root.Position, root.CFrame.LookVector, other)
 				end
 				return f
 			end
 		end
 	end
 	return carrier
+end
+
+--[[
+	TACKLE: a slide. It reaches further than the feet (Config.Rules.slideRange),
+	straight along `direction`. What it reaches FIRST decides, and nothing else:
+	  the ball   -> the ball is his;
+	  the man    -> a foul.
+	Getting nothing leaves him on the ground a moment. The body of a person is
+	moved on that person's own screen (Football.client); here only what the
+	slide reaches is worked out, at once.
+]]
+local slideReadyAt: { [Footballer]: number } = setmetatable({}, { __mode = "k" }) :: any
+
+function Football.slide(f: Footballer, direction: Vector3?): boolean
+	local root = f.root
+	local b = ball
+	local now = os.clock()
+	if not root or not b or f.keeper or Squad.isDown(f, now) or now < (slideReadyAt[f] or 0) then
+		return false
+	end
+	if state.halted or state.piece or state.carrier == f or Squad.isFrozen() or not state.botsPlay then
+		return false
+	end
+	slideReadyAt[f] = now + RULES.slideCooldown
+	local dir = flat(direction or root.CFrame.LookVector)
+	local from = root.Position
+
+	-- How far along the slide something of radius `radius` at `p` is first touched (nil: not at all).
+	local function reached(p: Vector3, radius: number): number?
+		local rel = Vector3.new(p.X - from.X, 0, p.Z - from.Z)
+		local along = rel:Dot(dir)
+		local side = (rel - dir * along).Magnitude
+		if side > radius or along < -radius or along > RULES.slideRange + radius then
+			return nil
+		end
+		return math.max(along - math.sqrt(radius * radius - side * side), 0)
+	end
+
+	local toBall = if b.Position.Y - R <= F.claimHeight then reached(b.Position, R + RULES.slideWidth) else nil
+	local carrier = state.carrier
+	local won = false
+	if carrier and carrier.teamId ~= f.teamId and carrier.root and state.heldBy ~= carrier then
+		local man = carrier.root :: BasePart
+		local toMan = reached(man.Position, F.bodyRadius)
+		if toMan and (not toBall or toMan < toBall) then
+			-- The man first: a foul. He goes down and the ball is loose until the whistle.
+			local behind = isBehind(man.Position, man.CFrame.LookVector, from)
+			Squad.fall(carrier, now)
+			state.carrier = nil
+			state.noClaim[carrier] = now + F.fallTime
+			state.noClaim[f] = now + RULES.slideDown
+			callFoul(carrier, f, man.Position, behind)
+		elseif toBall and now >= carrier.immuneUntil then
+			-- The ball first: it is his.
+			state.noClaim[carrier] = now + F.fallTime
+			f.immuneUntil = now + F.tackleImmunity
+			state.carrier = f
+			state.lastTouch = f.teamId
+			state.lastToucher = f
+			lastKick = nil
+			state.steals += 1
+			won = true
+			if state.live then
+				emit("steal", f)
+			end
+		end
+	elseif not carrier and toBall and now >= state.flightUntil and canPlay(f, now) then
+		-- A ball nobody has: he gets to it.
+		f.immuneUntil = math.max(f.immuneUntil, now + F.claimImmunity)
+		state.carrier = f
+		state.lastTouch = f.teamId
+		state.lastToucher = f
+		state.curve = 0
+		won = true
+	end
+	if not won then
+		-- Nothing: on the ground, out of the game for a moment.
+		state.noClaim[f] = math.max(state.noClaim[f] or 0, now + RULES.slideDown)
+	end
+	return true
 end
 
 --------------------------------------------------------------------------------

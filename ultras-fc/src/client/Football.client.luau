@@ -493,9 +493,10 @@ end
 	virado e de onde (o servidor ve tudo isto um pouco atrasado). Se a bola
 	estava nos pes, sai ja neste ecra.
 ]]
-local function sendKick(power: number, curve: number, height: number)
+local function sendKick(power: number, curve: number, height: number, towards: Vector3?)
 	local root = myRoot()
-	local dir = if root then flatLook(root) else nil
+	-- (`towards`: on a touch screen the ball goes where the finger dragged, not where one faces.)
+	local dir = towards or (if root then flatLook(root) else nil)
 	Remotes.Football:FireServer("kick", {
 		power = power,
 		curve = curve,
@@ -580,25 +581,172 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 
 
-if touchOnly then
-	local kickButton = roundButton(TXT.shoot, 120, UDim2.new(1, -190, 1, -40))
-	local sprintButton = roundButton(TXT.sprint, 84, UDim2.new(1, -330, 1, -50))
+--[[
+	TACKLE: the slide (Q, the pad's X, or the button on a touch screen). The
+	body goes along the grass feet first, on this screen (it is this person's
+	body); what the slide reaches, the ball or the man, the server works out.
+]]
+local RULES = Config.Rules
+local sliding = false
+local lastSlide = 0
 
-	kickButton.MouseButton1Down:Connect(function()
-		if playing() then
-			chargingSince = os.clock()
-			withSpin = false
-			moved = Vector2.zero
+local function slide()
+	if sliding or diving or not playing() or isKeeper() or os.clock() - lastSlide < RULES.slideCooldown then
+		return
+	end
+	local character = player.Character
+	local root = myRoot()
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local b = matchBall()
+	if not character or not root or not humanoid or humanoid.Health <= 0 or (b and carrying(b)) then
+		return
+	end
+	lastSlide = os.clock()
+	sliding = true
+	local moving = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
+	local dir = if moving.Magnitude > 0.1 then moving.Unit else flatLook(root)
+	Remotes.Football:FireServer("slide", dir)
+
+	-- Not through posts, boards or people's walls: it stops where it would hit.
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore: { Instance } = { character }
+	if b then
+		table.insert(ignore, b)
+	end
+	params.FilterDescendantsInstances = ignore
+	local start = root.Position
+	local distance = RULES.slideRange - 1.5
+	local hit = workspace:Raycast(start, dir * (distance + 1.5), params)
+	if hit then
+		distance = math.max(0, (hit.Position - start).Magnitude - 1.5)
+	end
+	local standY = start.Y
+	local lowY = start.Y - humanoid.HipHeight - root.Size.Y / 2 + 1.3
+
+	humanoid.PlatformStand = true
+	humanoid.AutoRotate = false
+	local began = os.clock()
+	local connection: RBXScriptConnection
+	connection = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - began
+		if not root.Parent or humanoid.Health <= 0 then
+			connection:Disconnect()
+			sliding = false
+			return
+		end
+		if t >= RULES.slideTime + 0.25 then
+			-- Up again, where it ended.
+			connection:Disconnect()
+			local at = Vector3.new(start.X, standY, start.Z) + dir * distance
+			root.CFrame = CFrame.lookAt(at, at + dir)
+			root.AssemblyLinearVelocity = Vector3.zero
+			humanoid.PlatformStand = false
+			humanoid.AutoRotate = true
+			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+			sliding = false
+			return
+		end
+		local k = math.min(t / RULES.slideTime, 1)
+		local lie = math.min(1, k * 3)
+		local pos = Vector3.new(start.X, 0, start.Z) + dir * (distance * ease(k)) + Vector3.new(0, standY + (lowY - standY) * lie, 0)
+		root.CFrame = CFrame.lookAt(pos, pos + dir) * CFrame.Angles(math.rad(62) * lie, 0, 0)
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
+	end)
+end
+
+-- On a touch screen: how hard the drag of SHOOT is, while the finger is down (for the bar).
+local dragPower: number? = nil
+
+if touchOnly then
+	--[[
+		A PHONE OR A TABLET: only ever TWO buttons, by the right thumb (the stick
+		is on the left). They change with having the ball or not:
+		    with the ball      SHOOT    SPRINT
+		    without the ball   TACKLE   SPRINT     (in goal: DIVE)
+		SHOOT passes and shoots: a quick touch is a short pass ahead; holding and
+		dragging sends the ball the way one drags, harder the further one drags
+		(a little is a pass, a lot is a shot). While dragging, a thin line on the
+		grass shows where it will go.
+	]]
+	local mainButton = roundButton(TXT.tackle, 120, UDim2.new(1, -190, 1, -40))
+	local sprintButton = roundButton(TXT.sprint, 84, UDim2.new(1, -330, 1, -50))
+	diveButton.Parent = nil -- in goal, the first button is DIVE
+	hint.Visible = false
+
+	local line = Instance.new("Part")
+	line.Name = "LinhaDoRemate"
+	line.Anchored = true
+	line.CanCollide = false
+	line.CanQuery = false
+	line.CanTouch = false
+	line.CastShadow = false
+	line.Material = Enum.Material.Neon
+	line.Color = BRASS
+	line.Transparency = 1
+	line.Size = Vector3.new(0.3, 0.08, 1)
+	line.Parent = workspace
+
+	-- With the ball: at the feet, in the hands (a goalkeeper), or to be put back in play.
+	local function hasBall(): boolean
+		local b = matchBall()
+		local character = player.Character
+		return b ~= nil and character ~= nil and b:GetAttribute("Carrier") == character.Name
+	end
+
+	local finger: InputObject? = nil
+	local fingerFrom = Vector2.zero
+
+	-- The way the finger dragged, on the pitch: up the screen is away from the camera.
+	local function dragDirection(d: Vector2): Vector3?
+		local camera = workspace.CurrentCamera
+		if not camera then
+			return nil
+		end
+		local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
+		local right = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z)
+		local v = right * d.X - look * d.Y
+		return if v.Magnitude > 1e-3 then v.Unit else nil
+	end
+
+	local function dragOf(input: InputObject): Vector2
+		return Vector2.new(input.Position.X, input.Position.Y) - fingerFrom
+	end
+
+	mainButton.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.Touch or finger or not playing() then
+			return
+		end
+		if hasBall() then
+			finger = input
+			fingerFrom = Vector2.new(input.Position.X, input.Position.Y)
+		elseif isKeeper() then
+			dive()
+		else
+			slide()
 		end
 	end)
-	local function release()
-		if chargingSince and not withSpin then
-			sendKick(charge(), 0, 0)
-			chargingSince = nil
+
+	UserInputService.TouchEnded:Connect(function(input)
+		if input ~= finger then
+			return
 		end
-	end
-	kickButton.MouseButton1Up:Connect(release)
-	kickButton.MouseLeave:Connect(release)
+		finger = nil
+		dragPower = nil
+		line.Transparency = 1
+		if not playing() then
+			return
+		end
+		local d = dragOf(input)
+		local towards = if d.Magnitude >= 14 then dragDirection(d) else nil
+		if towards then
+			sendKick(math.clamp(d.Magnitude / F.dragPixels, 0.1, 1), 0, 0, towards)
+		else
+			-- A quick touch: a short pass ahead.
+			sendKick(F.tapPower, 0, 0)
+		end
+	end)
 
 	sprintButton.Activated:Connect(function()
 		sprinting = not sprinting
@@ -606,15 +754,47 @@ if touchOnly then
 		sprintButton.BackgroundColor3 = if sprinting then BRASS:Lerp(Color3.new(0, 0, 0), 0.3) else Color3.fromRGB(30, 34, 42)
 	end)
 
-	-- O de se atirar, redondo e por cima do CHUTAR.
-	diveButton.Size = UDim2.fromOffset(96, 96)
-	diveButton.Position = UDim2.new(1, -200, 1, -180)
-	diveButton.Text = TXT.dive
-	local diveRound = diveButton:FindFirstChildOfClass("UICorner")
-	if diveRound then
-		diveRound.CornerRadius = UDim.new(1, 0)
+	-- Only the two: the jump button of the phone is out of the way while one plays.
+	local function hideJump()
+		pcall(function()
+			local touchGui = player.PlayerGui:FindFirstChild("TouchGui")
+			local frame = touchGui and touchGui:FindFirstChild("TouchControlFrame")
+			local jump = frame and frame:FindFirstChild("JumpButton")
+			if jump and jump:IsA("GuiObject") then
+				jump.Visible = not playing()
+			end
+		end)
 	end
-	hint.Visible = false
+	player:GetAttributeChangedSignal("Team"):Connect(hideJump)
+	task.delay(3, hideJump)
+
+	RunService.RenderStepped:Connect(function()
+		if not gui.Enabled then
+			line.Transparency = 1
+			return
+		end
+		mainButton.Text = if hasBall() then TXT.shoot elseif isKeeper() then TXT.dive else TXT.tackle
+		local input = finger
+		local root = myRoot()
+		if not input or not root then
+			return
+		end
+		local d = dragOf(input)
+		local towards = if d.Magnitude >= 14 then dragDirection(d) else nil
+		if not towards then
+			dragPower = nil
+			line.Transparency = 1
+			return
+		end
+		local power = math.clamp(d.Magnitude / F.dragPixels, 0.1, 1)
+		dragPower = power
+		local from = Vector3.new(root.Position.X, 0.25, root.Position.Z) + towards * F.dribbleDistance
+		local length = 8 + 46 * power
+		local middle = from + towards * (length / 2)
+		line.Size = Vector3.new(0.3, 0.08, length)
+		line.CFrame = CFrame.lookAt(middle, middle + towards)
+		line.Transparency = 0.25
+	end)
 end
 
 local padKick: Enum.KeyCode? = nil
@@ -630,7 +810,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		padKick = if pad == Enum.KeyCode.ButtonR2 or pad == Enum.KeyCode.ButtonL2 then pad else nil
 		moved = Vector2.zero
 	elseif input.KeyCode == Enum.KeyCode.Q or pad == Enum.KeyCode.ButtonX then
+		-- In goal it is the dive; anywhere else, the tackle (a slide).
 		dive()
+		slide()
 	elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift or pad == Enum.KeyCode.ButtonL1 then
 		sprinting = true
 		Remotes.Football:FireServer("sprint", true)
@@ -670,8 +852,8 @@ RunService.RenderStepped:Connect(function()
 		return
 	end
 
-	local power = charge()
-	powerTrack.Visible = chargingSince ~= nil
+	local power = dragPower or charge()
+	powerTrack.Visible = chargingSince ~= nil or dragPower ~= nil
 	powerFill.Size = UDim2.fromScale(math.max(power, 0.02), 1)
 	powerFill.BackgroundColor3 = BRASS:Lerp(SPENT, math.max(power - 0.75, 0) * 4)
 

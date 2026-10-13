@@ -340,6 +340,7 @@ local function toWait(player: Player, clubId: string, role: string)
 	Teams.forget(player)
 	player:SetAttribute("Team", nil)
 	player:SetAttribute("Convidado", nil)
+	player:SetAttribute("Emprestado", nil)
 	player:SetAttribute("UpNext", clubId)
 end
 
@@ -425,6 +426,44 @@ function pickClub(player: Player, clubId: string, role: string)
 		return
 	end
 	player:SetAttribute("Convidado", nil)
+	--[[
+		ON LOAN ("emprestado", or "emprestadog" in goal): a player whose club is
+		NOT in this match plays for one of the two that are, only in a place a
+		figure would have had. The club's own players come first (he gets his
+		place at the entrance, after them); never for an enemy. He wears that
+		club's kit, with ON LOAN over his head; the goals are that team's, the
+		numbers and the XP are his; when the match is over he is back with his club.
+	]]
+	if role == "emprestado" or role == "emprestadog" then
+		local ultras, plays = Money.clubOf(player)
+		local own = plays or ultras
+		local place = clubPlace(clubId)
+		if not own or own == clubId or clubPlace(own) or not place or Config.isEnemy(own, clubId) then
+			return
+		end
+		lastRole[player] = "emprestado:" .. clubId
+		wish[player] = { club = clubId, role = role }
+		local f = Squad.byPlayer(player)
+		local already = f ~= nil and f.teamId == place
+		local phase = MatchLoop.phase()
+		local running = phase == "first" or phase == "halftime" or phase == "second" or phase == "fulltime"
+		if not already and (running or not seating) then
+			player:SetAttribute("UpNext", clubId)
+			Remotes.Npc:FireClient(player, {
+				title = (Config.Clubs :: any)[clubId].name,
+				lines = { if running then Config.Text.hud.loanNextMatch else Config.Text.hud.loanAtKickOff },
+			})
+			return
+		end
+		player:SetAttribute("UpNext", nil)
+		player:SetAttribute("Emprestado", clubId)
+		pickTeam(player, (if role == "emprestadog" then "baliza:" else "jogador:") .. place)
+		if not Squad.byPlayer(player) then
+			player:SetAttribute("Emprestado", nil) -- no place left: the figures' places were all taken
+		end
+		return
+	end
+	player:SetAttribute("Emprestado", nil)
 	local kind = if role == "baliza" then "jogador" else role
 	local changed = lastRole[player] ~= kind .. ":" .. clubId
 	lastRole[player] = kind .. ":" .. clubId
@@ -655,6 +694,21 @@ end)
 local function derbyTurn()
 	for _, player in Players:GetPlayers() do
 		local w = wish[player]
+		-- (On loan: the match is over, back with his own club.)
+		if w and (w.role == "emprestado" or w.role == "emprestadog") then
+			local ultras, plays = Money.clubOf(player)
+			local own = plays or ultras
+			player:SetAttribute("Emprestado", nil)
+			if own then
+				w = { club = own, role = if w.role == "emprestadog" then "baliza" else "jogador" }
+				wish[player] = w
+				if Squad.byPlayer(player) then
+					Squad.leave(player)
+					player:SetAttribute("Team", nil)
+				end
+				player:SetAttribute("UpNext", own)
+			end
+		end
 		-- (A guest whose own club plays now goes to their own curva.)
 		if w and w.role == "convidado" then
 			local own = Money.clubOf(player)
@@ -692,10 +746,12 @@ local function seatWaiting(second: boolean)
 	seating = second
 	for _, player in Players:GetPlayers() do
 		local w = wish[player]
-		if w and player:GetAttribute("UpNext") and (w.role == "jogador" or w.role == "baliza") and clubPlace(w.club) then
+		local loan = w ~= nil and (w.role == "emprestado" or w.role == "emprestadog")
+		if w and player:GetAttribute("UpNext") and (w.role == "jogador" or w.role == "baliza" or loan) and clubPlace(w.club) then
 			local mine = Money.clubOf(player)
 			local _, firstClub = Money.clubOf(player)
-			local own = firstClub == w.club
+			-- (On loan: never one of the club's own, so after them.)
+			local own = firstClub == w.club and not loan
 			if own ~= second then
 				switchedAt[player] = nil
 				pickClub(player, w.club, w.role)
@@ -1656,6 +1712,16 @@ Remotes.Football.OnServerEvent:Connect(function(player, action, value)
 		Squad.setSprint(player, value == true)
 	elseif action == "dive" then
 		Football.dive(f)
+	elseif action == "slide" then
+		-- TACKLE: the slide. Which way comes from the screen (only its direction, flat).
+		local dir: Vector3? = nil
+		if typeof(value) == "Vector3" then
+			local flatDir = Vector3.new(value.X, 0, value.Z)
+			if flatDir.Magnitude > 0.5 then
+				dir = flatDir.Unit
+			end
+		end
+		Football.slide(f, dir)
 	elseif action == "kick" and type(value) == "table" then
 		local power, curve, height = value.power, value.curve, value.height
 		if type(power) == "number" and type(curve) == "number" and type(height) == "number" then
@@ -1946,6 +2012,62 @@ Players.PlayerRemoving:Connect(function(player)
 	atStadium[player] = nil
 	lastRole[player] = nil
 end)
+
+--[[
+	ON LOAN: over the head of whoever plays this match for a club that is not
+	theirs (the attribute "Emprestado": Main.pickClub), while they are on the pitch.
+]]
+do
+	local function banner(player: Player)
+		local character = player.Character
+		local head = character and character:FindFirstChild("Head")
+		if not head then
+			return
+		end
+		local old = head:FindFirstChild("Emprestado")
+		if player:GetAttribute("Emprestado") == nil or player:GetAttribute("Team") ~= "jogador" then
+			if old then
+				old:Destroy()
+			end
+			return
+		end
+		if old then
+			return
+		end
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "Emprestado"
+		gui.Size = UDim2.fromScale(Config.Labels.width, Config.Labels.height)
+		gui.StudsOffset = Vector3.new(0, 4.6, 0)
+		gui.MaxDistance = Config.Traitor.labelDistance
+		gui.LightInfluence = 0
+		local words = Instance.new("TextLabel")
+		words.Size = UDim2.fromScale(1, 1)
+		words.BackgroundColor3 = Config.UI.panel
+		words.BorderSizePixel = 0
+		words.Font = Enum.Font.GothamBlack
+		words.TextScaled = true
+		words.TextColor3 = Config.UI.text
+		words.Text = Config.Text.hud.onLoan
+		words.Parent = gui
+		gui.Parent = head
+	end
+	local function watch(player: Player)
+		for _, name in { "Emprestado", "Team" } do
+			player:GetAttributeChangedSignal(name):Connect(function()
+				banner(player)
+			end)
+		end
+		player.CharacterAdded:Connect(function(character)
+			character:WaitForChild("Head", 5)
+			task.wait(0.5)
+			banner(player)
+		end)
+	end
+	for _, player in Players:GetPlayers() do
+		watch(player)
+	end
+	Players.PlayerAdded:Connect(watch)
+end
 
 --[[
 	THE TRAITOR'S BANNER: over the head of whoever left a club for its rival,

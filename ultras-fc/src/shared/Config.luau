@@ -1514,6 +1514,11 @@ Config.Text = {
 		noMatchOn = "There is no match on at the stadium now.",
 		clubNotReady = "Your club is not ready yet. Stay here and try again in a moment.",
 		matchOnSure = "MATCH IS ON: you will not play it, you wait for the next. Click again to switch.",
+		onLoan = "ON LOAN",
+		onLoanFor = "ON LOAN · %s",
+		onLoanNote = "your club is not playing: take a bot's place",
+		loanNextMatch = "The match is on: places on loan are given at kick-off.",
+		loanAtKickOff = "On loan: you get a place at kick-off, after the club's own players, if a bot's place is left.",
 		pitchNextMatch = "The match is on: you go on the pitch at this club's next match.",
 		pitchAtKickOff = "Second club: you get a place at kick-off, if its own players leave one free.",
 		menu = "MENU",
@@ -1787,7 +1792,8 @@ Config.Text = {
 	football = {
 		stamina = "stamina",
 		curveHeight = "curve · height",
-		leftClickShootRightClick = "left click  shoot    ·    right click  shoot with curve    ·    Shift  sprint    ·    Ctrl  lock camera",
+		leftClickShootRightClick = "left click  shoot    ·    right click  shoot with curve    ·    Shift  sprint    ·    Q  tackle    ·    Ctrl  lock camera",
+		tackle = "TACKLE",
 		dive = "DIVE",
 		shoot = "SHOOT",
 		sprint = "SPRINT",
@@ -2029,6 +2035,8 @@ Config.Football = {
 	chargeTime = 0.9, -- segundos ate a forca maxima
 	kickSpeedMin = 36, -- um toque
 	kickSpeedMax = 125, -- tudo
+	dragPixels = 150, -- on a touch screen: dragging SHOOT this far is full power (a little is a pass)
+	tapPower = 0.22, -- a quick touch on SHOOT: a short pass ahead
 	aimPixels = 120, -- quanto se mexe o rato para chegar ao maximo de efeito ou altura
 	liftNeutral = 0.08, -- fracao da velocidade que vai para cima, com o rato parado
 	liftMax = 0.8, -- rato todo para cima: chapeu, que passa por cima de quem esta a frente
@@ -2048,7 +2056,7 @@ Config.Football = {
 
 	-- Roubar
 	tackleRange = 2.8, -- encostar
-	tackleImmunity = 1.5, -- quem ganhou a bola nao a perde logo a seguir
+	tackleImmunity = 1, -- quem ganhou a bola nao a perde logo a seguir
 	claimImmunity = 0.5, -- o mesmo, mais curto, a quem apanha uma bola solta
 	fallTime = 1, -- quem a perdeu fica no chao
 
@@ -2292,16 +2300,24 @@ Config.Rules = {
 		O arbitro automatico marca o que aqui sai; uma pessoa com o apito pode
 		marcar outra coisa.
 	]]
-	foulBehind = 0.2, -- roubos por tras que sao falta
-	foulFront = 0.05, -- roubos de frente que sao falta
-	foulGap = 3, -- segundos depois de uma falta em que nenhuma entrada o e: so o mesmo lance
+	--[[
+		TAKING THE BALL (nothing by chance: see Football.tackle and Football.slide).
+		From the front or the side, touching the ball is having it. From behind,
+		running into the man is a foul. TACKLE is a slide: the ball first, the
+		ball is his; the man first, a foul.
+	]]
+	foulsForYellow = 3, -- each player's 3rd foul of the match is a yellow card (and the 6th, the 9th...)
+	bumpRange = 2.2, -- this close behind whoever has the ball is running into his back
+	bumpLockout = 1.5, -- whoever did it cannot play the ball for this long
+	slideRange = 7, -- how far a slide reaches, in studs
+	slideWidth = 0.9, -- how far to each side of its line it still gets the ball
+	slideTime = 0.45, -- how long the slide lasts (the body, on the screen of who slides)
+	slideDown = 1.1, -- a slide that gets nothing: on the ground this long
+	slideCooldown = 2.5,
 	behindDot = -0.2, -- abaixo disto (olhar de quem leva a bola vs. de onde vem quem rouba) e por tras
 	boxLineMargin = 3, -- a esta distancia da linha da area, fica em duvida: penalti ou livre
 
 	-- Cartoes que o arbitro automatico mostra, por falta
-	yellowBehind = 0.2,
-	redBehind = 0.03,
-	yellowFront = 0.05,
 }
 
 --[[
