@@ -775,6 +775,9 @@ end
 
 --------------------------------------------------------------------------------
 
+local wheelTurn: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
+local wheelAt: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
+
 RunService.Stepped:Connect(function()
 	local now = os.clock()
 	for _, player in Players:GetPlayers() do
@@ -847,6 +850,19 @@ RunService.Stepped:Connect(function()
 		-- De bicicleta: sentado, as pernas a pedalar e as maos no guiador.
 		if riding and Config.Bikes.scooter and character:FindFirstChild("Scooter", true) then
 			-- On the scooter: standing on the board, one foot a little ahead, the hands on the handlebar.
+			-- The wheels turn with the speed (radius 0.55), on this screen.
+			local turned = (wheelTurn[player] or 0) + Vector3.new(v.X, 0, v.Z).Magnitude / 0.55 * math.min(now - (wheelAt[player] or now), 0.1)
+			wheelTurn[player] = turned % (math.pi * 2)
+			wheelAt[player] = now
+			local scooter = character:FindFirstChild("Scooter", true)
+			if scooter then
+				for _, wheel in scooter:GetChildren() do
+					local spin = wheel:FindFirstChild("Giro")
+					if spin and spin:IsA("Weld") then
+						spin.C1 = CFrame.Angles(turned, 0, 0)
+					end
+				end
+			end
 			set(rig.rightHip, CFrame.Angles(math.rad(10), 0, 0))
 			set(rig.leftHip, CFrame.Angles(math.rad(-8), 0, 0))
 			set(rig.rightKnee, CFrame.Angles(math.rad(-6), 0, 0))

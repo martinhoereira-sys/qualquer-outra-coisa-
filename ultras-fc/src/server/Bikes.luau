@@ -100,10 +100,20 @@ function Bikes.build(colour: Color3, base: CFrame, parent: Instance): Model
 					d.Color = paint
 				end
 				d:SetAttribute("Fixo", true) -- its own colours: never repainted with the match (Derby)
-				local weld = Instance.new("WeldConstraint")
-				weld.Part0 = frame
-				weld.Part1 = d
-				weld.Parent = d
+				if string.find(d.Name, "^Roda") or string.find(d.Name, "^Jante") then
+					-- The wheels turn: a weld each screen can spin (Poses.client), about the middle of the wheel.
+					local spin = Instance.new("Weld")
+					spin.Name = "Giro"
+					spin.Part0 = frame
+					spin.Part1 = d
+					spin.C0 = frame.CFrame:ToObjectSpace(d.CFrame)
+					spin.Parent = d
+				else
+					local weld = Instance.new("WeldConstraint")
+					weld.Part0 = frame
+					weld.Part1 = d
+					weld.Parent = d
+				end
 			elseif d:IsA("LuaSourceContainer") then
 				d:Destroy()
 			end
