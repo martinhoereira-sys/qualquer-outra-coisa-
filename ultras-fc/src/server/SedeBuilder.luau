@@ -337,8 +337,20 @@ function SedeBuilder.build(clubId: string): number
 		LEAST = Vector3.new(math.min(wasX, length), PITCH_MAX.Y, wasZ)
 		PITCH = Vector3.new(length, PITCH_MAX.Y, math.max(wasZ, math.clamp(roomZ, 30, math.min(PITCH_MAX.Z, length * SHAPE))))
 	end
+	--[[
+		ALL THE GROUNDS ARE THE SAME (Config.Grounds): the same pitch, the same
+		fence, the same sede, the same way in; only the colours, the emblem and
+		the names change with the club. The pitch is never made smaller to fit:
+		if something of the map is in the way, the ground is not built there
+		(SedeBuilder.check says what it is).
+	]]
+	local same = (Config :: any).Grounds
+	if same then
+		PITCH = Vector3.new(same.pitchLength, PITCH_MAX.Y, same.pitchWidth)
+		LEAST = PITCH
+	end
 	-- (`site.pitchDepth`: never deeper than this, where something of the map stands at the edge of the block.)
-	if site.pitchDepth then
+	if site.pitchDepth and not same then
 		PITCH = Vector3.new(PITCH.X, PITCH.Y, math.min(PITCH.Z, site.pitchDepth))
 	end
 	-- Nothing of the map under it: it gives way (to trees, hand-made houses, shops...) until it fits.
@@ -376,6 +388,19 @@ end
 	over the door the club's name, its emblem and the claque's name.
 	`slab` is its big floor/ceiling slab (it gives the middle and the size).
 ]]
+-- What of the map (not a generic house) stands where the ground of `clubId` would be, with the size of Config.Grounds: nil if nothing.
+function SedeBuilder.check(clubId: string): string?
+	local club = (Config.Clubs :: any)[clubId]
+	local site = club and club.site
+	local same = (Config :: any).Grounds
+	if not site or not same then
+		return "no site"
+	end
+	local base = CFrame.new(site.x, site.y or 0.7, site.z) * CFrame.Angles(0, math.rad(site.turn or 0), 0)
+	local total = 60 * SCALE + GAP + same.pitchWidth + 4
+	return inTheWay(base, Vector3.new(math.max(80 * SCALE, same.pitchLength + 8), 0, total))
+end
+
 function SedeBuilder.dressExisting(clubId: string): string
 	local club = (Config.Clubs :: any)[clubId]
 	local site = club and club.site

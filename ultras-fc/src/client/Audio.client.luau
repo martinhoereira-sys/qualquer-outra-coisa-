@@ -85,15 +85,41 @@ end)
 local crowd = Sounds.loop("multidao")
 local corteo = Sounds.loop("corteo")
 local crowdSpec = Config.Sounds.multidao
-local atmosphere = 0 -- 0 a 1, a bancada mais quente
-
-Remotes.Atmosphere.OnClientEvent:Connect(function(levels)
-	local top = 0
-	for _, value in levels do
-		top = math.max(top, value)
+--[[
+	HOW LOUD THE CROWD IS (0 to 1). By how many people and figures are in the
+	curvas (a figure counts half), and up for a moment when there is a goal or
+	while an order of a capo is on (jump, clap, arms, crouch, flares).
+]]
+local function crowdLevel(): number
+	local spec: any = crowdSpec
+	local people = 0
+	for _, other in Players:GetPlayers() do
+		local team = other:GetAttribute("Team")
+		if type(team) == "string" and Config.Teams[team] then
+			people += 1
+		end
 	end
-	atmosphere = math.clamp(top / Config.Atmosphere.max, 0, 1)
-end)
+	local figures = Config.Bonecos.bancada * #Config.TeamOrder
+	local level = math.clamp((people + figures * 0.5) / math.max(1, (spec and spec.fullAt) or 60), 0, 1)
+	if workspace:GetAttribute("Celebration") ~= nil then
+		level += (spec and spec.goalBoost) or 0.5
+	end
+	local stadium = workspace:FindFirstChild("Stadium")
+	if stadium then
+		local now = workspace:GetServerTimeNow()
+		for _, teamId in Config.TeamOrder do
+			for _, order in { "Saltar_", "Bracos_", "Agachar_", "Acender_" } do
+				local untilAt = stadium:GetAttribute(order .. teamId)
+				if type(untilAt) == "number" and now < untilAt then
+					level += (spec and spec.orderBoost) or 0.25
+					break
+				end
+			end
+		end
+	end
+	return math.clamp(level, 0, 1)
+end
+local atmosphere = 0
 
 -- 1 perto, 0 longe, a descer entre `near` e `far`.
 local function closeness(distance: number, near: number, far: number): number
@@ -134,6 +160,7 @@ RunService.Heartbeat:Connect(function()
 
 	if crowd and crowdSpec then
 		-- O estadio fica na origem; da sede so se ouve ao longe.
+		atmosphere += (crowdLevel() - atmosphere) * 0.25 -- (smoothly)
 		local base = crowdSpec.volume + ((crowdSpec.volumeMax or crowdSpec.volume) - crowdSpec.volume) * atmosphere
 		crowd.Volume = base * closeness(at.Magnitude, 260, 650)
 	end

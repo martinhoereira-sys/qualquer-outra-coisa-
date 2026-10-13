@@ -37,7 +37,7 @@ local Lider = {}
 
 export type Deps = {
 	level: (Player) -> number, -- o nivel de adepto
-	cheer: ((string, number) -> ())?, -- the ambience bar: someone really did the order (the place, the share of the curva)
+	followed: ((Player) -> ())?, -- someone really did an order of the capo: their supporter XP for it (Progress)
 	xp: ((Player, string) -> ())?, -- the capo's XP for leading ("follow", "chant")
 	phase: () -> string,
 }
@@ -279,8 +279,7 @@ end
 --[[
 	DOING AN ORDER (jump, clap, crouch, sway): the capo who called it, at once,
 	and each real person who chose to join in. Nobody is ever moved by force.
-	THE AMBIENCE BAR counts who really did it: each one adds their share of the
-	curva (Config.Lider.orderGain when everybody does it; half of it if half do).
+	Whoever really does it earns a little supporter XP for it (Progress.followedOrder).
 ]]
 local MOVES: { [string]: string } = { saltar = "saltar", palmas = "aplaudir", agachar = "agachado", bracos = "balancar" }
 local function perform(player: Player, order: string, teamId: string)
@@ -296,14 +295,8 @@ local function perform(player: Player, order: string, teamId: string)
 			player:SetAttribute("Emote", nil)
 		end
 	end)
-	if deps and deps.cheer then
-		local people = 0
-		for _, other in Players:GetPlayers() do
-			if Teams.get(other) == teamId then
-				people += 1
-			end
-		end
-		deps.cheer(teamId, 1 / math.max(people, 1))
+	if deps and deps.followed then
+		deps.followed(player)
 	end
 end
 

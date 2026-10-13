@@ -290,7 +290,7 @@ Config.Clubs = {
 		club = "flaminio",
 		gemellati = "kadikoy", -- the friends of another city (Config.Gemellaggio)
 		-- Where the club's ground is in the city (its sede and training pitch: server/SedeBuilder).
-		site = { x = 34, z = -681, block = "5_1", pitchDepth = 74, door = -1 },
+		site = { x = 34, z = -681, block = "5_1", door = -1 },
 		name = "Flaminio",
 		fullName = "Flaminio Calcio",
 		nameUpper = "FLAMINIO",
@@ -816,6 +816,17 @@ Config.Rota = {
 --[[
 	THE FRIENDLIES on the training pitches (server/Friendly).
 ]]
+--[[
+	THE GROUNDS OF THE CLUBS ARE ALL THE SAME SIZE (server/SedeBuilder): this
+	pitch is the biggest that fits in every block where a club has its ground
+	without going over the pavement (measured 2026-10-13). About a futsal pitch:
+	right for teams of four and a goalkeeper.
+]]
+Config.Grounds = {
+	pitchLength = 96,
+	pitchWidth = 51,
+}
+
 Config.Friendly = {
 	-- The goals of the training pitches: a little smaller than the stadium's (21 x 9.6).
 	goalHalfWidth = 9,
@@ -1402,6 +1413,7 @@ Config.Text = {
 	},
 	progress = {
 		loudUltras = "Loud ultras: +",
+		inTheCurva = "In the curva: +",
 		supporter = "Supporter: +",
 		xpWages = " XP, wages ",
 		player = "Player: +",
@@ -1923,7 +1935,9 @@ Config.Text = {
 export type SoundSpec = { id: number, volume: number, volumeMax: number?, looped: boolean?, cut: number? }
 
 Config.Sounds = {
-	multidao = { id = 9119562234, volume = 0.15, volumeMax = 0.4, looped = true },
+	-- The crowd: louder the more people (and figures) there are in the curvas; `fullAt` is how many make it full.
+	-- It rises for a goal (`goalBoost`) and while an order of a capo is on (`orderBoost`).
+	multidao = { id = 9119562234, volume = 0.15, volumeMax = 0.4, looped = true, fullAt = 60, goalBoost = 0.5, orderBoost = 0.25 },
 	golo = { id = 9120975204, volume = 0.9 },
 	lamento = { id = 9120974911, volume = 0.6 },
 	tambor = { id = 9113343286, volume = 0.8, cut = 0.55 }, -- o ficheiro tem varias pancadas: toca-se so a primeira
@@ -2200,7 +2214,6 @@ Config.Lider = {
 	lights = { base = 2, max = 8 },
 	lightCooldown = 30,
 	inviteSeconds = 8, -- quanto tempo o aviso fica no ecra de cada um
-	orderGain = 14, -- the ambience bar: what an order (jump, clap...) adds when the WHOLE curva does it; half the people, half of it
 	jumpSeconds = 12, -- SALTAR: quanto tempo se salta
 	lightSeconds = 22, -- ACENDER: quanto tempo os bonecos ficam de tocha acesa
 	lightBots = 14, -- quantos bonecos da bancada acendem
@@ -2628,10 +2641,9 @@ Config.Progress = {
 		capoCap = 60, -- at most this much a match from leading
 		pyroCap = 3,
 		pyroMoment = 20, -- segundos depois de um golo da equipa
-		loudAt = 0.6, -- ambiente medio da claque no jogo
-		loudXP = 40,
-		louderAt = 0.8,
-		louderXP = 70,
+		curvaXP = 40, -- for being in one's curva during the match (given at the end)
+		orderXP = 4, -- for each order of the capo one really followed
+		orderCap = 40, -- at most this much a match from following orders
 	},
 	jogador = {
 		minuteXP = 10,

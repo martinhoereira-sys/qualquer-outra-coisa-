@@ -1462,58 +1462,9 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
---------------------------------------------------------------------------------
--- As duas bancadas
---------------------------------------------------------------------------------
-
-local bars: { [string]: Frame } = {}
-
-for index, teamId in Config.TeamOrder do
-	local team = Config.Teams[teamId]
-	local onLeft = index == 1
-
-	local track = Instance.new("Frame")
-	track.Size = UDim2.new(0, 22, 0, 220)
-	track.Position = UDim2.new(onLeft and 0 or 1, onLeft and 20 or -42, 0.5, -110)
-	track.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
-	track.BackgroundTransparency = 0.25
-	track.BorderSizePixel = 0
-	track.Parent = gui
-	-- No telemovel as barras dos lados tapavam os botoes; fica a da propria bancada.
-	track.Visible = not touch
-
-	local fill = Instance.new("Frame")
-	fill.AnchorPoint = Vector2.new(0, 1)
-	fill.Position = UDim2.fromScale(0, 1)
-	fill.Size = UDim2.fromScale(1, 0)
-	fill.BackgroundColor3 = team.color
-	fill.BorderSizePixel = 0
-	fill.Parent = track
-
-	local tag = label(track, team.short, 12, MUTED)
-	tag.Font = Enum.Font.Gotham
-	tag.Size = UDim2.new(1, 20, 0, 16)
-	tag.Position = UDim2.new(0, -10, 1, 5)
-
-	bars[teamId] = fill
-end
-
--- A da propria bancada junto ao rodape, onde a vista ja esta: as das bordas
--- ficam longe do sitio para onde se esta a olhar.
-local ownTrack = Instance.new("Frame")
-ownTrack.AnchorPoint = Vector2.new(0.5, 1)
-ownTrack.Size = UDim2.fromOffset(240, 6)
-ownTrack.Position = UDim2.new(0.5, 0, 1, -94)
-ownTrack.BackgroundColor3 = Color3.fromRGB(43, 51, 61)
-ownTrack.BackgroundTransparency = 0.3
-ownTrack.BorderSizePixel = 0
-ownTrack.Parent = gui
-
-local ownFill = Instance.new("Frame")
-ownFill.Size = UDim2.fromScale(0, 1)
-ownFill.BackgroundColor3 = BRASS
-ownFill.BorderSizePixel = 0
-ownFill.Parent = ownTrack
+-- (The ambience bars were here: one for each stand at the sides of the screen and
+-- one for one's own by the foot of it. They are out of the game, and so is the
+-- sum they showed.)
 
 --------------------------------------------------------------------------------
 -- Material
@@ -1530,16 +1481,15 @@ hint.Size = UDim2.new(1, 0, 0, 16)
 hint.Position = UDim2.new(0, 0, 1, -118)
 
 --[[
-	Cada um ve so o que e seu. O material, as teclas da bancada e a barra da
-	propria bancada sao de quem e de claque; em campo as teclas sao outras, e
-	quem as mostra e o Football.client; quem apita tem o seu aviso e o botao.
+	Cada um ve so o que e seu. O material e as teclas da bancada sao de quem e
+	de claque; em campo as teclas sao outras, e quem as mostra e o
+	Football.client; quem apita tem o seu aviso e o botao.
 ]]
 local function refreshHint()
 	local role = myRole()
 	local claque = role ~= nil and Config.Teams[role] ~= nil
 	hint.Visible = claque and not touch
 	gearLabel.Visible = claque
-	ownTrack.Visible = claque
 end
 player:GetAttributeChangedSignal("Team"):Connect(refreshHint)
 refreshHint()
@@ -2398,18 +2348,6 @@ ContextActionService:SetTitle("Pedir", TXT.appeal)
 --------------------------------------------------------------------------------
 -- Ligacao ao servidor
 --------------------------------------------------------------------------------
-
-Remotes.Atmosphere.OnClientEvent:Connect(function(levels)
-	for teamId, fill in bars do
-		local fraction = (levels[teamId] or 0) / Config.Atmosphere.max
-		fill.Size = UDim2.fromScale(1, math.clamp(fraction, 0, 1))
-	end
-
-	if myTeam then
-		local mine = (levels[myTeam] or 0) / Config.Atmosphere.max
-		ownFill.Size = UDim2.fromScale(math.clamp(mine, 0, 1), 1)
-	end
-end)
 
 local PHASE_TEXT = {
 	clubhouse = { TXT.atTheClubhouse, TXT.gearTheCapoAndYour },

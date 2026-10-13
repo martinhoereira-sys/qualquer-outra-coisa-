@@ -189,7 +189,6 @@ type Links = {
 	bannerPosition: (string) -> Vector3?,
 	footballerOf: (Player) -> { teamId: string, keeper: boolean }?,
 	referee: () -> Player?,
-	atmosphere: (string) -> number,
 	winner: () -> string?,
 	corteoCredit: (Player) -> number,
 }
@@ -281,17 +280,25 @@ local function minuteTick()
 	end
 end
 
--- O ambiente das claques ao longo do jogo (para o bonus de claque alta).
-local function atmosphereTick()
-	local L = links
-	if not L then
-		return
-	end
-	atmosphereSamples += 1
-	for _, teamId in Config.TeamOrder do
-		atmosphereSum[teamId] = (atmosphereSum[teamId] or 0) + L.atmosphere(teamId)
+--[[
+	SUPPORTER XP WITHOUT THE AMBIENCE BAR (it is out of the game):
+	  - a part for being in one's curva during the match (Config.Progress.adepto.curvaXP,
+	    given at the end to whoever was there);
+	  - a little more for each order of the capo one really followed
+	    (orderXP each, up to orderCap a match).
+]]
+local ordersXP: { [Player]: number } = {}
+function Progress.followedOrder(player: Player)
+	local A = P.adepto
+	local had = ordersXP[player] or 0
+	local give = math.min(A.orderXP, A.orderCap - had)
+	if give > 0 then
+		ordersXP[player] = had + give
+		gain(player, "adepto", give)
 	end
 end
+
+local function atmosphereTick() end
 
 -- Um golo: XP a quem marcou e a quem assistiu; abre o momento da pirotecnia.
 function Progress.goal(teamId: string, scorer: Player?, assist: Player?)
@@ -395,14 +402,9 @@ local function endOfMatch()
 
 		-- Adepto: claque alta, e o salario a quem participou.
 		if s.claque then
-			local avg = if atmosphereSamples > 0 then (atmosphereSum[s.claque] or 0) / atmosphereSamples else 0
-			if s.adepto >= S.adepto.minXP then
-				local bonus = if avg >= A.louderAt then A.louderXP elseif avg >= A.loudAt then A.loudXP else 0
-				if bonus > 0 then
-					gain(player, "adepto", bonus)
-					table.insert(lines, TXT.loudUltras .. bonus .. " XP")
-				end
-			end
+			-- For having been in the curva during the match.
+			gain(player, "adepto", A.curvaXP)
+			table.insert(lines, TXT.inTheCurva .. A.curvaXP .. " XP")
 		end
 		if s.adepto >= S.adepto.minXP then
 			local level = Progress.level(player, "adepto")
@@ -459,6 +461,7 @@ function Progress.phaseChanged(newPhase: string)
 	if newPhase == "clubhouse" then
 		table.clear(match)
 		table.clear(atmosphereSum)
+		table.clear(ordersXP)
 		table.clear(lastGoal)
 		atmosphereSamples = 0
 	elseif newPhase == "first" and L then

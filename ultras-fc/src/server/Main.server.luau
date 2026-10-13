@@ -39,7 +39,6 @@ local Crowd = require(script.Parent:WaitForChild("Crowd"))
 local Referee = require(script.Parent:WaitForChild("Referee"))
 local Clubhouse = require(script.Parent:WaitForChild("Clubhouse"))
 local March = require(script.Parent:WaitForChild("March"))
-local Atmosphere = require(script.Parent:WaitForChild("Atmosphere"))
 local MatchLoop = require(script.Parent:WaitForChild("MatchLoop"))
 local Tifo = require(script.Parent:WaitForChild("Tifo"))
 local Budget = require(script.Parent:WaitForChild("Budget"))
@@ -827,7 +826,6 @@ Gear.onDrumHit(function(player)
 	lastHit[player] = now
 
 	intensity[teamId] = math.min((intensity[teamId] or 0) + Config.Drum.intensityPerHit, 1)
-	Atmosphere.registerDrum(teamId)
 
 	local root = rootOf(player)
 	sound("tambor", root and root.Position)
@@ -846,9 +844,7 @@ end)
 
 local playing = false
 
--- A barra desce continuamente; e isso que obriga a manter o cantico.
 RunService.Heartbeat:Connect(function(dt)
-	Atmosphere.step(dt)
 	Squad.step(dt, os.clock())
 	Entrance.step()
 	Football.step(dt)
@@ -862,13 +858,6 @@ RunService.Heartbeat:Connect(function(dt)
 	Crowd.step(dt, intensity)
 end)
 
--- Dez vezes por segundo chega para a barra parecer viva sem encher a rede.
-task.spawn(function()
-	while true do
-		task.wait(0.1)
-		Remotes.Atmosphere:FireAllClients(Atmosphere.all())
-	end
-end)
 
 -- O que resta a cada um na mochila, para o rodape do ecra.
 local function sendGearCount(player: Player)
@@ -1148,17 +1137,6 @@ MatchLoop.onChange(function(snapshot)
 	end
 
 	if entered and snapshot.phase == "first" then
-		-- Soma o que cada claque trouxe da rua e poe a bancada a arrancar dai.
-		local bonus: { [string]: number } = {}
-		for _, player in Players:GetPlayers() do
-			local teamId = Teams.get(player)
-			if teamId then
-				bonus[teamId] = (bonus[teamId] or 0)
-					+ March.creditFor(player) * Config.March.atmosphereBonus
-			end
-		end
-		Atmosphere.kickOff(bonus)
-
 		-- O que a claque ganha pelo jogo e pelo corteo paga-se agora no fim do
 		-- jogo, como salario (Progress), conforme o nivel.
 		March.stop()
@@ -2414,7 +2392,7 @@ Lider.start({
 	end,
 	phase = MatchLoop.phase,
 	xp = Progress.capo,
-	cheer = Atmosphere.cheer,
+	followed = Progress.followedOrder,
 })
 -- A roupa muda com o papel: ultra, jogador ou arbitro.
 Kit.start()
@@ -2457,7 +2435,6 @@ Progress.link({
 		return if f then { teamId = f.teamId, keeper = f.keeper } else nil
 	end,
 	referee = Referee.current,
-	atmosphere = Atmosphere.fraction,
 	winner = MatchLoop.winner,
 	corteoCredit = March.creditFor,
 })
