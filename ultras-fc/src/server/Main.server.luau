@@ -1420,18 +1420,22 @@ end
 
 Transit.start()
 -- A corteo in the street: the buses stop and wait for it to go by (never into it).
-Transit.setYield(function(at: Vector3): boolean
+Transit.setYield(function(at: Vector3): number?
 	if not March.isActive() then
-		return false
+		return nil
 	end
+	local nearest: number? = nil
 	for _, teamId in Config.TeamOrder do
 		local stage = March.stage(teamId)
 		local banner = March.bannerPosition(teamId)
-		if banner and (stage == "formatura" or stage == "marcha" or stage == "corrida") and (banner - at).Magnitude < Config.March.busYield then
-			return true
+		if banner and (stage == "formatura" or stage == "marcha" or stage == "corrida") then
+			local distance = (banner - at).Magnitude
+			if distance < Config.March.busYield and (nearest == nil or distance < nearest) then
+				nearest = distance
+			end
 		end
 	end
-	return false
+	return nearest
 end)
 -- Antes do jogo, quem joga aparece na academia.
 Squad.setStartOverride(function(f)

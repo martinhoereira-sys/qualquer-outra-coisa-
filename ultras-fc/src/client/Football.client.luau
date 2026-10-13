@@ -616,41 +616,31 @@ local function slide()
 	end
 	params.FilterDescendantsInstances = ignore
 	local start = root.Position
-	local distance = RULES.slideRange - 1.5
+	local distance = RULES.slideDistance
 	local hit = workspace:Raycast(start, dir * (distance + 1.5), params)
 	if hit then
 		distance = math.max(0, (hit.Position - start).Magnitude - 1.5)
 	end
+	-- The body slides over the grass (the pose is in Poses.client, by the attribute
+	-- "Sliding"): here it is only carried along, standing height, never lower.
 	local standY = start.Y
-	local lowY = start.Y - humanoid.HipHeight - root.Size.Y / 2 + 1.3
-
-	humanoid.PlatformStand = true
 	humanoid.AutoRotate = false
+	player:SetAttribute("Sliding", true)
 	local began = os.clock()
 	local connection: RBXScriptConnection
 	connection = RunService.Heartbeat:Connect(function()
 		local t = os.clock() - began
-		if not root.Parent or humanoid.Health <= 0 then
+		if not root.Parent or humanoid.Health <= 0 or t >= RULES.slideTime then
+			-- Up again, quickly, where it ended.
 			connection:Disconnect()
-			sliding = false
-			return
-		end
-		if t >= RULES.slideTime + 0.25 then
-			-- Up again, where it ended.
-			connection:Disconnect()
-			local at = Vector3.new(start.X, standY, start.Z) + dir * distance
-			root.CFrame = CFrame.lookAt(at, at + dir)
-			root.AssemblyLinearVelocity = Vector3.zero
-			humanoid.PlatformStand = false
 			humanoid.AutoRotate = true
-			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+			player:SetAttribute("Sliding", nil)
 			sliding = false
 			return
 		end
-		local k = math.min(t / RULES.slideTime, 1)
-		local lie = math.min(1, k * 3)
-		local pos = Vector3.new(start.X, 0, start.Z) + dir * (distance * ease(k)) + Vector3.new(0, standY + (lowY - standY) * lie, 0)
-		root.CFrame = CFrame.lookAt(pos, pos + dir) * CFrame.Angles(math.rad(62) * lie, 0, 0)
+		local k = t / RULES.slideTime
+		local pos = Vector3.new(start.X, standY, start.Z) + dir * (distance * ease(k))
+		root.CFrame = CFrame.lookAt(pos, pos + dir)
 		root.AssemblyLinearVelocity = Vector3.zero
 		root.AssemblyAngularVelocity = Vector3.zero
 	end)

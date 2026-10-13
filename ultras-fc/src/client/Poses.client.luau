@@ -790,6 +790,7 @@ RunService.Stepped:Connect(function()
 		local emote = player:GetAttribute("Emote")
 		local riding = player:GetAttribute("Riding") == true
 		local diving = player:GetAttribute("Diving") == true
+		local sliding = player:GetAttribute("Sliding") == true
 		-- Off the scooter: the sound of steps is back.
 		if not riding and quietSteps[player] then
 			local was = quietSteps[player]
@@ -798,7 +799,7 @@ RunService.Stepped:Connect(function()
 				was.sound.Volume = was.volume
 			end
 		end
-		if not character or (hold == nil and emote == nil and not riding and not diving) then
+		if not character or (hold == nil and emote == nil and not riding and not diving and not sliding) then
 			dropScarf(player)
 			dropFlag(player)
 			continue
@@ -860,7 +861,37 @@ RunService.Stepped:Connect(function()
 		end
 
 		-- De bicicleta: sentado, as pernas a pedalar e as maos no guiador.
-		if riding and Config.Bikes.scooter and character:FindFirstChild("Scooter", true) then
+		--[[
+			THE SLIDE (TACKLE): along the grass, never under it. One leg straight
+			ahead and low, the other folded under, the body leaning back with a
+			hand down, the hip just over the grass (Config.Rules.slideHip). The
+			body is lowered and leant at its middle joint: the feet of the game
+			stay where they are, so nothing sinks into the ground.
+		]]
+		if sliding then
+			local joints = scooterJoints[character]
+			if not joints then
+				joints = {}
+				for _, d in character:GetDescendants() do
+					if (d:IsA("Motor6D") or d:IsA("AnimationConstraint")) and not d:FindFirstAncestorOfClass("Tool") and not d:FindFirstAncestorOfClass("Accessory") then
+						table.insert(joints, d)
+					end
+				end
+				scooterJoints[character] = joints
+			end
+			for _, joint in joints do
+				(joint :: any).Transform = CFrame.identity
+			end
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			local hip = if humanoid then humanoid.HipHeight else 2
+			set(rig.rootJoint, CFrame.new(0, -math.max(hip - Config.Rules.slideHip, 0), 0) * CFrame.Angles(math.rad(32), 0, 0))
+			set(rig.rightHip, CFrame.Angles(math.rad(58), 0, 0))
+			set(rig.rightKnee, CFrame.identity)
+			set(rig.leftHip, CFrame.Angles(math.rad(24), 0, 0))
+			set(rig.leftKnee, CFrame.Angles(math.rad(-112), 0, 0))
+			arm(rig.leftShoulder, -1, math.rad(-38), math.rad(24))
+			arm(rig.rightShoulder, 1, math.rad(38), math.rad(28))
+		elseif riding and Config.Bikes.scooter and character:FindFirstChild("Scooter", true) then
 			-- On the scooter: standing on the board, one foot a little ahead, the hands on the handlebar.
 			-- The wheels turn with the speed (radius 0.55), on this screen.
 			local dt = math.min(now - (wheelAt[player] or now), 0.1)

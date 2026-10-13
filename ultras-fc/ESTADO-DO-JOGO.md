@@ -61,6 +61,18 @@ Duas claques de cidades diferentes que são amigas são "gemellate" (nunca se di
 - **Estatísticas** (`server/Stats`, `Config.Stats`): golos, assistências e vitórias de pessoas a sério em jogos oficiais; melhor jogador = golos×3 + assistências×2 + vitórias×1. Separador STATS no menu, quadros nas sedes e à frente do estádio, prémios da época na cerimónia e no quadro de honra.
 - **NÃO FEITO deste bloco**: um só futebol nas academias e amigáveis (1.1: é uma reescrita do futebol para correr em vários campos; precisa de bloco próprio com testes); academias todas iguais (4.1: o modelo do Flaminio, 138×124, só cabe no quarteirão 5_1); Galata ao lado da Luz (4.2: depende do tamanho normal). Os recintos do Flaminio e do Kadiköy foram mexidos à mão no mapa: o Config segue agora onde estão.
 
+## Continuação do bloco (13 de Outubro de 2026 — escrito, AINDA NÃO TESTADO em Play)
+
+- **Carrinho**: o corpo desliza por cima do relvado (pose em `Poses.client`, atributo `Sliding`): uma perna esticada, a outra dobrada, tronco para trás, anca a `Config.Rules.slideHip` do chão; distância em `slideDistance`. Vê-se no botão ANIMATIONS ("carrinho (tackle)").
+- **SUPPORT não é gemellaggio**: só o convidado dos gemellati recebe as ordens do capo; quem foi apoiar outro clube não.
+- **Autocarros da cidade** (`Transit`): não param dentro de um cruzamento (saem dele devagar primeiro), nunca se sobrepõem (param atrás do da frente, `busGap`), esperam se estiverem presos, e arrancam pela ordem em que chegaram.
+- **Filas da bancada**: 400 paredes invisíveis (`Estadio.BarreirasInvisiveis`, `StadiumBuilder.rowBarriers`) à frente de cada fila, mais altas do que um salto; entre filas só pelas escadas.
+- **Barra de ambiente: NÃO foi tirada.** Dela dependem a XP de adepto no fim do jogo (`Progress`, média do ambiente) e o volume do som da multidão (`Audio.client`). À espera de decisão.
+- **Academias iguais: paradas.** O maior relvado comum que cabe nos quarteirões atuais é 96×51 (limitam: Triana 8_7 e Testaccio 9_7 no fundo, Athinaikos 8_1 e Triana na largura), abaixo dos 100×60 pedidos. Galata depende disto.
+- **Um só futebol nas academias**: há um plano por etapas à espera de aprovação; nada foi mexido.
+- A pasta antiga `modelos` foi apagada. `Config.Futuro.bandeirasGrandes = false`.
+- **Onde fica guardado**: clube, tutorial feito e semana da última mudança de clube no perfil (`UltrasFC_Perfil_v1`, chave `u_<UserId>`); estatísticas da época em `UltrasFC_Stats_v1`, chave `s_<semana>`, e prémios na chave `awards` (escritos de minuto a minuto e ao fechar o servidor); clube para o matchmaking em `PlayerAttributes`, chave UserId.
+
 ## Competições
 
 - **Liga**: duas voltas, 36 jornadas; fecha sábado à noite com campeão e cerimónia do troféu.

@@ -223,12 +223,25 @@ local TEXTS = {
 	palmas = TXT.theCapoCalledClap,
 }
 
+--[[
+	WHO HEARS THE CAPO: the people of his curva. A guest of the GEMELLATI is
+	one of them in that match. Whoever only came to SUPPORT another club (not
+	gemellati) is there to support: the capo's orders do not reach them.
+]]
+local function hears(player: Player, teamId: string): boolean
+	if Teams.get(player) ~= teamId then
+		return false
+	end
+	local own = player:GetAttribute("Convidado")
+	return own == nil or Config.isGemellati(own, Config.Teams[teamId].club)
+end
+
 local function invite(leader: Player, teamId: string, order: string)
 	nextInviteId += 1
 	local id = nextInviteId
 	invites[id] = { order = order, teamId = teamId, untilAt = os.clock() + L.inviteSeconds + 2, taken = {}, leader = leader }
 	for _, player in Players:GetPlayers() do
-		if player ~= leader and Teams.get(player) == teamId then
+		if player ~= leader and hears(player, teamId) then
 			Remotes.Lider:FireClient(player, { kind = "convite", id = id, order = order, text = TEXTS[order] or order })
 		end
 	end
@@ -238,7 +251,7 @@ end
 
 local function notice(teamId: string, text: string, except: Player?)
 	for _, player in Players:GetPlayers() do
-		if player ~= except and Teams.get(player) == teamId then
+		if player ~= except and hears(player, teamId) then
 			Remotes.Lider:FireClient(player, { kind = "aviso", text = text })
 		end
 	end
@@ -296,7 +309,7 @@ end
 
 local function accept(player: Player, id: number)
 	local entry = invites[id]
-	if not entry or os.clock() > entry.untilAt or entry.taken[player] or Teams.get(player) ~= entry.teamId then
+	if not entry or os.clock() > entry.untilAt or entry.taken[player] or not hears(player, entry.teamId) then
 		return
 	end
 	entry.taken[player] = true

@@ -55,6 +55,8 @@ type Bus = {
 	wheelRadius: number,
 	nextOwnerCheck: number?,
 	team: string?, -- o autocarro de um clube
+	waitingFor: any?, -- the bus it stopped behind
+	waitingSince: number?, -- since when it has been standing (who arrived first goes first)
 }
 
 local buses: { Bus } = {}
@@ -322,10 +324,100 @@ end
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
--- A rule from outside (Main: a corteo near): the bus at `at` stops and waits.
-local yieldRule: ((Vector3) -> boolean)? = nil
-function Transit.setYield(fn: (Vector3) -> boolean)
+--[[
+	A rule from outside (Main: a corteo near): how far the banner of a corteo
+	is from the bus at `at` (nil: none near). The bus then WAITS for it to pass.
+]]
+local yieldRule: ((Vector3) -> number?)? = nil
+function Transit.setYield(fn: (Vector3) -> number?)
 	yieldRule = fn
+end
+
+--[[
+	WAITING LIKE REAL BUSES.
+	  - Never stopped across a crossing: a bus told to wait while it is in one
+	    first drives out of it, slowly, and stops straight in its lane (unless
+	    the corteo is right there: then it stops at once).
+	  - Never one inside another: a bus stops behind the one in front of it,
+	    with room between them, whatever line each one is on.
+	  - Stuck is stuck: it waits. It never goes through a bus, a house or people.
+	  - When the way is free they leave in the order they came: the front one
+	    first; of two that wait for each other, the one that got there first.
+]]
+local crossings: { Vector3 }? = nil
+local function cityCrossings(): { Vector3 }
+	if crossings then
+		return crossings
+	end
+	local xs: { { number } }, zs: { { number } } = {}, {}
+	local city = workspace:FindFirstChild("Cidade")
+	local blocks = city and city:FindFirstChild("Quarteiroes")
+	if blocks then
+		for _, block in blocks:GetChildren() do
+			local floor = block:FindFirstChild("Passeio")
+			if floor and floor:IsA("BasePart") then
+				table.insert(xs, { floor.Position.X - floor.Size.X / 2, floor.Position.X + floor.Size.X / 2 })
+				table.insert(zs, { floor.Position.Z - floor.Size.Z / 2, floor.Position.Z + floor.Size.Z / 2 })
+			end
+		end
+	end
+	local function gaps(spans: { { number } }): { number }
+		table.sort(spans, function(a, b)
+			return a[1] < b[1]
+		end)
+		local lines: { number } = {}
+		local reach = -math.huge
+		for _, span in spans do
+			if reach > -math.huge and span[1] > reach + 4 then
+				table.insert(lines, (reach + span[1]) / 2)
+			end
+			reach = math.max(reach, span[2])
+		end
+		return lines
+	end
+	local list: { Vector3 } = {}
+	local streetsX, streetsZ = gaps(xs), gaps(zs)
+	for _, x in streetsX do
+		for _, z in streetsZ do
+			table.insert(list, Vector3.new(x, 0, z))
+		end
+	end
+	if #list > 0 then
+		crossings = list
+	end
+	return list
+end
+
+-- Is a bus whose middle is at `at` (partly) in a crossing?
+local function inCrossing(at: Vector3): boolean
+	for _, c in cityCrossings() do
+		if math.abs(at.X - c.X) < T.crossingClear and math.abs(at.Z - c.Z) < T.crossingClear then
+			return true
+		end
+	end
+	return false
+end
+
+local teamBusesShown = true
+
+-- The bus right in front of this one (on any line), closer than the room there has to be.
+local function busAhead(bus: Bus, heading: Vector3): Bus?
+	local front = bus.chassis.Position + heading * bus.halfLength
+	for _, other in buses do
+		if other ~= bus and (other.team == nil or teamBusesShown) then
+			local centre = other.chassis.Position
+			local along = headingAt(other.path, other.s)
+			for _, ahead in { 2, 7, 12 } do
+				local probe = front + heading * ahead
+				local rel = Vector3.new(probe.X - centre.X, 0, probe.Z - centre.Z)
+				local onIt = centre + along * math.clamp(rel:Dot(along), -other.halfLength, other.halfLength)
+				if Vector3.new(probe.X - onIt.X, 0, probe.Z - onIt.Z).Magnitude < T.busGap then
+					return other
+				end
+			end
+		end
+	end
+	return nil
 end
 
 -- Tem alguem (uma pessoa ou outro autocarro) mesmo a frente?
@@ -409,8 +501,26 @@ local function step(bus: Bus, dt: number, now: number)
 			end
 		end
 		local heading = headingAt(path, bus.s)
-		if blocked(bus, heading, math.max(8, bus.v * 1.4)) or (yieldRule ~= nil and yieldRule(bus.chassis.Position)) then
+		local ahead = busAhead(bus, heading)
+		-- (Two that wait for each other: the one that got there first goes.)
+		if ahead and ahead.waitingFor == bus and (bus.waitingSince or now) <= (ahead.waitingSince or now) then
+			ahead = nil
+		end
+		bus.waitingFor = ahead
+		local corteo = if yieldRule then yieldRule(bus.chassis.Position) else nil
+		if ahead or blocked(bus, heading, math.max(8, bus.v * 1.4)) then
 			want = 0
+		elseif corteo then
+			if corteo > T.yieldHard and inCrossing(bus.chassis.Position) then
+				want = math.min(want, T.turnSpeed) -- out of the crossing first, slowly
+			else
+				want = 0
+			end
+		end
+		if want == 0 and bus.v < 0.2 then
+			bus.waitingSince = bus.waitingSince or now
+		elseif bus.v > 1 then
+			bus.waitingSince = nil
 		end
 		local rate = if want > bus.v then T.accel else T.brake
 		bus.v = if want > bus.v then math.min(want, bus.v + rate * dt) else math.max(want, bus.v - rate * dt)
@@ -462,6 +572,7 @@ function Transit.showTeamBuses(on: boolean)
 		return
 	end
 	shown = on
+	teamBusesShown = on
 	for _, bus in teamBuses do
 		for _, d in bus.model:GetDescendants() do
 			if d:IsA("BasePart") then

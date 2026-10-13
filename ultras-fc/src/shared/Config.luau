@@ -2152,7 +2152,7 @@ Config.March = {
 	runBoost = 24, -- quem vai no corteo pode correr assim uns segundos (so se quiser)
 	bots = Config.Bonecos.cortejo, -- bonecos que marcham atras de cada faixa (Config.Bonecos)
 	columns = 10, -- quantos lado a lado, da largura da faixa: a rua cheia de parede a parede
-	busYield = 60, -- a bus this close to the banner of a corteo stops and waits for it to go by
+	busYield = 90, -- a bus this close to the banner of a corteo stops and waits for it to go by
 	startReach = 350, -- the capo chooses where the corteo starts: no further than this from the clubhouse
 	sharedStreet = 80, -- two claques that can meet (gemellati or enemies) both come by the street this far past the home gate: a stretch in common by the stadium
 	leaderSpeed = 13, -- o lider a guiar anda a este passo, para o grupo o acompanhar
@@ -2373,7 +2373,9 @@ Config.Rules = {
 	bumpLockout = 1.5, -- whoever did it cannot play the ball for this long
 	slideRange = 7, -- how far a slide reaches, in studs
 	slideWidth = 0.9, -- how far to each side of its line it still gets the ball
-	slideTime = 0.45, -- how long the slide lasts (the body, on the screen of who slides)
+	slideDistance = 5.5, -- how far the body slides along the grass, in studs
+	slideHip = 1, -- in the slide the hip is this far over the grass: never under it
+	slideTime = 0.55, -- how long the slide lasts (the body, on the screen of who slides)
 	slideDown = 1.1, -- a slide that gets nothing: on the ground this long
 	slideCooldown = 2.5,
 	behindDot = -0.2, -- abaixo disto (olhar de quem leva a bola vs. de onde vem quem rouba) e por tras
@@ -2724,6 +2726,9 @@ Config.Academies = {
 	paragens que ficam ao lado deles. Conduz-se pela direita.
 ]]
 Config.Transit = {
+	crossingClear = 45, -- a bus whose middle is this close to the middle of a crossing is still (partly) in it
+	busGap = 6.5, -- the room a bus keeps to the one in front, in studs
+	yieldHard = 32, -- a corteo this close: stop at once, even in a crossing
 	cruise = 26, -- studs/s em recta
 	turnSpeed = 9, -- nas curvas
 	accel = 6, -- studs/s2 a arrancar
@@ -3156,6 +3161,7 @@ Config.Futuro = {
 	taca = false,
 	vidaNaCidade = false,
 	mensagemDoLider = false,
+	bandeirasGrandes = false, -- comprar bandeiras maiores
 }
 
 return Config

@@ -356,6 +356,20 @@ do
 		end)
 	end
 
+	-- The slide (TACKLE) is a pose of the game, not a made animation: here it is shown in place.
+	do
+		local b = button(list, "carrinho (tackle)", UDim2.new(1, 0, 0, 30), UDim2.new())
+		b.Name = "Anim_carrinho"
+		b.AutoLocalize = false
+		b.Activated:Connect(function()
+			stop()
+			player:SetAttribute("Sliding", true)
+			task.delay(1.5, function()
+				player:SetAttribute("Sliding", nil)
+			end)
+		end)
+	end
+
 	openList.Activated:Connect(function()
 		list.Visible = not list.Visible
 		if not list.Visible then

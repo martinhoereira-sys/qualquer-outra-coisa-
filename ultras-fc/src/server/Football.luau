@@ -1167,6 +1167,16 @@ function Football.slide(f: Footballer, direction: Vector3?): boolean
 		return false
 	end
 	slideReadyAt[f] = now + RULES.slideCooldown
+	-- (The pose, on every screen: Poses.client.)
+	if f.player then
+		local who = f.player
+		who:SetAttribute("Sliding", true)
+		task.delay(RULES.slideTime + 0.1, function()
+			if who.Parent then
+				who:SetAttribute("Sliding", nil)
+			end
+		end)
+	end
 	local dir = flat(direction or root.CFrame.LookVector)
 	local from = root.Position
 

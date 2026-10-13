@@ -815,6 +815,71 @@ end
 
 --------------------------------------------------------------------------------
 
+--[[
+	NO JUMPING FROM ROW TO ROW. In front of every row there is a wall nobody
+	sees, taller than any jump: one moves along the row, and between rows only
+	by the stairs (which have none). The rail one sees stays low. Jumping on
+	the spot is as it was.
+	  - in the curves of the claques: over each row's waist-high bar ("Barreira"),
+	    which already leaves the stairs free;
+	  - in the straight stands: along the front edge of each block of steps
+	    ("Degrau"), not of the stairs ("Escada").
+	Made from the pieces that are there, so it can be run on a stadium already
+	in the map. Running it again makes them again.
+]]
+local BARRIER_HEIGHT = 9.5
+
+function Builder.rowBarriers(root: Instance): number
+	local old = root:FindFirstChild("BarreirasInvisiveis")
+	if old then
+		old:Destroy()
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "BarreirasInvisiveis"
+	local made = 0
+	local function wall(size: Vector3, cf: CFrame)
+		local p = Instance.new("Part")
+		p.Name = "FilaInvisivel"
+		p.Anchored = true
+		p.Transparency = 1
+		p.CanCollide = true
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Size = size
+		p.CFrame = cf
+		p.Parent = folder
+		made += 1
+	end
+	for _, d in root:GetDescendants() do
+		if not d:IsA("BasePart") or d:IsDescendantOf(folder) then
+			continue
+		end
+		local inCurve = d.Parent ~= nil and string.sub(d.Parent.Name, 1, 5) == "Curva"
+		if d.Name == "Barreira" then
+			-- Over the bar of the row: from the floor of the row (the bar is at the waist) up.
+			local floor = d.Position.Y - d.Size.Y / 2 - 0.95
+			wall(Vector3.new(d.Size.X, BARRIER_HEIGHT, d.Size.Z), d.CFrame.Rotation + Vector3.new(d.Position.X, floor + BARRIER_HEIGHT / 2, d.Position.Z))
+		elseif d.Name == "Degrau" and not inCurve and math.abs(d.CFrame.UpVector.Y) > 0.99 then
+			-- The front edge of the step: of its two short sides, the one nearer the pitch.
+			local top = d.Position.Y + d.Size.Y / 2
+			local alongX = d.Size.X >= d.Size.Z -- the row runs along the piece's X
+			local depth = if alongX then d.Size.Z else d.Size.X
+			local out = if alongX then d.CFrame.LookVector else d.CFrame.RightVector
+			if depth > S.rowDepth + 0.6 then
+				continue -- (not a row: a landing, a platform)
+			end
+			local a = d.Position + out * (depth / 2)
+			local b = d.Position - out * (depth / 2)
+			local front = if Vector3.new(a.X, 0, a.Z).Magnitude < Vector3.new(b.X, 0, b.Z).Magnitude then a else b
+			local size = if alongX then Vector3.new(d.Size.X, BARRIER_HEIGHT, 0.3) else Vector3.new(0.3, BARRIER_HEIGHT, d.Size.Z)
+			wall(size, d.CFrame.Rotation + Vector3.new(front.X, top + BARRIER_HEIGHT / 2, front.Z))
+		end
+	end
+	folder.Parent = root
+	return made
+end
+
 function Builder.build(parent: Instance): Folder
 	local old = parent:FindFirstChild("Estadio")
 	if old then
@@ -849,6 +914,7 @@ function Builder.build(parent: Instance): Folder
 
 	buildMainUpper(root, mainCentres, mainBlocks)
 	buildLockerRoom(root)
+	Builder.rowBarriers(root)
 
 	root.Parent = parent
 	return root
