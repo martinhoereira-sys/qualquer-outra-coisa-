@@ -393,6 +393,47 @@ do
 		return clubOfRole("adepto") == clubId or clubOfRole("jogador") == clubId or clubOfRole("jogador2") == clubId or clubOfRole("arbitro") == clubId
 	end
 
+	--[[
+		THE WELCOME, in the colours of the club: who I am now, and in.
+		    YOU ARE ULTRA OF ALVALADE SC  /  Claque: JUVENTUDE  /  LET'S GO
+	]]
+	local function showWelcome(club: any, role: string)
+		atClubs = false
+		stage:ClearAllChildren()
+		measure()
+		local ground = Instance.new("Frame")
+		ground.Name = "BemVindo"
+		ground.BorderSizePixel = 0
+		ground.BackgroundColor3 = club.color
+		ground.Size = UDim2.fromOffset(W, H)
+		ground.Parent = stage
+		UI.corner(ground)
+		local c = club.color
+		local light = c.R * 0.299 + c.G * 0.587 + c.B * 0.114 > 0.6
+		local ink = if light then Color3.fromRGB(16, 16, 20) else Color3.fromRGB(250, 250, 250)
+		crest(ground, club, 180, 40)
+		local who = proper(UI.label(ground, string.format(TXT.youAre, if role == "jogador" then TXT.playerRole else TXT.ultra, club.nameUpper), "title", false, true))
+		who.Font = Enum.Font.GothamBlack
+		who.TextScaled = true
+		who.TextColor3 = ink
+		who.Position = UDim2.fromOffset(EDGE, 250)
+		who.Size = UDim2.fromOffset(W - EDGE * 2, 76)
+		local claque = proper(UI.label(ground, string.format(TXT.claqueLine, club.claque), "normal", false, true))
+		claque.Font = Enum.Font.GothamBold
+		claque.TextColor3 = ink
+		claque.Position = UDim2.fromOffset(EDGE, 340)
+		claque.Size = UDim2.fromOffset(W - EDGE * 2, U.normal + 12)
+		local go = UI.button(ground, TXT.letsGo)
+		go.Name = "Vamos"
+		go.AnchorPoint = Vector2.new(0.5, 0)
+		go.Position = UDim2.fromOffset(W / 2, 420)
+		go.Size = UDim2.fromOffset(380, U.button)
+		go.Activated:Connect(function()
+			player:SetAttribute("TutorialPapel", role) -- (on this screen only: which first steps to show)
+			pick("clube:" .. club.club .. ":" .. role)
+		end)
+	end
+
 	-- The club's card, open, to say yes to: the role is already chosen.
 	local function confirm(club: any, today: boolean)
 		local side = openCard(club, today, function()
@@ -412,6 +453,23 @@ do
 			return
 		end
 		local role = gridRole
+		if not gridAdding and not clubOfRole("adepto") and not clubOfRole("jogador") then
+			-- THE FIRST CLUB: one big button. It is kept at once (the server writes it now).
+			local choose = UI.button(side, TXT.choose)
+			choose.Name = "Sim"
+			UI.outline(choose, club.color, U.line * 2)
+			choose.Activated:Connect(function()
+				Remotes.PickTeam:FireServer("papel:" .. role .. ":" .. club.club)
+				showWelcome(club, role)
+			end)
+			local no = UI.button(side, TXT.back)
+			no.Name = "Nao"
+			no.Position = UDim2.fromOffset(0, U.button + U.gap)
+			no.Activated:Connect(function()
+				showGrid()
+			end)
+			return
+		end
 		local y = 0
 		local yesText: string
 		if role == "jogador2" and club.club == clubOfRole("jogador") then
@@ -636,18 +694,34 @@ do
 		nextMatch()
 	end
 
-	-- The very first time: what do you want to be? (Then the club, and in.)
+	-- The very first time: what do you want to be? Three big cards, a picture and a line each.
 	local function showFirst()
 		atClubs = false
 		stage:ClearAllChildren()
 		measure()
 		heading(TXT.whatToBe, nil)
-		local width = 760
+		local lines = { adepto = TXT.cardUltra, jogador = TXT.cardPlayer, arbitro = TXT.cardReferee }
+		local cardW = math.floor((W - EDGE * 2 - U.gap * 2) / 3)
+		local top = 20 + U.button + U.gap * 2
+		local cardH = math.min(H - top - 30, 440)
+		local picture = math.floor(cardH * 0.5)
 		for i, role in ROLES do
-			local b = UI.button(stage, role.word, role.icon, role.note)
+			local b = UI.card(stage)
 			b.Name = "Papel_" .. role.id
-			b.Position = UDim2.fromOffset((W - width) / 2, 170 + (i - 1) * (U.button + U.gap))
-			b.Size = UDim2.fromOffset(width, U.button)
+			b.Position = UDim2.fromOffset(EDGE + (i - 1) * (cardW + U.gap), top)
+			b.Size = UDim2.fromOffset(cardW, cardH)
+			local image = UI.label(b, role.icon, "title")
+			image.TextScaled = true
+			image.Position = UDim2.fromOffset(0, U.gap)
+			image.Size = UDim2.new(1, 0, 0, picture)
+			local word = UI.label(b, role.word, "title")
+			word.Font = Enum.Font.GothamBlack
+			word.Position = UDim2.fromOffset(0, U.gap + picture + HALF)
+			word.Size = UDim2.new(1, 0, 0, U.title + 6)
+			local note = UI.label(b, (lines :: any)[role.id], "normal", true)
+			note.TextWrapped = true
+			note.Position = UDim2.fromOffset(U.gap, U.gap + picture + HALF + U.title + 6 + HALF)
+			note.Size = UDim2.new(1, -U.gap * 2, 0, (U.normal + 6) * 2)
 			b.Activated:Connect(function()
 				if role.id == "arbitro" then
 					-- The referee is of the MATCH, of no club: straight in.
@@ -659,6 +733,34 @@ do
 				showGrid()
 			end)
 		end
+	end
+
+	-- The door of the game, the first time: its name, a line, START.
+	local started = false
+	local function showTitle()
+		atClubs = false
+		stage:ClearAllChildren()
+		measure()
+		local name = UI.label(stage, TXT.gameTitle, "title")
+		name.Name = "Titulo"
+		name.Font = Enum.Font.GothamBlack
+		name.TextScaled = true
+		name.AnchorPoint = Vector2.new(0.5, 0)
+		name.Position = UDim2.fromOffset(W / 2, math.floor(H * 0.16))
+		name.Size = UDim2.fromOffset(math.min(W - EDGE * 2, 900), 160)
+		local line = UI.label(stage, TXT.tagline, "normal")
+		line.AnchorPoint = Vector2.new(0.5, 0)
+		line.Position = UDim2.fromOffset(W / 2, math.floor(H * 0.16) + 176)
+		line.Size = UDim2.fromOffset(W - EDGE * 2, U.normal + 12)
+		local start = UI.button(stage, TXT.start)
+		start.Name = "Comecar"
+		start.AnchorPoint = Vector2.new(0.5, 0)
+		start.Position = UDim2.fromOffset(W / 2, math.floor(H * 0.16) + 176 + U.normal + 12 + U.gap * 2)
+		start.Size = UDim2.fromOffset(380, U.button)
+		start.Activated:Connect(function()
+			started = true
+			showFirst()
+		end)
 	end
 
 	--[[
@@ -725,20 +827,35 @@ do
 			end)
 			b.Name = "Papel_adepto"
 			UI.outline(b, (Config.Clubs :: any)[ultra].color)
-			-- GEMELLAGGIO: beside it, a guest in the curva of my gemellati (the server
-			-- says yes or no: not when my own club is in the match).
-			local friends = Config.gemellatiOf(ultra)
-			if friends then
-				local half = (width - HALF) / 2
-				b.Size = UDim2.fromOffset(half, U.button)
-				y -= U.button + HALF
-				local guest = row(string.format(TXT.guestOf, (Config.Clubs :: any)[friends].nameUpper), U.icons.supporter, TXT.gemellaggio, playing(ultra), function()
-					pick("clube:" .. friends .. ":convidado")
+		end
+		--[[
+			SUPPORTING ANOTHER CLUB IN THIS MATCH: only when mine is not in it. One
+			of the two that are (never an enemy's), as a guest: in my own outfit
+			and with my own gear, and still of my club. The server says yes or no.
+		]]
+		if ultra and not playing(ultra) then
+			local clubs = {}
+			for _, clubId in { match.home, match.away } do
+				if clubId ~= ultra and not Config.isEnemy(ultra, clubId) then
+					table.insert(clubs, clubId)
+				end
+			end
+			local half = (width - HALF) / 2
+			for n, clubId in clubs do
+				local club = (Config.Clubs :: any)[clubId]
+				local guest = row(string.format(TXT.guestOf, club.nameUpper), U.icons.supporter, TXT.guestNote, false, function()
+					pick("clube:" .. clubId .. ":convidado")
 				end)
-				guest.Name = "Papel_convidado"
-				guest.Position = UDim2.fromOffset(x + half + HALF, guest.Position.Y.Offset)
-				guest.Size = UDim2.fromOffset(half, U.button)
-				UI.outline(guest, (Config.Clubs :: any)[friends].color)
+				guest.Name = "Papel_convidado" .. n
+				UI.outline(guest, club.color)
+				if #clubs == 2 then
+					guest.Size = UDim2.fromOffset(half, U.button)
+					if n == 1 then
+						y -= U.button + HALF -- the other club goes on the same line
+					else
+						guest.Position = UDim2.fromOffset(x + half + HALF, guest.Position.Y.Offset)
+					end
+				end
 			end
 		end
 		--[[
@@ -816,21 +933,15 @@ do
 				end
 			end
 		end
-		-- A second club to play for, once there is a first.
-		if plays and not playsToo then
-			row(TXT.addSecond, U.icons.player, " ", true, function()
-				gridRole = "jogador2"
-				gridAdding = true
-				showGrid()
-			end).Name = "Juntar_jogador2"
-		end
 	end
 
 	function showClubs()
 		if clubOfRole("adepto") or clubOfRole("jogador") or clubOfRole("arbitro") then
 			showHub()
-		else
+		elseif started then
 			showFirst()
+		else
+			showTitle()
 		end
 	end
 

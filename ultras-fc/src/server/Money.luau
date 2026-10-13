@@ -42,6 +42,8 @@ export type Profile = {
 	since: number?, -- when I joined my club (os.time)
 	cameFrom: string?, -- the rival I left for this club (kept for ever)
 	traitor: number?, -- matches left as a traitor (Config.Traitor)
+	movedWeek: number?, -- the week (season) of my last change of club: one a season
+	tutorial: boolean?, -- the first steps were shown (or skipped): never again
 	version: number,
 }
 
@@ -91,6 +93,8 @@ local function publish(player: Player)
 	player:SetAttribute("ClubeDesde", if p then p.since else nil)
 	player:SetAttribute("VeioDe", if p then p.cameFrom else nil)
 	player:SetAttribute("Traidor", if p then p.traitor else nil)
+	-- The first steps are still to be shown (client/Tutorial): only with a club and not seen yet.
+	player:SetAttribute("Tutorial", if p and p.club and not p.tutorial then true else nil)
 	if onChanged then
 		onChanged(player)
 	end
@@ -151,16 +155,27 @@ local function fromSaved(value: any): Profile?
 	if type(value.traitor) == "number" and value.traitor > 0 then
 		p.traitor = math.floor(value.traitor)
 	end
-	-- The rival of my club is never one of my clubs.
-	if Config.isRival(p.club, p.second) then
-		p.second = nil
+	--[[
+		ONE CLUB ONLY: the club of the heart. It is the one of the curva, of the
+		corteo, and the one played for. Whoever had several (an ultras' club and
+		one or two to play for, as it used to be) keeps the FIRST they chose:
+		the ultras' club, else the first played for, else the second. Nothing
+		else of the profile changes: no money and no XP is lost.
+		(`second` is kept equal to `club`: the rest of the game still asks for
+		"the club I play for".)
+	]]
+	p.club = p.club or p.second or p.second2
+	p.second = p.club
+	p.second2 = nil
+	p.referee = nil
+	if p.club and not p.since then
+		p.since = os.time()
 	end
-	if Config.isRival(p.club, p.second2) or Config.isRival(p.second, p.second2) then
-		p.second2 = nil
+	if type(value.movedWeek) == "number" then
+		p.movedWeek = value.movedWeek
 	end
-	if Config.isRival(p.club, p.referee) or Config.isRival(p.second, p.referee) or Config.isRival(p.second2, p.referee) then
-		p.referee = nil
-	end
+	-- (Whoever already had a club before the first steps existed never sees them.)
+	p.tutorial = value.tutorial == true or (p.club ~= nil and value.tutorial == nil)
 	if type(value.daily) == "table" and type(value.daily.day) == "number" and type(value.daily.streak) == "number" then
 		p.daily = { day = value.daily.day, streak = value.daily.streak }
 	end
@@ -271,6 +286,8 @@ local function save(player: Player)
 		since = p.since,
 		cameFrom = p.cameFrom,
 		traitor = p.traitor,
+		movedWeek = p.movedWeek,
+		tutorial = p.tutorial,
 		version = p.version,
 	}
 	-- "Nothing to save" is said BEFORE writing: whatever changes while the
@@ -400,37 +417,48 @@ function Money.setClub(player: Player, clubId: string)
 		p.since = os.time()
 	end
 	p.club = clubId
-	if Config.isRival(clubId, p.second) then
-		p.second = nil
-	end
-	if Config.isRival(clubId, p.second2) then
-		p.second2 = nil
-	end
-	if Config.isRival(clubId, p.referee) then
-		p.referee = nil
-	end
+	p.second = clubId -- one club only: the one played for is the same
+	p.second2 = nil
+	p.referee = nil
 	dirty[player] = true
 	publish(player)
 	-- A club is not left waiting for the next minute's save: it is written now.
 	task.spawn(save, player)
 end
 
+-- (One club only: asking for a club to play for gives the club itself, the first time.)
 function Money.setSecond(player: Player, clubId: string?)
 	local p = profiles[player]
-	if not p or (clubId ~= nil and (not (Config.Clubs :: any)[clubId] or Config.isRival(clubId, p.club) or Config.isRival(clubId, p.referee) or Config.isRival(clubId, p.second2))) then
-		return
+	if p and clubId and not p.club then
+		Money.setClub(player, clubId)
 	end
-	p.second = clubId
-	if p.second2 == clubId then
-		p.second2 = nil -- (it has become the first)
-	end
-	dirty[player] = true
-	publish(player)
-	-- A club is not left waiting for the next minute's save: it is written now.
-	task.spawn(save, player)
 end
 
--- I have just left `from` for its rival: a traitor for Config.Traitor.matches matches.
+-- The first steps were shown or skipped: never again.
+function Money.tutorialDone(player: Player)
+	local p = profiles[player]
+	if p and not p.tutorial then
+		p.tutorial = true
+		dirty[player] = true
+		publish(player)
+		task.spawn(save, player)
+	end
+end
+
+-- A change of club for good: one a season. `week` is the season it was made in.
+function Money.movedThisSeason(player: Player, week: number): boolean
+	local p = profiles[player]
+	return p ~= nil and p.movedWeek == week
+end
+
+function Money.markMoved(player: Player, week: number)
+	local p = profiles[player]
+	if p then
+		p.movedWeek = week
+		dirty[player] = true
+	end
+end
+
 function Money.markTraitor(player: Player, from: string)
 	local p = profiles[player]
 	if not p then
@@ -457,18 +485,7 @@ end
 
 -- The second club I play for (nil takes it away). Never the same as the first, never a rival of one of mine.
 function Money.setSecond2(player: Player, clubId: string?)
-	local p = profiles[player]
-	if not p then
-		return
-	end
-	if clubId ~= nil and (not (Config.Clubs :: any)[clubId] or clubId == p.second or Config.isRival(clubId, p.club) or Config.isRival(clubId, p.second) or Config.isRival(clubId, p.referee)) then
-		return
-	end
-	p.second2 = clubId
-	dirty[player] = true
-	publish(player)
-	-- A club is not left waiting for the next minute's save: it is written now.
-	task.spawn(save, player)
+	-- (One club only: there is no second club to play for any more.)
 end
 
 function Money.second2Of(player: Player): string?

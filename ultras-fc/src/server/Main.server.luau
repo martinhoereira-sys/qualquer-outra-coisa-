@@ -313,7 +313,10 @@ local function pickTeam(player: Player, teamId: any)
 			-- Deixa o Roblox acabar de montar o personagem antes de o mover.
 			character:WaitForChild("HumanoidRootPart", 10)
 			task.wait(0.2)
-			sendToClaque(player, current)
+			-- (Dying or resetting DURING a match: back at the entrance of one's curva.)
+			local phase = MatchLoop.phase()
+			local matchOn = phase ~= "clubhouse" and phase ~= "corteo" and not MatchLoop.snapshot().night
+			sendToClaque(player, current, if matchOn then true else nil)
 		end)
 	end
 end
@@ -399,8 +402,9 @@ function pickClub(player: Player, clubId: string, role: string)
 		each other): then everyone is in their own curva.
 	]]
 	if role == "convidado" then
+		-- (Of ANY of the two clubs that play, when mine does not: never an enemy's. No traitor's banner.)
 		local own = Money.clubOf(player)
-		if not own or not Config.isGemellati(own, clubId) then
+		if not own or own == clubId or Config.isEnemy(own, clubId) then
 			return
 		end
 		if clubPlace(own) then
@@ -553,6 +557,22 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 			return
 		end
 		local old = Money.clubOf(player)
+		--[[
+			A CHANGE OF CLUB FOR GOOD: only in the transfer window (from the close
+			of the league on Saturday night to the start of the next week), and
+			one a season. (A first club is not a change: that is any time.)
+		]]
+		if old and old ~= newClub then
+			local game = Schedule.gameTime()
+			local week = Schedule.week(game)
+			local open = Schedule.weekday(game) == 6 and not Schedule.isOfficial(Schedule.slotOf(game))
+			local line = if not open then Config.Text.sede.transfersShut elseif Money.movedThisSeason(player, week) then Config.Text.sede.transferDone else nil
+			if line then
+				Remotes.Npc:FireClient(player, { title = (Config.Clubs :: any)[newClub].name, lines = { line } })
+				return
+			end
+			Money.markMoved(player, week)
+		end
 		Money.setClub(player, newClub)
 		if old and Config.isRival(old, newClub) then
 			-- To the rival: a traitor, and the new claque is told who he is.
@@ -565,6 +585,11 @@ Remotes.PickTeam.OnServerEvent:Connect(function(player, what)
 			end
 		end
 		pickClub(player, newClub, "adepto")
+		return
+	end
+	-- The first steps were done, or skipped.
+	if what == "tutorial:done" then
+		Money.tutorialDone(player)
 		return
 	end
 	-- From the profile: the second club one plays for is taken away ("tirar:jogador2").
@@ -649,6 +674,32 @@ task.defer(function()
 	end
 end)
 
+--[[
+	BORN AT THE CLUB. Whoever comes in, or comes back to life, and is in no
+	curva, on no pitch and has no whistle, appears at the clubhouse of their
+	club: never in the middle of the map. (In a curva: sendToClaque; during a
+	match that is the entrance of the curva.)
+]]
+do
+	local function watch(player: Player)
+		player.CharacterAdded:Connect(function(character)
+			character:WaitForChild("HumanoidRootPart", 10)
+			task.wait(0.4)
+			if Teams.get(player) or Squad.byPlayer(player) or Referee.current() == player then
+				return
+			end
+			local club = Money.clubOf(player)
+			if club then
+				sendToClubHome(player, club)
+			end
+		end)
+	end
+	for _, player in Players:GetPlayers() do
+		watch(player)
+	end
+	Players.PlayerAdded:Connect(watch)
+end
+
 -- Coming back: straight in with my club, as a supporter (no menu to go through).
 local greeted: { [Player]: boolean } = {}
 local function welcomeBack(player: Player)
@@ -682,7 +733,7 @@ Teams.onChanged(function(player)
 		end
 		-- (In another curva by another way, e.g. the desk: not a guest any more.)
 		local guestOf = player:GetAttribute("Convidado")
-		if guestOf and not Config.isGemellati(guestOf, clubId) then
+		if guestOf and (guestOf == clubId or Config.isEnemy(guestOf, clubId)) then
 			player:SetAttribute("Convidado", nil)
 		end
 		player:SetAttribute("UpNext", nil)
@@ -1957,7 +2008,7 @@ Remotes.Home.OnServerEvent:Connect(function(player, where)
 		if slot then
 			local saved = Money.clubOf(player)
 			local here = Config.Teams[slot].club
-			local guest = player:GetAttribute("Convidado") == saved and Config.isGemellati(saved, here)
+			local guest = player:GetAttribute("Convidado") == saved and not Config.isEnemy(saved, here)
 			if not saved or (here ~= saved and not guest) then
 				Remotes.Npc:FireClient(player, { title = Config.Text.hud.stadium, lines = { Config.Text.hud.clubNotReady } })
 				if saved then
