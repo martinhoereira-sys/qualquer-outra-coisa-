@@ -311,9 +311,12 @@ function Bikes.mount(player: Player, colour: Color3): boolean
 	-- legs made that much longer bring it up to the ground with the feet on the board.
 	local lift = if scooterMould() then B.scooter.deck else 0
 	local bike = Bikes.build(colour, root.CFrame * CFrame.new(0, -toGround - lift + 1.2, 0), character)
-	local weld = Instance.new("WeldConstraint")
+	-- (A weld each screen can tilt: the scooter leans into the bends, Poses.client.)
+	local weld = Instance.new("Weld")
+	weld.Name = "Inclina"
 	weld.Part0 = root
 	weld.Part1 = bike.PrimaryPart
+	weld.C0 = root.CFrame:ToObjectSpace((bike.PrimaryPart :: BasePart).CFrame)
 	weld.Parent = bike
 
 	humanoid.WalkSpeed = B.speed

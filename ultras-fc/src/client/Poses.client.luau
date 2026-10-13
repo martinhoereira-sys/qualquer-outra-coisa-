@@ -776,6 +776,9 @@ end
 --------------------------------------------------------------------------------
 
 local scooterJoints: { [Model]: { Instance } } = setmetatable({}, { __mode = "k" }) :: any
+local quietSteps: { [Player]: { sound: Sound, volume: number } } = setmetatable({}, { __mode = "k" }) :: any
+local leanYaw: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
+local leanNow: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 local wheelTurn: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 local wheelAt: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -787,6 +790,14 @@ RunService.Stepped:Connect(function()
 		local emote = player:GetAttribute("Emote")
 		local riding = player:GetAttribute("Riding") == true
 		local diving = player:GetAttribute("Diving") == true
+		-- Off the scooter: the sound of steps is back.
+		if not riding and quietSteps[player] then
+			local was = quietSteps[player]
+			quietSteps[player] = nil
+			if was.sound.Parent then
+				was.sound.Volume = was.volume
+			end
+		end
 		if not character or (hold == nil and emote == nil and not riding and not diving) then
 			dropScarf(player)
 			dropFlag(player)
@@ -852,7 +863,8 @@ RunService.Stepped:Connect(function()
 		if riding and Config.Bikes.scooter and character:FindFirstChild("Scooter", true) then
 			-- On the scooter: standing on the board, one foot a little ahead, the hands on the handlebar.
 			-- The wheels turn with the speed (radius 0.55), on this screen.
-			local turned = (wheelTurn[player] or 0) + Vector3.new(v.X, 0, v.Z).Magnitude / 0.55 * math.min(now - (wheelAt[player] or now), 0.1)
+			local dt = math.min(now - (wheelAt[player] or now), 0.1)
+			local turned = (wheelTurn[player] or 0) + Vector3.new(v.X, 0, v.Z).Magnitude / 0.55 * dt
 			wheelTurn[player] = turned % (math.pi * 2)
 			wheelAt[player] = now
 			local scooter = character:FindFirstChild("Scooter", true)
@@ -881,6 +893,36 @@ RunService.Stepped:Connect(function()
 			end
 			set(rig.rightHip, CFrame.Angles(math.rad(3), 0, 0))
 			set(rig.leftHip, CFrame.Angles(math.rad(-3), 0, 0))
+			-- A vehicle: no sound of steps while on it.
+			if not quietSteps[player] then
+				local steps = rig.root:FindFirstChild("Running")
+				if steps and steps:IsA("Sound") then
+					quietSteps[player] = { sound = steps, volume = steps.Volume }
+				end
+			end
+			if quietSteps[player] then
+				quietSteps[player].sound.Volume = 0
+			end
+			-- INTO THE BENDS: it leans to the side it turns to, more the faster it goes and the tighter
+			-- the bend; the rider and the scooter together, about the line of the wheels on the ground.
+			local look = rig.root.CFrame.LookVector
+			local yaw = math.atan2(-look.X, -look.Z)
+			local before = leanYaw[player] or yaw
+			leanYaw[player] = yaw
+			local turn = (yaw - before + math.pi) % (math.pi * 2) - math.pi
+			local S = Config.Bikes.scooter
+			local speed = Vector3.new(v.X, 0, v.Z).Magnitude
+			local want = if dt > 0 then math.clamp(turn / dt * speed * S.lean, -S.leanMax, S.leanMax) else 0
+			local lean = (leanNow[player] or 0) + (math.rad(want) - (leanNow[player] or 0)) * math.min(1, dt * 6)
+			leanNow[player] = lean
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			local h = if humanoid then humanoid.HipHeight else 2.8
+			set(rig.rootJoint, CFrame.new(0, -h, 0) * CFrame.Angles(0, 0, lean) * CFrame.new(0, h, 0))
+			local tilt = scooter and scooter.Parent and scooter.Parent:FindFirstChild("Inclina")
+			if tilt and tilt:IsA("Weld") then
+				-- (The centre of the scooter is 2.1 above the ground.)
+				tilt.C1 = (CFrame.new(0, -2.1, 0) * CFrame.Angles(0, 0, lean) * CFrame.new(0, 2.1, 0)):Inverse()
+			end
 			if hold == nil then
 				arm(rig.rightShoulder, 1, math.rad(36), 0, 0.1)
 				arm(rig.leftShoulder, -1, math.rad(36), 0, 0.1)
