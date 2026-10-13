@@ -9,6 +9,15 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+
+-- THE 3D WORKSHOP (Workspace.Oficina3D) is for Studio only: the moulds of the models brought from
+-- Blender. It leaves the map here, before anyone comes in: nobody sees it or gets there.
+do
+	local workshop = workspace:FindFirstChild("Oficina3D")
+	if workshop then
+		workshop:Destroy()
+	end
+end
 local TXT = Config.Text.main
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
