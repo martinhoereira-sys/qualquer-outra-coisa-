@@ -992,6 +992,8 @@ Config.Competitions = {
 	win = 3,
 	draw = 1,
 	modoDaLiga = "jornadas",
+	claimHeadStart = 10, -- a server with this many real people of the two clubs asks for the match at once
+	claimWait = 4, -- one with nobody of them waits this many seconds before asking (fuller servers come first)
 	duracaoDaJornada = 240, -- minutes, in real time: round k of the league opens (k - 1) times this after the week starts, never before, even with every match of the round before played
 	minimoDeJogos = 20,
 	voltasDaLiga = 2,
@@ -1267,6 +1269,12 @@ Config.Text = {
 		arrowsOn = "ARROWS: ON",
 		arrowsOff = "ARROWS: OFF",
 		straight = "GO STRAIGHT TO THE STADIUM",
+		goMyClub = "GO TO MY CLUB'S MATCH",
+		noMatchElsewhere = "Your club's match is not on another server right now.",
+		serverFull = "That server is full. Try again in a moment.",
+		teleportFailed = "Could not take you there. Try again.",
+		invite = "YOUR CURVA NEEDS VOICES — INVITE YOUR FRIENDS",
+		inviteButton = "INVITE",
 		invasion = "PITCH INVASION",
 		runOn = "RUN ONTO THE PITCH",
 	},
@@ -2517,6 +2525,17 @@ Config.Emotes = {
 	`maxBandeirasGrandes`: how many big flags can be up at the same time in one
 	curva. Small flags and scarves have no limit.
 ]]
+--[[
+	Custom Matchmaking (Creator Dashboard): the club of each person, where
+	Roblox can read it (server/Money writes it). `store` is the name of the
+	DataStore, `attribute` the name of the field: both have to be the same as
+	what is typed in the dashboard.
+]]
+Config.Matchmaking = {
+	store = "PlayerAttributes",
+	attribute = "Club",
+}
+
 Config.GearBar = {
 	order = { "tocha", "fumo", "vela", "estrobo", "mastro", "bandeirinha", "cachecol", "cachecolgem", "gemflag", "tambor" },
 	maxBandeirasGrandes = 6,

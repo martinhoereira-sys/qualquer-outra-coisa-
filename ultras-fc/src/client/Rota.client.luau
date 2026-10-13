@@ -54,6 +54,19 @@ local straight = button(T.straight, UDim2.fromOffset(300, 44), UDim2.new(0.5, -1
 straight.TextSize = 15
 straight.Font = Enum.Font.GothamBlack
 
+-- My club's official match is on another server (the server says so): one button takes me there.
+local elsewhere = button(T.goMyClub, UDim2.fromOffset(300, 44), UDim2.new(0.5, -150, 1, -204), Color3.fromRGB(40, 110, 170))
+elsewhere.TextSize = 15
+elsewhere.Font = Enum.Font.GothamBlack
+elsewhere.Activated:Connect(function()
+	Remotes.Home:FireServer("servidor")
+end)
+local function showElsewhere()
+	elsewhere.Visible = player:GetAttribute("JogoNoutroServidor") == true
+end
+player:GetAttributeChangedSignal("JogoNoutroServidor"):Connect(showElsewhere)
+showElsewhere()
+
 -- The pitch invasion: the capo's button to call it, and everyone's button to run on.
 local invade = button(T.invasion, UDim2.fromOffset(300, 52), UDim2.new(0.5, -150, 0.5, 60), Color3.fromRGB(190, 40, 40))
 invade.TextSize = 18

@@ -82,6 +82,8 @@ local function unlimited(player: Player): boolean
 	return table.find(Config.Admins, player.UserId) ~= nil
 end
 
+local publishForMatchmaking: (Player) -> ()
+
 local function publish(player: Player)
 	local p = profiles[player]
 	player:SetAttribute("Moedas", if p then p.escudos else 0)
@@ -195,6 +197,7 @@ local function load(player: Player)
 		profiles[player] = newProfile(M.start)
 		-- Sem DataStore (Studio sem API): joga-se com este, so nao se grava.
 		loaded[player] = true
+	task.spawn(publishForMatchmaking, player) -- (the club, where Custom Matchmaking reads it)
 		publish(player)
 		if onLoaded then
 			onLoaded(player)
@@ -424,9 +427,35 @@ function Money.setClub(player: Player, clubId: string)
 	publish(player)
 	-- A club is not left waiting for the next minute's save: it is written now.
 	task.spawn(save, player)
+	task.spawn(publishForMatchmaking, player)
 end
 
 -- (One club only: asking for a club to play for gives the club itself, the first time.)
+--[[
+	MATCHMAKING BY CLUB. Roblox's Custom Matchmaking can prefer to put people
+	of the same club in the same server. It reads a player's attributes from a
+	DataStore: the store Config.Matchmaking.store, the key the UserId, the value
+	a table { [Config.Matchmaking.attribute] = "<club>" }. It is written every
+	time the club is set, and once when the profile comes in.
+]]
+function publishForMatchmaking(player: Player)
+	local p = profiles[player]
+	local M2 = (Config :: any).Matchmaking
+	if not p or not p.club or not M2 or game.PlaceId == 0 then
+		return
+	end
+	local club = p.club
+	local s = getStore(M2.store)
+	if s then
+		pcall(function()
+			s:SetAsync(tostring(player.UserId), { [M2.attribute] = club })
+		end)
+	end
+end
+function Money.publishForMatchmaking(player: Player)
+	task.spawn(publishForMatchmaking, player)
+end
+
 function Money.setSecond(player: Player, clubId: string?)
 	local p = profiles[player]
 	if p and clubId and not p.club then

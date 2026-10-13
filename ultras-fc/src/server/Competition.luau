@@ -383,6 +383,22 @@ function Competition.pick(slot: number, people: { [string]: number }, late: bool
 			end
 			return order[a.id] < order[b.id]
 		end)
+		--[[
+			TWO SERVERS NEVER PLAY THE SAME OFFICIAL MATCH: the claim in the
+			DataStore sees to that (and it lapses by itself, at the end of the
+			slot, if this server goes down). When two want the same one, the one
+			with MORE REAL PEOPLE of the two clubs has it: every server asks at
+			the same moment, so the fuller it is, the sooner it asks; a server
+			with few people waits a little (up to `claimWait` seconds) and finds
+			the match taken.
+		]]
+		if not offline and due[1] then
+			local most = crowd(due[1])
+			local head = C.claimHeadStart or 10
+			if most < head then
+				task.wait((head - most) / head * (C.claimWait or 4))
+			end
+		end
 		for _, fixture in due do
 			if not claimedByOther(season, fixture.id) then
 				if claim(fixture) then
@@ -437,6 +453,21 @@ function Competition.pick(slot: number, people: { [string]: number }, late: bool
 	playing = { fixture = friendly, counts = false, noFans = crowd(friendly) == 0, slot = slot }
 	publish()
 	return playing :: Playing
+end
+
+-- The official match of `clubId` in this slot is on ANOTHER server: which one (its JobId), or nil.
+function Competition.elsewhere(clubId: string): string?
+	if offline then
+		return nil
+	end
+	local slot = Schedule.slotOf(Schedule.gameTime())
+	for _, fixture in Calendar.due(slot, state()) do
+		if (fixture.home == clubId or fixture.away == clubId) and claimedByOther(season, fixture.id) then
+			local claimed = season.claims[fixture.id]
+			return if type(claimed.server) == "string" and string.sub(claimed.server, 1, 6) ~= "studio" then claimed.server else nil
+		end
+	end
+	return nil
 end
 
 function Competition.playing(): Playing?

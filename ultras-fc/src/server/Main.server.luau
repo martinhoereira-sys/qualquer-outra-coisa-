@@ -1985,6 +1985,80 @@ end)
 
 -- O botao "SEDE": volta-se quando se quer, nunca a forca.
 local lastHome: { [Player]: number } = {}
+--[[
+	MY CLUB'S OFFICIAL MATCH IS ON ANOTHER SERVER. Whoever is of that club has
+	a button (the attribute "JogoNoutroServidor": client/Rota) that takes them
+	there: only if they ask, only if there is room. Nothing the screen sends is
+	trusted: which server it is, is worked out here (Competition.elsewhere).
+	A teleport that fails is tried again, three times; a full server says so.
+]]
+local goToMyClubsMatch: (Player) -> ()
+do
+	local TeleportService = game:GetService("TeleportService")
+	local going: { [Player]: { job: string, tries: number } } = {}
+	local function say(player: Player, line: string)
+		Remotes.Npc:FireClient(player, { title = Config.Text.rota.goMyClub, lines = { line } })
+	end
+	local function send(player: Player, job: string)
+		local ok = pcall(function()
+			TeleportService:TeleportToPlaceInstance(game.PlaceId, job, player)
+		end)
+		if not ok then
+			going[player] = nil
+			say(player, Config.Text.rota.teleportFailed)
+		end
+	end
+	function goToMyClubsMatch(player: Player)
+		local club = Money.clubOf(player)
+		local job = if club then Competition.elsewhere(club) else nil
+		if not job or going[player] then
+			if not job then
+				say(player, Config.Text.rota.noMatchElsewhere)
+			end
+			return
+		end
+		going[player] = { job = job, tries = 0 }
+		send(player, job)
+	end
+	TeleportService.TeleportInitFailed:Connect(function(player, result)
+		local trip = going[player]
+		if not trip then
+			return
+		end
+		if result == Enum.TeleportResult.GameFull then
+			going[player] = nil
+			say(player, Config.Text.rota.serverFull)
+			return
+		end
+		trip.tries += 1
+		if trip.tries >= 3 then
+			going[player] = nil
+			say(player, Config.Text.rota.teleportFailed)
+			return
+		end
+		task.wait(2 * trip.tries)
+		if player.Parent and going[player] == trip then
+			send(player, trip.job)
+		end
+	end)
+	Players.PlayerRemoving:Connect(function(player)
+		going[player] = nil
+	end)
+	-- Who has the button: their club's match is being played somewhere else, and not here.
+	task.spawn(function()
+		while true do
+			task.wait(15)
+			local match = Config.Derbies[Derby.current()]
+			for _, player in Players:GetPlayers() do
+				local club = Money.clubOf(player)
+				local here = club ~= nil and (match.home == club or match.away == club)
+				local there = if club and not here then Competition.elsewhere(club) else nil
+				player:SetAttribute("JogoNoutroServidor", if there then true else nil)
+			end
+		end
+	end)
+end
+
 Remotes.Home.OnServerEvent:Connect(function(player, where)
 	local now = os.clock()
 	if (lastHome[player] or 0) + 3 > now then
@@ -1995,6 +2069,11 @@ Remotes.Home.OnServerEvent:Connect(function(player, where)
 		return
 	end
 	lastHome[player] = now
+	-- GO TO MY CLUB'S MATCH: it is on another server. Only if I ask, and the server works out where.
+	if where == "servidor" then
+		goToMyClubsMatch(player)
+		return
+	end
 	-- "jogo": the match of my club is about to start: to the corteo if it is on
 	-- its way, or to my stand.
 	--[[
